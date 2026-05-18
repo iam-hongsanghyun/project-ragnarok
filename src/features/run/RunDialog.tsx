@@ -17,17 +17,14 @@ export interface RunDialogProps {
   snapshotStart: number;
   snapshotEnd: number;
   snapshotWeight: number;
-  carbonPrice: number;
   forceLp: boolean;
   dryRun: boolean;
   snapshots: GridRow[];
   dateFormat: string;
-  currencySymbol?: string;
 
   onSnapshotStartChange: (v: number) => void;
   onSnapshotEndChange: (v: number) => void;
   onSnapshotWeightChange: (v: number) => void;
-  onCarbonPriceChange: (v: number) => void;
   onForceLpChange: (v: boolean) => void;
   onDryRunChange: (v: boolean) => void;
 
@@ -83,16 +80,13 @@ export function RunDialog({
   snapshotStart,
   snapshotEnd,
   snapshotWeight,
-  carbonPrice,
   forceLp,
   dryRun,
   snapshots,
   dateFormat,
-  currencySymbol = '$',
   onSnapshotStartChange,
   onSnapshotEndChange,
   onSnapshotWeightChange,
-  onCarbonPriceChange,
   onForceLpChange,
   onDryRunChange,
   onRun,
@@ -212,28 +206,6 @@ export function RunDialog({
             </p>
           </>
         )}
-
-        <div className="run-carbon-row">
-          <label className="run-carbon-label" htmlFor="run-carbon-price">
-            <span>Carbon price</span>
-            <span className="run-carbon-unit">{currencySymbol}/tCO₂</span>
-          </label>
-          <input
-            id="run-carbon-price"
-            type="number"
-            className="run-carbon-input"
-            min={0}
-            max={1000}
-            step={1}
-            value={carbonPrice}
-            onChange={(e) => onCarbonPriceChange(Math.max(0, parseFloat(e.target.value) || 0))}
-          />
-          {carbonPrice > 0 && (
-            <span className="run-carbon-hint">
-              Added to each generator's marginal cost proportional to CO₂ emissions
-            </span>
-          )}
-        </div>
 
         {/* Force LP — override all committable=True generators to LP (faster) */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 8, cursor: 'pointer' }}>

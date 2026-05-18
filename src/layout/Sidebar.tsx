@@ -43,6 +43,10 @@ export interface SidebarProps {
   currencyCode: string;
   currencySymbol: string;
   onCurrencyChange: (code: string, symbol: string) => void;
+  carbonPrice: number;
+  onCarbonPriceChange: (v: number) => void;
+  enableLoadShedding: boolean;
+  onEnableLoadSheddingChange: (v: boolean) => void;
 }
 
 export function Sidebar({
@@ -70,6 +74,10 @@ export function Sidebar({
   currencyCode,
   currencySymbol,
   onCurrencyChange,
+  carbonPrice,
+  onCarbonPriceChange,
+  enableLoadShedding,
+  onEnableLoadSheddingChange,
 }: SidebarProps) {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   useEffect(() => {
@@ -114,6 +122,54 @@ export function Sidebar({
           carriers={carriers}
           onChange={onConstraintsChange}
         />
+      </SidebarGroup>
+
+      <SidebarGroup
+        title="Model Parameters"
+        badge={carbonPrice > 0 ? <span className="sg-badge">{currencySymbol}{carbonPrice}/t</span> : undefined}
+      >
+        <div className="sg-setting-row">
+          <label className="sg-setting-label" htmlFor="sg-carbon-price">
+            Carbon price
+          </label>
+          <div className="sg-carbon-row">
+            <span className="sg-carbon-sym">{currencySymbol}</span>
+            <input
+              id="sg-carbon-price"
+              type="number"
+              className="sg-carbon-input"
+              min={0}
+              max={10000}
+              step={1}
+              value={carbonPrice}
+              onChange={(e) => onCarbonPriceChange(Math.max(0, parseFloat(e.target.value) || 0))}
+            />
+            <span className="sg-carbon-unit">/tCO₂</span>
+          </div>
+          <p className="sg-setting-hint">
+            Added to each generator's marginal cost proportional to CO₂ emissions.
+          </p>
+        </div>
+
+        <div className="sg-setting-divider" />
+
+        <div className="sg-setting-row">
+          <label className="sg-setting-label">Load shedding</label>
+          <div className="sg-btn-row">
+            {([false, true] as boolean[]).map((v) => (
+              <button
+                key={String(v)}
+                className={`tb-btn sg-solver-btn${enableLoadShedding === v ? '' : ' tb-btn--muted'}`}
+                onClick={() => onEnableLoadSheddingChange(v)}
+              >
+                {v ? 'On' : 'Off'}
+              </button>
+            ))}
+          </div>
+          <p className="sg-setting-hint">
+            When off, supply shortfalls surface as solver infeasibility instead of being silently absorbed.
+          </p>
+        </div>
       </SidebarGroup>
 
       {results && (

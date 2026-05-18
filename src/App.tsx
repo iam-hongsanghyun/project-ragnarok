@@ -349,7 +349,7 @@ function AppInner() {
     const runOptions = {
       model,
       scenario: { constraints: constraints.filter((c) => c.enabled), carbonPrice },
-      options: { snapshotCount, snapshotStart, snapshotWeight, forceLp, dateFormat: settings.dateFormat, solverThreads: settings.solverThreads, solverType: settings.solverType, currencySymbol: settings.currencySymbol },
+      options: { snapshotCount, snapshotStart, snapshotWeight, forceLp, dateFormat: settings.dateFormat, solverThreads: settings.solverThreads, solverType: settings.solverType, currencySymbol: settings.currencySymbol, enableLoadShedding: settings.enableLoadShedding },
     };
 
     setRunDialogOpen(false);
@@ -641,6 +641,10 @@ function AppInner() {
               currencyCode={settings.currencyCode}
               currencySymbol={settings.currencySymbol}
               onCurrencyChange={(code, symbol) => updateSettings({ currencyCode: code, currencySymbol: symbol })}
+              carbonPrice={carbonPrice}
+              onCarbonPriceChange={setCarbonPrice}
+              enableLoadShedding={settings.enableLoadShedding}
+              onEnableLoadSheddingChange={(v) => updateSettings({ enableLoadShedding: v })}
             />
           )}
         </aside>
@@ -778,16 +782,13 @@ function AppInner() {
         snapshotStart={snapshotStart}
         snapshotEnd={snapshotEnd}
         snapshotWeight={snapshotWeight}
-        carbonPrice={carbonPrice}
         forceLp={forceLp}
         dryRun={dryRun}
         snapshots={model.snapshots}
         dateFormat={settings.dateFormat}
-        currencySymbol={settings.currencySymbol}
         onSnapshotStartChange={setSnapshotStart}
         onSnapshotEndChange={setSnapshotEnd}
         onSnapshotWeightChange={setSnapshotWeight}
-        onCarbonPriceChange={setCarbonPrice}
         onForceLpChange={setForceLp}
         onDryRunChange={setDryRun}
         onRun={handleRunModel}

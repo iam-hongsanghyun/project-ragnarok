@@ -119,7 +119,8 @@ def build_network(payload: RunPayload) -> tuple[pypsa.Network, list[str]]:
         step=step, discount_rate=discount_rate,
         force_lp=force_lp,
     )
-    add_grid_imports_and_shedding(network, load_totals, carbon_price, notes)
+    enable_load_shedding = bool(options.get("enableLoadShedding", False))
+    add_grid_imports_and_shedding(network, load_totals, carbon_price, notes, enable_load_shedding)
 
     # Transmission
     add_lines(network, model)

@@ -32,6 +32,16 @@ def apply_custom_constraints(
     shed_gens = [g for g in n.generators.index if g.startswith("load_shedding_")]
     re_carriers = {"Solar", "Wind", "Hydro"}
     re_gens = n.generators.index[n.generators.carrier.isin(re_carriers)].tolist()
+    modeled_hours = float(weights.sum())
+
+    cap_var = None
+    cap_dim = None
+    try:
+        cap_var = n.model["Generator-p_nom"]
+        cap_dim = cap_var.dims[0]
+    except Exception:
+        cap_var = None
+        cap_dim = None
 
     for i, c in enumerate(constraints):
         if not c.get("enabled", False):
@@ -127,6 +137,43 @@ def apply_custom_constraints(
                         carrier_total - frac * all_total >= 0, name=cname
                     )
                     notes.append(f"Constraint '{label}': {carrier} share ≥ {value}% added.")
+
+            # ── Carrier weighted-average capacity factor cap / floor (%) ─────
+            elif metric in ("carrier_max_cf", "carrier_min_cf"):
+                cgens = n.generators.index[n.generators.carrier == carrier].tolist()
+                if not cgens:
+                    notes.append(f"Constraint '{label}': no generators with carrier '{carrier}' — skipped.")
+                    continue
+                if modeled_hours <= 0:
+                    notes.append(f"Constraint '{label}': modeled hours are zero — skipped.")
+                    continue
+
+                carrier_total = (gen_p.sel({dim: cgens}) * weights).sum()
+                extendable = [
+                    g for g in cgens
+                    if "p_nom_extendable" in n.generators.columns and bool(n.generators.at[g, "p_nom_extendable"])
+                ]
+                fixed = [g for g in cgens if g not in extendable]
+                fixed_capacity = float(
+                    n.generators.loc[fixed, "p_nom"].fillna(0.0).sum()
+                )
+
+                capacity_total = fixed_capacity
+                if extendable and cap_var is not None and cap_dim is not None:
+                    capacity_total = capacity_total + cap_var.sel({cap_dim: extendable}).sum()
+                elif extendable:
+                    capacity_total = capacity_total + float(
+                        n.generators.loc[extendable, "p_nom"].fillna(0.0).sum()
+                    )
+
+                frac = value / 100.0
+                rhs = frac * capacity_total * modeled_hours
+                if metric == "carrier_max_cf":
+                    n.model.add_constraints(carrier_total <= rhs, name=cname)
+                    notes.append(f"Constraint '{label}': {carrier} capacity factor ≤ {value}% added.")
+                else:
+                    n.model.add_constraints(carrier_total >= rhs, name=cname)
+                    notes.append(f"Constraint '{label}': {carrier} capacity factor ≥ {value}% added.")
 
             else:
                 notes.append(f"Constraint '{label}': unknown metric '{metric}' — skipped.")

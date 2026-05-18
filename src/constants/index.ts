@@ -80,6 +80,8 @@ export const METRIC_DEFS: Record<ConstraintMetric, { label: string; description:
   carrier_min_gen:  { label: 'Min Carrier Generation', description: 'Total output of carrier ≥ value',           unit: 'GWh',    needsCarrier: true,  sense: '≥' },
   carrier_max_share:{ label: 'Max Carrier Share',      description: 'Carrier dispatch / total dispatch ≤ value', unit: '%',      needsCarrier: true,  sense: '≤' },
   carrier_min_share:{ label: 'Min Carrier Share',      description: 'Carrier dispatch / total dispatch ≥ value', unit: '%',      needsCarrier: true,  sense: '≥' },
+  carrier_max_cf:   { label: 'Max Carrier Capacity Factor', description: 'Weighted generation / (carrier capacity × modeled hours) ≤ value', unit: '%', needsCarrier: true, sense: '≤' },
+  carrier_min_cf:   { label: 'Min Carrier Capacity Factor', description: 'Weighted generation / (carrier capacity × modeled hours) ≥ value', unit: '%', needsCarrier: true, sense: '≥' },
 };
 
 export const DEFAULT_CONSTRAINTS: CustomConstraint[] = [];

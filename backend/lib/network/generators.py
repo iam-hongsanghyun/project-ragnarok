@@ -124,8 +124,15 @@ def add_grid_imports_and_shedding(
     load_totals: dict[str, float],
     carbon_price: float,
     notes: list[str],
+    enable_load_shedding: bool = False,
 ) -> str:
-    """Add grid import generator and per-bus load shedding; return peak bus name."""
+    """Add grid import generator and (optionally) per-bus load shedding; return peak bus name.
+
+    Grid imports are always added as a last-resort feasibility backstop.
+    Per-bus load shedding generators are added only when *enable_load_shedding*
+    is True; when disabled, infeasibility will surface as a solver error rather
+    than being silently absorbed by shedding generators.
+    """
     if load_totals:
         peak_bus = max(load_totals, key=load_totals.__getitem__)
     else:
@@ -146,16 +153,20 @@ def add_grid_imports_and_shedding(
     )
     network.generators_t.p_max_pu.loc[:, "grid_imports"] = 1.0
 
-    for bus in network.buses.index:
-        shed_name = f"load_shedding_{bus}"
-        network.add(
-            "Generator",
-            shed_name,
-            bus=bus,
-            carrier=ls_cfg["carrier"],
-            p_nom=max(float(ls_cfg["p_nom_floor"]), load_totals.get(bus, 300.0)),
-            marginal_cost=float(ls_cfg["marginal_cost"]),
-        )
-        network.generators_t.p_max_pu.loc[:, shed_name] = 1.0
+    if enable_load_shedding:
+        for bus in network.buses.index:
+            shed_name = f"load_shedding_{bus}"
+            network.add(
+                "Generator",
+                shed_name,
+                bus=bus,
+                carrier=ls_cfg["carrier"],
+                p_nom=max(float(ls_cfg["p_nom_floor"]), load_totals.get(bus, 300.0)),
+                marginal_cost=float(ls_cfg["marginal_cost"]),
+            )
+            network.generators_t.p_max_pu.loc[:, shed_name] = 1.0
+        notes.append(f"Load shedding generators added for {len(network.buses)} bus(es).")
+    else:
+        notes.append("Load shedding disabled — infeasibility will surface as a solver error.")
 
     return peak_bus

@@ -591,6 +591,34 @@ button {
   border-top: 1px solid var(--border);
   margin: 10px 0 8px;
 }
+.sg-carbon-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sg-carbon-sym {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1;
+}
+.sg-carbon-input {
+  width: 72px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+.sg-carbon-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+}
+.sg-carbon-unit {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
 .sg-setting-section-title {
   font-size: 0.72rem;
   font-weight: 600;

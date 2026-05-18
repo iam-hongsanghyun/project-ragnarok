@@ -7,8 +7,9 @@ export interface AppSettings {
   dateFormat: DateFormat;
   solverThreads: number;   // 0 = let HiGHS decide (all cores)
   solverType: SolverType;
-  currencyCode: string;    // ISO 4217 code, e.g. "USD"
-  currencySymbol: string;  // display symbol, e.g. "$"
+  currencyCode: string;      // ISO 4217 code, e.g. "USD"
+  currencySymbol: string;    // display symbol, e.g. "$"
+  enableLoadShedding: boolean;
 }
 
 const STORAGE_KEY = 'pypsa_gui_settings';
@@ -24,12 +25,13 @@ function loadSettings(): AppSettings {
         solverType: parsed.solverType ?? 'simplex',
         currencyCode: parsed.currencyCode ?? 'USD',
         currencySymbol: parsed.currencySymbol ?? '$',
+        enableLoadShedding: parsed.enableLoadShedding ?? false,
       };
     }
   } catch {
     // ignore
   }
-  return { dateFormat: 'auto', solverThreads: 0, solverType: 'simplex', currencyCode: 'USD', currencySymbol: '$' };
+  return { dateFormat: 'auto', solverThreads: 0, solverType: 'simplex', currencyCode: 'USD', currencySymbol: '$', enableLoadShedding: false };
 }
 
 function saveSettings(s: AppSettings): void {
