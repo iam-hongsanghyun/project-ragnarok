@@ -24,6 +24,10 @@ function inferInputValue(raw: string, current: Primitive): Primitive {
   return raw;
 }
 
+function isColorColumn(col: string): boolean {
+  return col.toLowerCase() === 'color' || col.toLowerCase().endsWith('_color');
+}
+
 // ── Column filter dropdown (rendered as a portal so overflow never clips it) ──
 
 interface FilterDropdownProps {
@@ -418,6 +422,40 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                       }}
                     >
                       {isEditing ? (
+                        isColorColumn(c) ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              autoFocus
+                              type="color"
+                              className="cell-input"
+                              style={{ width: 36, padding: 2 }}
+                              value={(editCell!.val || '#94a3b8').match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/) ? editCell!.val : '#94a3b8'}
+                              onChange={(e) =>
+                                setEditCell((prev) => (prev ? { ...prev, val: e.target.value } : null))
+                              }
+                            />
+                            <input
+                              className="cell-input"
+                              value={editCell!.val}
+                              onChange={(e) =>
+                                setEditCell((prev) => (prev ? { ...prev, val: e.target.value } : null))
+                              }
+                              onBlur={() => {
+                                if (editCell && onUpdate)
+                                  onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                                setEditCell(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === 'Tab') {
+                                  if (editCell && onUpdate)
+                                    onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                                  setEditCell(null);
+                                }
+                                if (e.key === 'Escape') setEditCell(null);
+                              }}
+                            />
+                          </div>
+                        ) : (
                         <input
                           autoFocus
                           className="cell-input"
@@ -439,8 +477,16 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                             if (e.key === 'Escape') setEditCell(null);
                           }}
                         />
+                        )
                       ) : (
-                        <span className="cell-value">{stringValue(row[c])}</span>
+                        isColorColumn(c) && stringValue(row[c]) ? (
+                          <span className="cell-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 12, height: 12, borderRadius: 999, background: stringValue(row[c]), border: '1px solid rgba(15,23,42,0.18)', flexShrink: 0 }} />
+                            <span>{stringValue(row[c])}</span>
+                          </span>
+                        ) : (
+                          <span className="cell-value">{stringValue(row[c])}</span>
+                        )
                       )}
                     </td>
                   );

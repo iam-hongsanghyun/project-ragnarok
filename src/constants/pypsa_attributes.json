@@ -21,7 +21,8 @@
     { "col": "shut_down_cost",   "label": "Shut-down cost",          "type": "number",  "default": 0,       "unit": "$",       "desc": "One-off cost each time the unit is shut down (MIP/unit commitment)" },
     { "col": "build_year",       "label": "Build year",              "type": "number",  "default": 2025,    "unit": "yr",      "desc": "Year the asset is commissioned (multi-period investment)" },
     { "col": "retire_year",      "label": "Retire year",             "type": "number",  "default": 2050,    "unit": "yr",      "desc": "Year the asset retires (multi-period investment)" },
-    { "col": "committable",      "label": "Committable (MIP)",       "type": "boolean", "default": false,   "desc": "Enable unit commitment binary on/off variables (makes LP a MIP)" }
+    { "col": "committable",      "label": "Committable (MIP)",       "type": "boolean", "default": false,   "desc": "Enable unit commitment binary on/off variables (makes LP a MIP)" },
+    { "col": "color",            "label": "Colour",                  "type": "string",  "default": "",                          "desc": "Optional generator-specific colour override used in maps and charts" }
   ],
 
   "storage_units": [

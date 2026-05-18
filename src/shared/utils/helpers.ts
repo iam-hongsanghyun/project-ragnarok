@@ -64,6 +64,13 @@ export function setCarrierColorOverrides(rows: GridRow[]): void {
   carrierColorOverrides = next;
 }
 
+function normalizeHexColor(value: string): string {
+  const raw = value.trim();
+  if (!raw) return '';
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw)) return raw;
+  return '';
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -111,6 +118,12 @@ export function carrierColor(carrier: string): string {
   const raw = String(carrier || '').trim();
   if (!raw) return '#94a3b8';
   return carrierColorOverrides[normalizeCarrierKey(raw)] ?? paletteColor(raw);
+}
+
+export function resolvedColor(explicitColor: Primitive | undefined, carrier?: Primitive | undefined): string {
+  const direct = normalizeHexColor(String(explicitColor ?? ''));
+  if (direct) return direct;
+  return carrierColor(String(carrier ?? ''));
 }
 
 /**

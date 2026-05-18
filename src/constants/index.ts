@@ -14,7 +14,7 @@ export const MAX_UNPINNED_HISTORY = 5;
 export const DEFAULT_SHEET_ROWS: Record<SheetName, GridRow> = {
   network: { name: 'Untitled PyPSA Case', _multi_invest: false, pypsa_version: '1.1.2', srid: 4326 },
   snapshots: { snapshot: 'now', objective: 1, stores: 1, generators: 1 },
-  carriers: { name: 'AC' },
+  carriers: { name: 'AC', color: '' },
   buses: {
     name: 'New Bus', x: 126.978, y: 37.5665, v_nom: 154, carrier: 'AC',
     unit: 'kV', control: 'PQ', v_mag_pu_set: 1, v_mag_pu_min: 0.95, v_mag_pu_max: 1.05, sub_network: 0,
@@ -22,7 +22,7 @@ export const DEFAULT_SHEET_ROWS: Record<SheetName, GridRow> = {
   generators: {
     name: 'new_generator', bus: 'New Bus', control: 'PV', carrier: 'LNG',
     p_nom: 100, p_nom_min: 0, p_min_pu: 0.3, p_max_pu: 1, p_set: 70, q_set: 0,
-    marginal_cost: 75, capital_cost: 0, committable: true,
+    marginal_cost: 75, capital_cost: 0, committable: true, color: '',
     extendable: false, asset_lifetime: 20,
   },
   loads: { name: 'new_load', bus: 'New Bus', carrier: 'load', p_set: 100, q_set: 0, sign: 1 },

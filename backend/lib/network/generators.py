@@ -108,6 +108,9 @@ def add_generators(
                 if val > 0:
                     gen_kwargs[uc_attr] = val
         network.add("Generator", name, **gen_kwargs)
+        color = text(row.get("color"))
+        if color:
+            network.generators.at[name, "color"] = color
         applied = apply_scaled_static_attributes(network.generators, name, row, period_factor)
         if applied:
             notes.append(f"Scaled {', '.join(applied)} for generator {name} by period factor {period_factor:.2f}.")

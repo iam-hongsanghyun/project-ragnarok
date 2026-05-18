@@ -5,7 +5,7 @@ import {
   AnalyticsFocus, AnalyticsSubTab, ChartSectionConfig, GridRow, RunHistoryEntry, RunResults, TimeSeriesRow, TimeSeriesSeries, WorkbookModel,
 } from '../../shared/types';
 import { EMPTY_METRIC_KEY } from '../../constants';
-import { numberValue, stringValue, carrierColor, loadingColor, priceColor } from '../../shared/utils/helpers';
+import { numberValue, stringValue, carrierColor, loadingColor, priceColor, resolvedColor } from '../../shared/utils/helpers';
 import { FitToBounds } from '../map/FitToBounds';
 import { MapLegend, SmpLegend } from '../map/MapLegend';
 import { SummaryCards } from '../../shared/components/SummaryCards';
@@ -236,7 +236,7 @@ export function AnalyticsPane({
                 <CircleMarker key={`${name}-analytics-${index}`}
                   center={[numberValue(bus.y) + 0.07, numberValue(bus.x) + 0.07]}
                   radius={genRadius(pNom, sel)}
-                  pathOptions={{ color: sel ? '#f59e0b' : '#ffffff', weight: sel ? 3 : 1.5, fillColor: carrierColor(carrier), fillOpacity: 0.96 }}
+                  pathOptions={{ color: sel ? '#f59e0b' : '#ffffff', weight: sel ? 3 : 1.5, fillColor: resolvedColor(generator.color, carrier), fillOpacity: 0.96 }}
                   eventHandlers={{ click: () => setAnalyticsFocus({ type: 'generator', key: name }) }}>
                   <Tooltip>{name} · {carrier} · {pNom.toLocaleString(undefined, { maximumFractionDigits: 0 })} MW</Tooltip>
                 </CircleMarker>

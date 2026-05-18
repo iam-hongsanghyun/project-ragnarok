@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from 'react-leaflet';
 import { LatLngBoundsExpression } from 'leaflet';
 import { GridRow, WorkbookModel } from '../../shared/types';
-import { numberValue, stringValue, carrierColor } from '../../shared/utils/helpers';
+import { numberValue, stringValue, resolvedColor } from '../../shared/utils/helpers';
 import { FitToBounds } from './FitToBounds';
 import { MapLegend } from './MapLegend';
 
@@ -149,7 +149,7 @@ export function MapPane({ model, bounds, busIndex }: Props) {
                 key={`${stringValue(generator.name)}-${index}`}
                 center={coords}
                 radius={5}
-                pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: carrierColor(stringValue(generator.carrier)), fillOpacity: 0.95 }}
+                pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: resolvedColor(generator.color, generator.carrier), fillOpacity: 0.95 }}
               >
                 <Tooltip>{stringValue(generator.name)} · {stringValue(generator.carrier)} · {Math.round(numberValue(generator.p_nom))} MW</Tooltip>
               </CircleMarker>

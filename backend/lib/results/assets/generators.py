@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 import pypsa
 
+from ...constants import generator_color
 from ...utils.series import safe_series, weighted_sum
 from ...utils.coerce import text
 
@@ -47,7 +48,7 @@ def build_generator_details(
             curtailment_s.append({"label": label, "timestamp": stamp, "curtailment": max(avail - max(output, 0.0), 0.0)})
 
         details[generator] = {
-            "name": generator, "carrier": carrier, "bus": bus,
+            "name": generator, "carrier": carrier, "color": generator_color(network, generator), "bus": bus,
             "summary": [
                 {"label": "Energy", "value": f"{round(energy):,} MWh", "detail": f"{weight_val:g} h weighting applied"},
                 {"label": "Operating cost", "value": f"{round(energy * mc):,} {currency}", "detail": f"{mc:.1f} {currency}/MWh marginal cost"},

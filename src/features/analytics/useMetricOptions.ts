@@ -65,7 +65,7 @@ function buildMultiGenMetric(
   const series: TimeSeriesSeries[] = seriesKeys.map((k) => ({
     key: k,
     label: k,
-    color: groupBy === 'carrier' ? carrierColor(k) : hashColor(k),
+    color: groupBy === 'carrier' ? carrierColor(k) : (assetDetails.generators[k]?.color || hashColor(k)),
   }));
 
   return { rows, series };
@@ -148,7 +148,7 @@ function buildSingleAssetOptions(
   if (focus.type === 'generator') {
     const g = assetDetails.generators[focus.key];
     if (!g) return [];
-    const c = carrierColor(g.carrier || 'Other');
+    const c = g.color || carrierColor(g.carrier || 'Other');
     return [
       { key: 'output',      label: 'Output',          unit: 'MW',    rows: g.outputSeries.map((p)      => ({ label: p.label, timestamp: p.timestamp, output: p.output })),           series: [{ key: 'output',      label: 'Output MW',         color: c }],         reducer: 'mean', allowDonut: false },
       { key: 'available',   label: 'Available output', unit: 'MW',    rows: g.availableSeries.map((p)   => ({ label: p.label, timestamp: p.timestamp, available: p.available })),     series: [{ key: 'available',   label: 'Available MW',      color: '#0f766e' }], reducer: 'mean', allowDonut: false },
@@ -219,7 +219,7 @@ export function useMetricOptions(
   const sysDispKeys      = Array.from(new Set(sysDispatchRows.flatMap((r) => Object.keys(r).filter((k) => !SKIP.has(k)))));
   const sysGenDispKeys   = Array.from(new Set(sysGenDispRows.flatMap((r) => Object.keys(r).filter((k) => !SKIP.has(k)))));
   const sysDispSeries    = sysDispKeys.map((k)    => ({ key: k, label: k, color: carrierColor(k) }));
-  const sysGenDispSeries = sysGenDispKeys.map((k) => ({ key: k, label: k, color: hashColor(k) }));
+  const sysGenDispSeries = sysGenDispKeys.map((k) => ({ key: k, label: k, color: results?.assetDetails.generators[k]?.color || hashColor(k) }));
   const sysPriceRows     = (results?.systemPriceSeries     || []).map((p) => ({ label: p.label, timestamp: p.timestamp, price: p.value }));
   const sysEmissionsRows = (results?.systemEmissionsSeries || []).map((p) => ({ label: p.label, timestamp: p.timestamp, emissions: p.value }));
   const storageRows      = (results?.storageSeries         || []).map((p) => ({ label: p.label, timestamp: p.timestamp, charge: p.charge, discharge: p.discharge, state: p.state }));

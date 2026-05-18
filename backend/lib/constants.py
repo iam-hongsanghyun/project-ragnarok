@@ -32,3 +32,12 @@ def carrier_color(network: pypsa.Network, carrier: str) -> str:
         if value:
             return value
     return default_carrier_color(carrier)
+
+
+def generator_color(network: pypsa.Network, generator: str) -> str:
+    if generator in network.generators.index and "color" in network.generators.columns:
+        value = str(network.generators.at[generator, "color"] or "").strip()
+        if value:
+            return value
+    carrier = str(network.generators.at[generator, "carrier"]) if generator in network.generators.index else ""
+    return carrier_color(network, carrier)

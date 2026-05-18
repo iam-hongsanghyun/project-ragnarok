@@ -11,6 +11,7 @@ import { GlobalConstraintsSection } from '../features/constraints/GlobalConstrai
 import { RunHistoryList } from '../features/run-history/RunHistoryList';
 import { DateFormat, SolverType } from '../features/settings/useSettings';
 import { API_BASE, MAX_UNPINNED_HISTORY } from '../constants';
+import { resolvedColor, stringValue } from '../shared/utils/helpers';
 
 interface Currency { code: string; symbol: string; name: string; }
 
@@ -46,6 +47,7 @@ export interface SidebarProps {
   onCarbonPriceChange: (v: number) => void;
   enableLoadShedding: boolean;
   onEnableLoadSheddingChange: (v: boolean) => void;
+  onCarrierColorChange: (rowIndex: number, color: string) => void;
 }
 
 export function Sidebar({
@@ -77,6 +79,7 @@ export function Sidebar({
   onCarbonPriceChange,
   enableLoadShedding,
   onEnableLoadSheddingChange,
+  onCarrierColorChange,
 }: SidebarProps) {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   useEffect(() => {
@@ -88,6 +91,9 @@ export function Sidebar({
   const carriers = Array.from(
     new Set(model.carriers.map((c) => String(c.name ?? '')).filter(Boolean)),
   );
+  const carrierRows = model.carriers
+    .map((row, index) => ({ row, index, name: stringValue(row.name) }))
+    .filter((item) => item.name);
 
   return (
     <>
@@ -228,6 +234,30 @@ export function Sidebar({
             </p>
           </div>
         )}
+
+        <div className="sg-setting-divider" />
+
+        <p className="sg-setting-section-title">Appearance</p>
+
+        <div className="sg-setting-row">
+          <label className="sg-setting-label">Carrier colors</label>
+          <div className="sg-color-list">
+            {carrierRows.map(({ row, index, name }) => (
+              <div key={`carrier-${name}-${index}`} className="sg-color-item">
+                <span className="sg-color-name" title={name}>{name}</span>
+                <input
+                  type="color"
+                  className="sg-color-input"
+                  value={resolvedColor(row.color, row.name)}
+                  onChange={(e) => onCarrierColorChange(index, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="sg-setting-hint">
+            Sets the default color for each carrier across maps, legends, and charts.
+          </p>
+        </div>
 
         <div className="sg-setting-divider" />
 

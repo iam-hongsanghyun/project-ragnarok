@@ -100,6 +100,7 @@ export interface MixItem {
 export interface GeneratorDetail {
   name: string;
   carrier: string;
+  color?: string;
   bus: string;
   summary: SummaryItem[];
   outputSeries: Array<{ label: string; timestamp: string; output: number }>;

@@ -79,7 +79,7 @@ export function MapDetailCard({ focus, results, onClose, currencySymbol = '$' }:
     const detail = results.assetDetails.generators[key];
     if (!detail) return null;
     subtitle = detail.carrier;
-    dotColor = carrierColor(detail.carrier);
+    dotColor = detail.color || carrierColor(detail.carrier);
     kpis = detail.summary.slice(0, 4).map((s) => ({ label: s.label, value: s.value }));
     sparkValues = detail.outputSeries.map((p) => p.output);
     sparkColor = dotColor;

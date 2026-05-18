@@ -8,7 +8,7 @@ from typing import Any
 
 import pypsa
 
-from ..constants import carrier_color
+from ..constants import generator_color
 
 
 # ── Merit order ───────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ def build_merit_order(network: pypsa.Network) -> list[dict[str, Any]]:
                 "bus": str(gen.get("bus", "")),
                 "marginal_cost": round(float(gen.get("marginal_cost", 0.0)), 2),
                 "p_nom": round(p_nom, 1),
-                "color": carrier_color(network, carrier),
+                "color": generator_color(network, name),
             }
         )
 

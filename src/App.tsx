@@ -653,6 +653,7 @@ function AppInner() {
               onCarbonPriceChange={setCarbonPrice}
               enableLoadShedding={settings.enableLoadShedding}
               onEnableLoadSheddingChange={(v) => updateSettings({ enableLoadShedding: v })}
+              onCarrierColorChange={(rowIndex, color) => updateRowValue('carriers', rowIndex, 'color', color)}
             />
           )}
         </aside>
