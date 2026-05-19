@@ -399,22 +399,14 @@ function AppInner() {
     setStatus(`Running — ${snapshotCount} snapshots…`);
 
     // ── Step 1: Start the job ────────────────────────────────────────────────
-    // Round-trip the in-memory model to xlsx bytes and POST as multipart so
-    // the backend can load it via `pypsa.Network.import_from_excel`.
+    // Send the in-memory workbook as JSON. The backend builds the PyPSA
+    // network directly from the per-sheet rows via bulk `network.add()`.
     let jobId: string;
     try {
-      const xlsxBytes = workbookToArrayBuffer(model);
-      const formData = new FormData();
-      formData.append(
-        'workbook',
-        new Blob([xlsxBytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        'model.xlsx',
-      );
-      formData.append('scenario', JSON.stringify(scenario));
-      formData.append('options', JSON.stringify(options));
       const startResp = await fetch(`${API_BASE}/api/run`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, scenario, options }),
       });
       if (!startResp.ok) {
         const msg = await startResp.text();

@@ -30,13 +30,13 @@ from .market import build_co2_shadow, build_merit_order
 
 
 def run_pypsa(
-    xlsx_bytes: bytes,
+    model: dict[str, list[dict[str, Any]]],
     scenario: dict[str, Any],
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the network from the uploaded workbook, optimise, and return results."""
+    """Build the network from the JSON workbook model, optimise, return results."""
     options = options or {}
-    network, notes = build_network(xlsx_bytes, scenario, options)
+    network, notes = build_network(model, scenario, options)
     snapshot_count = len(network.snapshots)
     snapshot_weight = float(network.snapshot_weightings["objective"].iloc[0]) if snapshot_count else 1.0
     emissions_factors: dict[str, float] = (

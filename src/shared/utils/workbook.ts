@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { SHEETS, TS_SHEETS, DEFAULT_SHEET_ROWS } from '../../constants';
+import { SHEETS, TS_SHEETS } from '../../constants';
 import { AnySheetName, GridRow, Primitive, WorkbookModel } from '../../types';
 
 export function normalizeCell(value: unknown): Primitive {
@@ -66,19 +66,31 @@ export function parseWorkbook(file: File): Promise<WorkbookModel> {
   });
 }
 
+/** Filter rows that are effectively empty (no `name`, or every cell blank). */
+function nonEmptyRows(rows: GridRow[]): GridRow[] {
+  return rows.filter((r) => {
+    const nameRaw = r['name'];
+    const name = typeof nameRaw === 'string' ? nameRaw.trim() : nameRaw;
+    if (name !== undefined && name !== null && name !== '') return true;
+    // No name — keep only if some other cell has a non-empty value (e.g. snapshots
+    // sheet uses `snapshot` column instead of `name`).
+    return Object.values(r).some((v) => v !== null && v !== undefined && v !== '');
+  });
+}
+
 export function buildWorkbook(model: WorkbookModel) {
   const workbook = XLSX.utils.book_new();
   SHEETS.forEach((sheet) => {
-    const rows = model[sheet].length > 0 ? model[sheet] : [DEFAULT_SHEET_ROWS[sheet]];
+    const rows = nonEmptyRows(model[sheet] ?? []);
+    if (rows.length === 0) return;   // skip empty sheets entirely; PyPSA will treat them as absent
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(workbook, ws, sheet);
   });
   TS_SHEETS.forEach((sheet) => {
-    const rows = (model as any)[sheet] as GridRow[];
-    if (rows && rows.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, ws, sheet);
-    }
+    const rows = (model as any)[sheet] as GridRow[] | undefined;
+    if (!rows || rows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, ws, sheet);
   });
   return workbook;
 }

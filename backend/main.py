@@ -8,9 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-import json
-
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .lib.config import load_currencies, load_system_defaults
@@ -57,14 +55,12 @@ _jobs: dict[str, _Job] = {}
 # Must be a module-level function so multiprocessing "spawn" can import it.
 
 def _solve_worker(
-    xlsx_bytes: bytes,
-    scenario: dict,
-    options: dict,
+    payload: RunPayload,
     result_queue: "mp.Queue[tuple[str, Any]]",
 ) -> None:
     """Run in a child process. Puts ("ok", result) or ("err", msg) into the queue."""
     try:
-        result = run_pypsa(xlsx_bytes, scenario, options)
+        result = run_pypsa(payload.model, payload.scenario, payload.options or {})
         result_queue.put(("ok", result))
     except Exception as exc:  # noqa: BLE001
         result_queue.put(("err", str(exc)))
@@ -132,30 +128,16 @@ def validate_case(payload: RunPayload) -> dict[str, Any]:
 
 
 @app.post("/api/run")
-async def start_run(
-    workbook: UploadFile = File(..., description="Excel workbook (.xlsx) to optimise"),
-    scenario: str = Form(..., description="JSON-encoded scenario settings"),
-    options: str = Form("{}", description="JSON-encoded run options"),
-) -> dict[str, Any]:
+async def start_run(payload: RunPayload) -> dict[str, Any]:
     """
     Start a PyPSA optimisation job in a child process and return immediately.
 
-    The frontend uploads the workbook as a multipart file; PyPSA's native
-    `network.import_from_excel` reads it on the backend. Scenario and option
-    settings (carbon price, discount rate, snapshot window, …) come as JSON
-    form fields alongside the file.
-
-    The frontend polls GET /api/run/{job_id} for status and results.
+    The frontend POSTs the in-memory workbook as JSON:
+    `{model: {sheet: rows[]}, scenario: {...}, options: {...}}`.
+    The backend builds the PyPSA network directly from each sheet via
+    bulk `network.add()` and optimises in a child process. The frontend
+    polls GET /api/run/{job_id} for status and results.
     """
-    try:
-        scenario_dict = json.loads(scenario) if scenario else {}
-        options_dict = json.loads(options) if options else {}
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON in form field: {exc}") from exc
-    xlsx_bytes = await workbook.read()
-    if not xlsx_bytes:
-        raise HTTPException(status_code=400, detail="Empty workbook uploaded.")
-
     # Prune completed/cancelled jobs to avoid unbounded memory growth
     stale = [jid for jid, j in list(_jobs.items()) if j.status in ("done", "error", "cancelled")]
     for jid in stale:
@@ -166,7 +148,7 @@ async def start_run(
     result_queue: mp.Queue = ctx.Queue()
     proc: mp.Process = ctx.Process(
         target=_solve_worker,
-        args=(xlsx_bytes, scenario_dict, options_dict, result_queue),
+        args=(payload, result_queue),
         daemon=True,
     )
     proc.start()

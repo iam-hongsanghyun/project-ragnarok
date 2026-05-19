@@ -1,16 +1,24 @@
-"""Build a PyPSA Network from an uploaded Excel workbook.
+"""Build a PyPSA Network from the in-memory workbook model.
 
-We delegate row-by-row workbook parsing to PyPSA's own `import_from_excel`
-reader. This avoids hand-rolled, per-component importers that would silently
-drop unknown columns or fabricate defaults. After import, we apply a small
-set of derived transformations (snapshot windowing, carbon adder, capex
-annuitisation, force-LP, load shedding) that depend on Settings rather than
-on the workbook itself.
+The frontend POSTs the workbook to /api/run as a per-sheet JSON object:
+``model: {sheet_name: [row_dict, ...]}``. We turn each sheet into a pandas
+DataFrame and use PyPSA's bulk `network.add()` API to import every column
+the user provided. The mapping between sheet names, PyPSA component classes,
+time-varying attributes and bus-reference columns is **derived from PyPSA's
+own component registry** (`n.components`) so nothing is hardcoded here — when
+a new PyPSA version adds attributes or component types, they Just Work.
+
+After import we apply five small post-load transformations that depend on
+Settings rather than on the workbook:
+  * Snapshot windowing & downsampling
+  * Period-factor scaling of ``*_sum_min`` / ``*_sum_max`` annual caps
+  * Carbon-price adder on generator marginal_cost
+  * Annuitisation of capital_cost for extendable assets
+  * Force-LP override of committable=True
+  * Optional per-bus load shedding generators
 """
 from __future__ import annotations
 
-import os
-import tempfile
 from collections import defaultdict
 from typing import Any
 
@@ -25,23 +33,25 @@ from .validators import validate_model  # re-export for backend.main
 __all__ = ["build_network", "validate_model"]
 
 
+# Sheet names that are NOT component tables (handled separately).
+_NON_COMPONENT_SHEETS: set[str] = {"network", "snapshots", "shapes", "sub_networks"}
+
+
 def build_network(
-    xlsx_bytes: bytes,
+    model: dict[str, list[dict[str, Any]]],
     scenario: dict[str, Any],
     options: dict[str, Any] | None = None,
 ) -> tuple[pypsa.Network, list[str]]:
-    """Build a solved-ready PyPSA Network from the uploaded workbook bytes.
+    """Build a solved-ready PyPSA Network from the JSON workbook model.
 
     Args:
-        xlsx_bytes: raw bytes of the user's Excel workbook (the same workbook
-            shown in the GUI; round-tripped via `workbookToArrayBuffer`).
-        scenario:   {carbonPrice, discountRate, constraints, ...}
-        options:    {snapshotStart, snapshotCount, snapshotWeight, forceLp,
-                    enableLoadShedding, loadSheddingCost, currencySymbol, ...}
+        model:      ``{sheet_name: [row_dict, ...]}`` — the GUI workbook.
+        scenario:   ``{carbonPrice, discountRate, constraints, ...}``
+        options:    ``{snapshotStart, snapshotCount, snapshotWeight, forceLp,
+                    enableLoadShedding, loadSheddingCost, currencySymbol, …}``
 
     Returns:
-        (network, notes) — the configured network and a list of human-readable
-        notes for the Run narrative panel.
+        ``(network, notes)``
     """
     notes: list[str] = []
     options = options or {}
@@ -56,38 +66,62 @@ def build_network(
     carbon_price = number(scenario.get("carbonPrice"), 0.0)
     currency = str(options.get("currencySymbol", "$"))
 
-    # ── Load via PyPSA's native Excel importer ────────────────────────────────
-    # PyPSA's reader handles every standard sheet (buses, generators, lines,
-    # storage_units, …) and every standard time-series sheet (loads-p_set,
-    # generators-p_max_pu, …) without us having to enumerate columns.
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp.write(xlsx_bytes)
-        tmp_path = tmp.name
-    try:
-        network = pypsa.Network()
-        network.import_from_excel(tmp_path)
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+    network = pypsa.Network()
+
+    # ── Snapshots ─────────────────────────────────────────────────────────────
+    snaps_idx = _snapshots_index(model)
+    if len(snaps_idx) > 0:
+        network.set_snapshots(snaps_idx)
+
+    # ── Bulk-add every component class PyPSA knows about ──────────────────────
+    # Iterate the official component registry — order is dependency-safe
+    # (buses before everything that references them, carriers before buses).
+    ordered = _ordered_component_sheets(network)
+    for sheet_name, cls in ordered:
+        rows = [r for r in (model.get(sheet_name) or []) if _has_name(r)]
+        if not rows:
+            continue
+        df = pd.DataFrame(rows).set_index("name")
+        df = _strip_blank_columns(df)
+        # Note: zero columns is fine — we still add the components using all
+        # PyPSA defaults. Skip only if there are no rows at all.
+        if len(df.index) == 0:
+            continue
+        df = _drop_broken_bus_refs(df, cls, network, sheet_name, notes)
+        if len(df.index) == 0:
+            continue
+        if "carrier" in df.columns and cls != "Carrier":
+            _ensure_carriers(network, df["carrier"])
+        kwargs = {col: df[col].tolist() for col in df.columns}
+        network.add(cls, df.index.tolist(), **kwargs)
 
     notes.append(
-        f"Imported workbook via pypsa.Network.import_from_excel: "
-        f"{len(network.buses)} buses, {len(network.generators)} generators, "
+        f"Imported model: {len(network.buses)} buses, {len(network.generators)} generators, "
         f"{len(network.loads)} loads, {len(network.lines)} lines, "
         f"{len(network.links)} links, {len(network.storage_units)} storage units, "
         f"{len(network.stores)} stores, {len(network.snapshots)} snapshots."
     )
 
+    # ── Time-series sheets ────────────────────────────────────────────────────
+    # PyPSA's per-component `defaults` table marks every time-varying attribute
+    # (`varying=True`). Sheet name convention is `<list_name>-<attr>`.
+    for sheet_name, rows in model.items():
+        if not rows or "-" not in sheet_name:
+            continue
+        list_name, _, attr = sheet_name.partition("-")
+        if list_name not in network.components.keys():
+            continue
+        comp = network.components[list_name]
+        if attr not in comp.defaults.index:
+            continue
+        if not bool(comp.defaults.at[attr, "varying"]):
+            continue
+        _apply_ts_sheet(network, rows, list_name, attr)
+
     # ── Snapshot windowing & downsampling ─────────────────────────────────────
-    # The user selects (start, count, weight) in the Run dialog. We keep every
-    # `weight`-th snapshot from the [start, start+count) slice and set
-    # snapshot_weightings = weight so total energy is preserved.
     start = max(0, int(number(options.get("snapshotStart"), 0)))
     count = max(1, int(number(options.get("snapshotCount"), len(network.snapshots) or 1)))
     step = max(1, int(number(options.get("snapshotWeight"), 1)))
-
     full = network.snapshots
     if len(full) > 0:
         stop = min(len(full), start + count)
@@ -104,9 +138,7 @@ def build_network(
             f"(rows {start} → {stop} of {len(full)})."
         )
 
-    # Period factor: how much of a full year (8760 h) is modelled, used to
-    # scale workbook-supplied annual energy caps (`*_sum_min`, `*_sum_max`)
-    # down to the partial window.
+    # ── Period-factor scaling of annual energy caps ───────────────────────────
     hours_in_year = 8760.0
     modelled_hours = float(len(network.snapshots)) * float(step)
     period_factor = min(1.0, modelled_hours / hours_in_year) if modelled_hours > 0 else 1.0
@@ -132,28 +164,25 @@ def build_network(
             )
 
     # ── Annuitise CAPEX for extendable assets ─────────────────────────────────
-    for class_name, frame in (
-        ("Generator", network.generators),
-        ("StorageUnit", network.storage_units),
-        ("Store", network.stores),
-        ("Line", network.lines),
-        ("Link", network.links),
-    ):
-        ext_col = "e_nom_extendable" if class_name == "Store" else "p_nom_extendable" if class_name in ("Generator", "StorageUnit", "Link") else "s_nom_extendable"
-        if ext_col not in frame.columns or "capital_cost" not in frame.columns:
+    # The extendable flag column name varies by component (p_nom_extendable,
+    # s_nom_extendable, e_nom_extendable). Find it via PyPSA's defaults.
+    for list_name in ("generators", "storage_units", "stores", "lines", "links"):
+        comp = network.components[list_name]
+        frame = comp.static
+        ext_cols = [c for c in frame.columns if c.endswith("_nom_extendable")]
+        if not ext_cols or "capital_cost" not in frame.columns:
             continue
-        ext = frame[ext_col].astype(bool)
+        ext = frame[ext_cols[0]].astype(bool)
         if not ext.any():
             continue
-        lifetime_col = "lifetime" if "lifetime" in frame.columns else None
-        if lifetime_col is None:
-            lifetimes = pd.Series(20.0, index=frame.index[ext])
+        if "lifetime" in frame.columns:
+            lifetimes = frame.loc[ext, "lifetime"].replace(0, pd.NA).fillna(20.0)
         else:
-            lifetimes = frame.loc[ext, lifetime_col].replace(0, pd.NA).fillna(20.0)
+            lifetimes = pd.Series(20.0, index=frame.index[ext])
         afs = lifetimes.apply(lambda L: annuity_factor(discount_rate, float(L)))
         frame.loc[ext, "capital_cost"] = frame.loc[ext, "capital_cost"].fillna(0.0) * afs
         notes.append(
-            f"Annualised CAPEX for {int(ext.sum())} extendable {class_name}(s) "
+            f"Annualised CAPEX for {int(ext.sum())} extendable {comp.name}(s) "
             f"at discount rate {discount_rate:.3f}."
         )
 
@@ -196,9 +225,164 @@ def build_network(
     return network, notes
 
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _has_name(row: dict[str, Any]) -> bool:
+    name = row.get("name")
+    return name is not None and str(name).strip() != ""
+
+
+def _strip_blank_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop columns that are entirely null or blank — let PyPSA defaults apply."""
+    df = df.dropna(axis=1, how="all")
+    for col in list(df.columns):
+        if df[col].astype(str).str.strip().eq("").all():
+            df = df.drop(columns=[col])
+    return df
+
+
+def _ordered_component_sheets(network: pypsa.Network) -> list[tuple[str, str]]:
+    """Return [(sheet_name, pypsa_class_name), …] in dependency-safe order.
+
+    Carriers and buses must be added before anything that references them. The
+    remainder follows PyPSA's own component registry order.
+    """
+    keys = list(network.components.keys())
+    priority = {"carriers": 0, "buses": 1}
+    sortable: list[tuple[int, int, str, str]] = []
+    for i, list_name in enumerate(keys):
+        if list_name in _NON_COMPONENT_SHEETS:
+            continue
+        comp = network.components[list_name]
+        sortable.append((priority.get(list_name, 99), i, list_name, comp.name))
+    sortable.sort()
+    return [(list_name, cls) for _, _, list_name, cls in sortable]
+
+
+def _snapshots_index(model: dict[str, list[dict[str, Any]]]) -> pd.Index:
+    """Build the snapshot index from the `snapshots` sheet, if present."""
+    rows = model.get("snapshots") or []
+    labels: list[str] = []
+    for r in rows:
+        for k in ("snapshot", "name", "datetime", "timestep", "index"):
+            v = r.get(k)
+            if v not in (None, ""):
+                labels.append(str(v))
+                break
+    if not labels:
+        return pd.Index([], dtype="object")
+    try:
+        return pd.to_datetime(labels)
+    except Exception:
+        return pd.Index(labels, dtype="object")
+
+
+def _bus_ref_columns(network: pypsa.Network, cls: str) -> list[str]:
+    """Return the column names of bus references for a PyPSA component class.
+
+    Looks up PyPSA's attribute schema rather than hardcoding which classes
+    have `bus` vs `bus0/bus1` vs `bus0..bus3`.
+    """
+    # Find the component by class name
+    for list_name in network.components.keys():
+        if network.components[list_name].name != cls:
+            return _bus_ref_columns_for_list(network, list_name)
+    return []
+
+
+def _bus_ref_columns_for_list(network: pypsa.Network, list_name: str) -> list[str]:
+    defaults = network.components[list_name].defaults
+    return [a for a in defaults.index if a == "bus" or (a.startswith("bus") and a[3:].isdigit())]
+
+
+def _drop_broken_bus_refs(
+    df: pd.DataFrame,
+    cls: str,
+    network: pypsa.Network,
+    sheet: str,
+    notes: list[str],
+) -> pd.DataFrame:
+    """Drop rows where a required bus reference points to a missing bus."""
+    bus_cols = _bus_ref_columns_for_list(network, sheet)
+    if not bus_cols:
+        return df
+    # Only the primary bus (bus or bus0/bus1) is required; bus2/bus3 are optional.
+    required = [c for c in bus_cols if c in ("bus", "bus0", "bus1")]
+    if not required:
+        return df
+    valid_buses = set(network.buses.index)
+    keep_mask = pd.Series(True, index=df.index)
+    skipped: list[str] = []
+    for col in required:
+        if col not in df.columns:
+            notes.append(f"Sheet '{sheet}' has no '{col}' column — all rows skipped.")
+            return df.iloc[0:0]
+        for name, bus in df[col].items():
+            if pd.isna(bus) or str(bus).strip() == "" or str(bus) not in valid_buses:
+                keep_mask[name] = False
+                skipped.append(f"{name} ({col}='{bus}')")
+    dropped = (~keep_mask).sum()
+    if dropped:
+        notes.append(
+            f"{cls}: {int(dropped)} row(s) skipped — bus reference missing: "
+            f"{', '.join(skipped[:5])}{' …' if len(skipped) > 5 else ''}"
+        )
+    return df[keep_mask]
+
+
+def _ensure_carriers(network: pypsa.Network, carriers: pd.Series) -> None:
+    """Auto-add any carrier referenced by a component but missing from carriers sheet."""
+    referenced = {str(c).strip() for c in carriers.dropna().unique() if str(c).strip()}
+    missing = referenced - set(network.carriers.index)
+    for name in missing:
+        network.add("Carrier", name)
+
+
+def _apply_ts_sheet(
+    network: pypsa.Network,
+    rows: list[dict[str, Any]],
+    list_name: str,
+    attr: str,
+) -> None:
+    """Assign a time-series sheet to ``network.<list_name>_t.<attr>``."""
+    df = pd.DataFrame(rows)
+    label_col = next(
+        (k for k in ("snapshot", "datetime", "name", "index", "timestep") if k in df.columns),
+        None,
+    )
+    if label_col is None:
+        return
+    try:
+        idx = pd.to_datetime(df[label_col])
+    except Exception:
+        idx = pd.Index(df[label_col].astype(str))
+    data = df.drop(columns=[label_col])
+    if data.empty:
+        return
+    data.index = idx
+    static_frame = network.components[list_name].static
+    valid_cols = [c for c in data.columns if c in static_frame.index]
+    if not valid_cols:
+        return
+    data = data[valid_cols].apply(pd.to_numeric, errors="coerce")
+    if len(network.snapshots) > 0:
+        data = data.reindex(network.snapshots)
+    t_frame = getattr(network, list_name + "_t")
+    current = getattr(t_frame, attr)
+    # Re-stitch via concat (avoid the per-column-insert performance warning).
+    merged = pd.concat(
+        [current.drop(columns=[c for c in current.columns if c in data.columns]), data],
+        axis=1,
+    )
+    setattr(t_frame, attr, merged)
+
+
 def _peak_load_per_bus(network: pypsa.Network) -> dict[str, float]:
-    """Sum of peak load (across snapshots) at each bus. Used to size the
-    load-shedding generator's p_nom uncapped."""
+    """Sum of peak load (across snapshots) at each bus.
+
+    Used to size the load-shedding generator's p_nom uncapped.
+    """
     totals: dict[str, float] = defaultdict(float)
     if network.loads.empty:
         return {}
