@@ -125,8 +125,12 @@ function AppInner() {
   const busIndex = useMemo(() => getBusIndex(model), [model.buses]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!results) { setAnalyticsFocus({ type: 'system' }); return; }
+    // Reset focus to 'system' when results disappear or the previously-focused
+    // asset is no longer present. Guarded so we never call setState if the
+    // focus is already 'system' (otherwise a new {type:'system'} object would
+    // trigger an infinite re-render loop on every effect tick).
     if (analyticsFocus.type === 'system') return;
+    if (!results) { setAnalyticsFocus({ type: 'system' }); return; }
     if (analyticsFocus.type === 'generator' && results.assetDetails.generators[analyticsFocus.key]) return;
     if (analyticsFocus.type === 'bus' && results.assetDetails.buses[analyticsFocus.key]) return;
     if (analyticsFocus.type === 'storageUnit' && results.assetDetails.storageUnits[analyticsFocus.key]) return;
