@@ -7,14 +7,17 @@ import numpy as np
 import pandas as pd
 import pypsa
 
-from ..utils.coerce import number, text
+from ..utils.coerce import number, put_if_present, text
 from ..utils.workbook import workbook_rows
 
 
 def add_buses(
     network: pypsa.Network,
     model: dict[str, list[dict[str, Any]]],
+    notes: list[str],
 ) -> None:
+    """Add Bus components. Only `name` is required; every other column is
+    optional and passed through only if present (no fabricated defaults)."""
     buses = workbook_rows(model, "buses")
     if not buses:
         from fastapi import HTTPException
@@ -22,23 +25,17 @@ def add_buses(
     for row in buses:
         name = text(row.get("name"))
         if not name:
+            notes.append("A bus row has no name — skipped.")
             continue
-        kwargs: dict[str, Any] = {
-            "x": number(row.get("x")),
-            "y": number(row.get("y")),
-        }
-        # Pass through only what the workbook actually specifies — no implicit
-        # defaults for v_nom, carrier, or v_mag_pu_set. PyPSA will use its own
-        # defaults if these keys are omitted.
-        v_nom_raw = row.get("v_nom")
-        if v_nom_raw not in (None, ""):
-            kwargs["v_nom"] = number(v_nom_raw)
-        carrier_raw = text(row.get("carrier"))
-        if carrier_raw:
-            kwargs["carrier"] = carrier_raw
-        v_mag_pu_set_raw = row.get("v_mag_pu_set")
-        if v_mag_pu_set_raw not in (None, ""):
-            kwargs["v_mag_pu_set"] = number(v_mag_pu_set_raw)
+        kwargs: dict[str, Any] = {}
+        for col in (
+            "x", "y", "v_nom", "v_mag_pu_set", "v_mag_pu_min", "v_mag_pu_max",
+        ):
+            put_if_present(kwargs, row, col, coerce=number)
+        put_if_present(kwargs, row, "carrier", coerce=text)
+        put_if_present(kwargs, row, "control", coerce=text)
+        put_if_present(kwargs, row, "unit", coerce=text)
+        put_if_present(kwargs, row, "sub_network", coerce=text)
         network.add("Bus", name, **kwargs)
 
 
@@ -85,13 +82,17 @@ def add_loads(
     network: pypsa.Network,
     model: dict[str, list[dict[str, Any]]],
     snapshots: pd.Index,
+    notes: list[str],
     snapshot_start: int = 0,
     snapshot_window: int | None = None,
     step: int = 1,
 ) -> dict[str, float]:
     """Add loads using workbook data only.
     If 'loads-p_set' sheet is present its time-series takes priority;
-    otherwise the static p_set is used as a flat constant."""
+    otherwise the static p_set is used as a flat constant.
+    Optional columns (carrier, sign, etc.) are passed through only when
+    present — no fabricated defaults.
+    """
     ts_p_set = parse_ts_sheet(
         model,
         "loads-p_set",
@@ -105,13 +106,17 @@ def add_loads(
     for row in workbook_rows(model, "loads"):
         name = text(row.get("name"))
         bus = text(row.get("bus"))
-        if not name or bus not in network.buses.index:
+        if not name:
+            notes.append("A load row has no name — skipped.")
+            continue
+        if bus not in network.buses.index:
+            notes.append(f"Load '{name}' references non-existent bus '{bus}' — skipped.")
             continue
         p_set_static = number(row.get("p_set"), 0.0)
-        load_kwargs: dict[str, Any] = {"bus": bus, "q_set": number(row.get("q_set"))}
-        carrier_raw = text(row.get("carrier"))
-        if carrier_raw:
-            load_kwargs["carrier"] = carrier_raw
+        load_kwargs: dict[str, Any] = {"bus": bus}
+        put_if_present(load_kwargs, row, "carrier", coerce=text)
+        put_if_present(load_kwargs, row, "q_set", coerce=number)
+        put_if_present(load_kwargs, row, "sign", coerce=number)
         network.add("Load", name, **load_kwargs)
         if ts_p_set and name in ts_p_set:
             network.loads_t.p_set.loc[:, name] = ts_p_set[name]

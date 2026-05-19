@@ -4,13 +4,14 @@ from typing import Any
 
 import pypsa
 
-from ..utils.coerce import number, text
+from ..utils.coerce import bool_value, number, put_if_present, text
 from ..utils.workbook import workbook_rows
 
 
 def add_processes(
     network: pypsa.Network,
     model: dict[str, list[dict[str, Any]]],
+    notes: list[str],
 ) -> None:
     """Add PyPSA Process components from the workbook 'processes' sheet.
 
@@ -27,33 +28,28 @@ def add_processes(
         name = text(row.get("name"))
         bus0 = text(row.get("bus0"))
         bus1 = text(row.get("bus1"))
-        if not name or bus0 not in network.buses.index or bus1 not in network.buses.index:
+        if not name:
+            notes.append("A process row has no name — skipped.")
+            continue
+        if bus0 not in network.buses.index or bus1 not in network.buses.index:
+            notes.append(f"Process '{name}' references non-existent bus(es) — skipped.")
             continue
 
-        carrier = text(row.get("carrier"), "")
+        carrier = text(row.get("carrier"))
         if carrier and carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
 
-        efficiency = number(row.get("efficiency"), 1.0)
-
-        kwargs: dict[str, Any] = dict(
-            bus0=bus0,
-            bus1=bus1,
-            # rate0 = -1 means bus0 is the input (withdrawal)
-            # rate1 = efficiency means output = efficiency × input
-            rate0=-1.0,
-            rate1=efficiency,
-            p_nom=number(row.get("p_nom"), 0.0),
-            p_min_pu=number(row.get("p_min_pu"), 0.0),
-            p_max_pu=number(row.get("p_max_pu"), 1.0),
-            marginal_cost=number(row.get("marginal_cost"), 0.0),
-            capital_cost=number(row.get("capital_cost"), 0.0),
-        )
+        kwargs: dict[str, Any] = {"bus0": bus0, "bus1": bus1, "rate0": -1.0}
         if carrier:
             kwargs["carrier"] = carrier
+        # Map user-facing efficiency → PyPSA rate1
+        if row.get("efficiency") not in (None, ""):
+            kwargs["rate1"] = number(row.get("efficiency"))
+        for col in ("p_nom", "p_min_pu", "p_max_pu", "marginal_cost", "capital_cost"):
+            put_if_present(kwargs, row, col, coerce=number)
 
         # Optional extendable capacity
-        if bool(row.get("p_nom_extendable", False)):
+        if bool_value(row.get("p_nom_extendable")):
             kwargs["p_nom_extendable"] = True
             p_nom_max = row.get("p_nom_max")
             if p_nom_max not in (None, "", "inf"):
@@ -64,7 +60,7 @@ def add_processes(
             b = text(row.get(f"bus{suffix}"))
             if b and b in network.buses.index:
                 kwargs[f"bus{suffix}"] = b
-                eff_n = number(row.get(f"efficiency{suffix}"), 1.0)
-                kwargs[f"rate{suffix}"] = eff_n
+                if row.get(f"efficiency{suffix}") not in (None, ""):
+                    kwargs[f"rate{suffix}"] = number(row.get(f"efficiency{suffix}"))
 
         network.add("Process", name, **kwargs)

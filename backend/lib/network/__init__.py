@@ -103,18 +103,19 @@ def build_network(payload: RunPayload) -> tuple[pypsa.Network, list[str]]:
     currency = str(options.get("currencySymbol", "$"))
 
     # Topology
-    add_buses(network, model)
+    add_buses(network, model, notes)
     load_totals = add_loads(
         network,
         model,
         snapshots,
+        notes,
         snapshot_start=snapshot_start,
         snapshot_window=window,
         step=step,
     )
     add_stores(network, model, period_factor, notes)
     add_storage_units(network, model, period_factor, notes, discount_rate=discount_rate, currency=currency)
-    add_shunt_impedances(network, model)
+    add_shunt_impedances(network, model, notes)
 
     # Generation
     force_lp = bool(options.get("forceLp", False))
@@ -138,15 +139,15 @@ def build_network(payload: RunPayload) -> tuple[pypsa.Network, list[str]]:
     )
 
     # Transmission
-    add_lines(network, model)
-    add_links(network, model)
-    add_transformers(network, model)
+    add_lines(network, model, notes)
+    add_links(network, model, notes)
+    add_transformers(network, model, notes)
 
     # Processes (multi-input/output energy conversion — PyPSA Process component)
-    add_processes(network, model)
+    add_processes(network, model, notes)
 
     # Constraints
-    add_global_constraints(network, model, period_factor)
+    add_global_constraints(network, model, period_factor, notes)
 
     notes.append(
         f"Prepared PyPSA case with {len(network.buses)} buses, "

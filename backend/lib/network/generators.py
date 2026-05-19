@@ -7,7 +7,7 @@ import pypsa
 
 from ..config import load_system_defaults
 from ..utils.annuity import annuity_factor
-from ..utils.coerce import bool_value, number, text
+from ..utils.coerce import bool_value, number, put_if_present, text
 from ..utils.workbook import apply_scaled_static_attributes, workbook_rows
 from .buses import parse_ts_sheet
 
@@ -60,18 +60,13 @@ def add_generators(
         name = text(row.get("name"))
         bus = text(row.get("bus"))
         carrier = text(row.get("carrier"))
-        if not name or bus not in network.buses.index:
+        if not name:
+            notes.append("A generator row has no name — skipped.")
             continue
-        # A blank carrier is allowed — the generator still participates in
-        # dispatch. Its emissions factor is 0 unless a carrier with a
-        # co2_emissions value is declared and referenced.
-        p_nom = number(row.get("p_nom"), 0.0)
-        marginal_cost = (
-            number(row.get("marginal_cost"), 0.0)
-            + carbon_price * (_carrier_emissions(network, carrier) if carrier else 0.0)
-        )
-        p_max_pu_static = number(row.get("p_max_pu"), 1.0)
-        p_min_pu_static = number(row.get("p_min_pu"), 0.0)
+        if bus not in network.buses.index:
+            notes.append(f"Generator '{name}' references non-existent bus '{bus}' — skipped.")
+            continue
+
         extendable = bool_value(row.get("extendable"), False)
         # committable=True and p_nom_extendable=True are mutually exclusive in PyPSA
         committable = bool_value(row.get("committable"), False) and not force_lp
@@ -81,6 +76,15 @@ def add_generators(
                 f"(PyPSA MIP restriction — capacity will not be optimised)."
             )
             extendable = False
+
+        # Marginal cost includes carbon adder when both a workbook value and a
+        # carrier-level co2 factor are available. If marginal_cost is blank,
+        # only the carbon adder applies (zero if carrier is blank).
+        raw_mc = number(row.get("marginal_cost"), 0.0)
+        carbon_adder = carbon_price * (_carrier_emissions(network, carrier) if carrier else 0.0)
+        marginal_cost = raw_mc + carbon_adder
+
+        # Annualise capex only for extendable assets; otherwise pass through raw.
         raw_capital_cost = number(row.get("capital_cost"), 0.0)
         if extendable:
             lifetime = number(row.get("asset_lifetime"), 20.0)
@@ -91,27 +95,29 @@ def add_generators(
                 f"AF={af:.4f}, annualised capex={annualised_capital_cost:.0f} {currency}/MW/yr)."
             )
         else:
-            annualised_capital_cost = 0.0
-        gen_kwargs: dict[str, Any] = dict(
-            bus=bus,
-            control=text(row.get("control"), "PQ"),
-            p_nom=p_nom,
-            p_nom_min=0.0,
-            p_min_pu=p_min_pu_static,
-            p_max_pu=p_max_pu_static,
-            marginal_cost=marginal_cost,
-            capital_cost=annualised_capital_cost,
-            p_nom_extendable=extendable,
-            committable=committable,
-        )
+            annualised_capital_cost = raw_capital_cost
+
+        gen_kwargs: dict[str, Any] = {
+            "bus": bus,
+            "marginal_cost": marginal_cost,
+            "capital_cost": annualised_capital_cost,
+            "p_nom_extendable": extendable,
+            "committable": committable,
+        }
         if carrier:
             gen_kwargs["carrier"] = carrier
+        # Optional columns: only set if user provided them.
+        for col in ("control", "type"):
+            put_if_present(gen_kwargs, row, col, coerce=text)
+        for col in (
+            "p_nom", "p_nom_min", "p_nom_max", "p_min_pu", "p_max_pu",
+            "p_set", "q_set", "sign", "efficiency",
+        ):
+            put_if_present(gen_kwargs, row, col, coerce=number)
         # Unit-commitment attributes — only relevant when committable=True
         if committable:
-            for uc_attr in ("min_up_time", "min_down_time", "start_up_cost", "shut_down_cost"):
-                val = number(row.get(uc_attr), 0.0)
-                if val > 0:
-                    gen_kwargs[uc_attr] = val
+            for uc_attr in ("min_up_time", "min_down_time", "start_up_cost", "shut_down_cost", "ramp_limit_up", "ramp_limit_down"):
+                put_if_present(gen_kwargs, row, uc_attr, coerce=number)
         network.add("Generator", name, **gen_kwargs)
         color = text(row.get("color"))
         if color:

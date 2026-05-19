@@ -5,7 +5,7 @@ from typing import Any
 import pypsa
 
 from ..utils.annuity import annuity_factor
-from ..utils.coerce import bool_value, number, text
+from ..utils.coerce import bool_value, number, put_if_present, text
 from ..utils.workbook import apply_scaled_static_attributes, workbook_rows
 
 
@@ -15,25 +15,30 @@ def add_stores(
     period_factor: float,
     notes: list[str],
 ) -> None:
+    """Add Store components. Only `name` and a resolvable `bus` are required;
+    other columns pass through only when present (no fabricated defaults)."""
     for row in workbook_rows(model, "stores"):
         name = text(row.get("name"))
         bus = text(row.get("bus"))
-        if not name or bus not in network.buses.index:
+        if not name:
+            notes.append("A store row has no name — skipped.")
+            continue
+        if bus not in network.buses.index:
+            notes.append(f"Store '{name}' references non-existent bus '{bus}' — skipped.")
             continue
         carrier = text(row.get("carrier"))
         if carrier and carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
-        store_kwargs: dict[str, Any] = dict(
-            bus=bus,
-            e_nom=number(row.get("e_nom"), 0.0),
-            e_initial=number(row.get("e_initial"), 0.0),
-            e_min_pu=number(row.get("e_min_pu"), 0.0),
-            e_max_pu=number(row.get("e_max_pu"), 1.0),
-            standing_loss=number(row.get("standing_loss"), 0.0),
-            marginal_cost=number(row.get("marginal_cost"), 0.0),
-        )
+        store_kwargs: dict[str, Any] = {"bus": bus}
         if carrier:
             store_kwargs["carrier"] = carrier
+        for col in (
+            "e_nom", "e_nom_min", "e_nom_max", "e_initial", "e_min_pu", "e_max_pu",
+            "e_cyclic_per_period", "standing_loss", "marginal_cost", "capital_cost",
+        ):
+            put_if_present(store_kwargs, row, col, coerce=number)
+        put_if_present(store_kwargs, row, "e_nom_extendable", coerce=bool_value)
+        put_if_present(store_kwargs, row, "e_cyclic", coerce=bool_value)
         network.add("Store", name, **store_kwargs)
         applied = apply_scaled_static_attributes(network.stores, name, row, period_factor)
         if applied:
@@ -48,14 +53,21 @@ def add_storage_units(
     discount_rate: float,
     currency: str = "$",
 ) -> None:
+    """Add StorageUnit components. Only `name` and a resolvable `bus` are
+    required; other columns pass through only when present."""
     for row in workbook_rows(model, "storage_units"):
         name = text(row.get("name"))
         bus = text(row.get("bus"))
-        if not name or bus not in network.buses.index:
+        if not name:
+            notes.append("A storage_unit row has no name — skipped.")
+            continue
+        if bus not in network.buses.index:
+            notes.append(f"StorageUnit '{name}' references non-existent bus '{bus}' — skipped.")
             continue
         carrier = text(row.get("carrier"))
         if carrier and carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
+
         extendable = bool_value(row.get("extendable"), False)
         raw_capital_cost = number(row.get("capital_cost"), 0.0)
         if extendable:
@@ -67,22 +79,23 @@ def add_storage_units(
                 f"AF={af:.4f}, annualised capex={annualised_capital_cost:.0f} {currency}/MW/yr)."
             )
         else:
-            annualised_capital_cost = 0.0
-        su_kwargs: dict[str, Any] = dict(
-            bus=bus,
-            p_nom=number(row.get("p_nom"), 0.0),
-            p_nom_extendable=extendable,
-            p_nom_min=0.0,
-            max_hours=number(row.get("max_hours"), 1.0),
-            efficiency_store=number(row.get("efficiency_store"), 1.0),
-            efficiency_dispatch=number(row.get("efficiency_dispatch"), 1.0),
-            state_of_charge_initial=number(row.get("state_of_charge_initial"), 0.0),
-            cyclic_state_of_charge=bool_value(row.get("cyclic_state_of_charge"), True),
-            marginal_cost=number(row.get("marginal_cost"), 0.0),
-            capital_cost=annualised_capital_cost,
-        )
+            annualised_capital_cost = raw_capital_cost
+
+        su_kwargs: dict[str, Any] = {
+            "bus": bus,
+            "p_nom_extendable": extendable,
+            "capital_cost": annualised_capital_cost,
+        }
         if carrier:
             su_kwargs["carrier"] = carrier
+        for col in (
+            "p_nom", "p_nom_min", "p_nom_max", "max_hours",
+            "efficiency_store", "efficiency_dispatch",
+            "state_of_charge_initial", "marginal_cost",
+            "p_min_pu", "p_max_pu",
+        ):
+            put_if_present(su_kwargs, row, col, coerce=number)
+        put_if_present(su_kwargs, row, "cyclic_state_of_charge", coerce=bool_value)
         network.add("StorageUnit", name, **su_kwargs)
         applied = apply_scaled_static_attributes(network.storage_units, name, row, period_factor)
         if applied:
