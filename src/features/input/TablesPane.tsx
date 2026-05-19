@@ -36,14 +36,14 @@ interface FilterDropdownProps {
   selected: Set<string>;
   anchorRect: DOMRect;
   onToggle: (val: string) => void;
-  onSelectAll: () => void;
-  onClear: () => void;
+  onSelectAll: () => void;      // re-include every value (reset / no filter)
+  onUncheckAll: () => void;     // empty allowed set (Excel-style hide-all)
   onClose: () => void;
 }
 
 function FilterDropdown({
   col, allValues, selected, anchorRect,
-  onToggle, onSelectAll, onClear, onClose,
+  onToggle, onSelectAll, onUncheckAll, onClose,
 }: FilterDropdownProps) {
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -89,7 +89,7 @@ function FilterDropdown({
         <input
           type="checkbox"
           checked={allChecked}
-          onChange={allChecked ? onClear : onSelectAll}
+          onChange={allChecked ? onUncheckAll : onSelectAll}
         />
         <span>(Select All)</span>
       </label>
@@ -113,7 +113,7 @@ function FilterDropdown({
 
       {/* Footer */}
       <div className="cfd-footer">
-        <button className="cfd-btn" onClick={() => { onClear(); onClose(); }}>Clear</button>
+        <button className="cfd-btn" onClick={() => { onSelectAll(); onClose(); }}>Reset</button>
         <button className="cfd-btn cfd-btn--primary" onClick={onClose}>OK</button>
       </div>
     </div>,
@@ -292,11 +292,15 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
     }
   };
 
+  // Select-All re-includes every unique value (drops the filter entirely).
   const selectAll = (col: string) =>
     setColFilters((p) => { const n = { ...p }; delete n[col]; return n; });
 
+  // Clear (uncheck Select-All) leaves an empty allowed-set, so the column
+  // hides every row until the user picks one or more values. This matches the
+  // Excel-style filter behaviour the user expects.
   const clearFilter = (col: string) =>
-    setColFilters((p) => { const n = { ...p }; delete n[col]; return n; });
+    setColFilters((p) => ({ ...p, [col]: new Set<string>() }));
 
   const clearAll = () => setColFilters({});
 
@@ -506,7 +510,7 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
           anchorRect={anchorRect}
           onToggle={(val) => toggleValue(openCol, val)}
           onSelectAll={() => selectAll(openCol)}
-          onClear={() => clearFilter(openCol)}
+          onUncheckAll={() => clearFilter(openCol)}
           onClose={() => setOpenCol(null)}
         />
       )}

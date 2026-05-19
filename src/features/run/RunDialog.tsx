@@ -44,12 +44,12 @@ function parseDateWithFormat(raw: string, dateFormat: string): Date {
   // For dmy: rewrite "dd/mm/yyyy hh:mm" or "dd-mm-yyyy hh:mm" to ISO
   if (dateFormat === 'dmy') {
     // Match dd/mm/yyyy or dd-mm-yyyy optionally followed by time
-    const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(.*)$/);
+    const m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(.*)$/);
     if (m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}${m[4]}`);
   }
   if (dateFormat === 'mdy') {
     // Match mm/dd/yyyy or mm-dd-yyyy optionally followed by time
-    const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(.*)$/);
+    const m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(.*)$/);
     if (m) return new Date(`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}${m[4]}`);
   }
   // auto / ymd: let the browser parse (works for ISO and most unambiguous formats)
