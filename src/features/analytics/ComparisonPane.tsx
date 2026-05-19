@@ -31,8 +31,6 @@ function MiniBarChart({ title, unit, entries }: { title: string; unit: string; e
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const RE_CARRIERS = new Set(['Solar', 'Wind', 'Hydro']);
-
 function firstNumericSummary(entry: RunHistoryEntry, predicate: (label: string) => boolean): number {
   const s = entry.results.summary.find((x) => predicate(x.label));
   if (!s) return 0;
@@ -75,14 +73,6 @@ export function ComparisonPane({ runHistory, activeResults, onToggleComparison, 
     active: e.results === activeResults,
   }));
 
-  const reEntries: BarEntry[] = included.map((e) => {
-    const total = e.results.carrierMix.reduce((s, m) => s + m.value, 0);
-    const re = e.results.carrierMix
-      .filter((m) => RE_CARRIERS.has(m.label))
-      .reduce((s, m) => s + m.value, 0);
-    return { id: e.id, label: e.label, value: total > 0 ? (re / total) * 100 : 0, active: e.results === activeResults };
-  });
-
   const emissionsEntries: BarEntry[] = included.map((e) => ({
     id: e.id,
     label: e.label,
@@ -106,7 +96,6 @@ export function ComparisonPane({ runHistory, activeResults, onToggleComparison, 
       {showKpiCharts && (
         <div className="cmp-bar-strip">
           <MiniBarChart title="Total dispatch" unit=" GWh" entries={dispatchEntries} />
-          <MiniBarChart title="RE share" unit="%" entries={reEntries} />
           <MiniBarChart title="Emissions" unit="" entries={emissionsEntries} />
           <MiniBarChart title="Avg system price" unit="" entries={priceEntries} />
         </div>

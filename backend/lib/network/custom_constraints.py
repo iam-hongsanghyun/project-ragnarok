@@ -30,8 +30,6 @@ def apply_custom_constraints(
         if not g.startswith("load_shedding_")
     ]
     shed_gens = [g for g in n.generators.index if g.startswith("load_shedding_")]
-    re_carriers = {"Solar", "Wind", "Hydro"}
-    re_gens = n.generators.index[n.generators.carrier.isin(re_carriers)].tolist()
     modeled_hours = float(weights.sum())
 
     cap_var = None
@@ -83,18 +81,6 @@ def apply_custom_constraints(
                 )
                 notes.append(f"Constraint '{label}': CO₂ intensity ≤ {value} kg CO₂e/MWh added.")
 
-            # ── Minimum renewable share ──────────────────────────────────────
-            elif metric == "re_share":
-                if not re_gens or not supply_gens:
-                    notes.append(f"Constraint '{label}': no renewable generators — skipped.")
-                    continue
-                re_total = (gen_p.sel({dim: re_gens}) * weights).sum()
-                all_total = (gen_p.sel({dim: supply_gens}) * weights).sum()
-                n.model.add_constraints(
-                    re_total >= (value / 100.0) * all_total, name=cname
-                )
-                notes.append(f"Constraint '{label}': RE share ≥ {value}% added.")
-
             # ── Maximum load shedding ────────────────────────────────────────
             elif metric == "max_load_shed":
                 if not shed_gens:
@@ -104,7 +90,7 @@ def apply_custom_constraints(
                 n.model.add_constraints(total_shed <= value, name=cname)
                 notes.append(f"Constraint '{label}': load shedding ≤ {value} MWh added.")
 
-            # ── Carrier generation cap / floor (GWh) ─────────────────────────
+            # ── Carrier generation cap / floor (MWh) ─────────────────────────
             elif metric in ("carrier_max_gen", "carrier_min_gen"):
                 cgens = n.generators.index[n.generators.carrier == carrier].tolist()
                 if not cgens:
@@ -112,11 +98,11 @@ def apply_custom_constraints(
                     continue
                 total = (gen_p.sel({dim: cgens}) * weights).sum()
                 if metric == "carrier_max_gen":
-                    n.model.add_constraints(total <= value * 1_000, name=cname)
-                    notes.append(f"Constraint '{label}': {carrier} generation ≤ {value} GWh added.")
+                    n.model.add_constraints(total <= value, name=cname)
+                    notes.append(f"Constraint '{label}': {carrier} generation ≤ {value} MWh added.")
                 else:
-                    n.model.add_constraints(total >= value * 1_000, name=cname)
-                    notes.append(f"Constraint '{label}': {carrier} generation ≥ {value} GWh added.")
+                    n.model.add_constraints(total >= value, name=cname)
+                    notes.append(f"Constraint '{label}': {carrier} generation ≥ {value} MWh added.")
 
             # ── Carrier dispatch share cap / floor (%) ───────────────────────
             elif metric in ("carrier_max_share", "carrier_min_share"):

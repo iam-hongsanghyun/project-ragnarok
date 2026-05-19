@@ -25,10 +25,11 @@ def add_generators(
     period_factor: float,
     carbon_price: float,
     notes: list[str],
+    discount_rate: float,
+    *,
     snapshot_start: int = 0,
     snapshot_window: int | None = None,
     step: int = 1,
-    discount_rate: float = 0.05,
     force_lp: bool = False,
     currency: str = "$",
 ) -> None:
@@ -58,8 +59,11 @@ def add_generators(
     for row in generators:
         name = text(row.get("name"))
         bus = text(row.get("bus"))
-        carrier = text(row.get("carrier"), "LNG")
+        carrier = text(row.get("carrier"))
         if not name or bus not in network.buses.index:
+            continue
+        if not carrier:
+            notes.append(f"Generator '{name}' has no carrier — skipped.")
             continue
         p_nom = number(row.get("p_nom"), 0.0)
         marginal_cost = (
@@ -149,6 +153,15 @@ def add_load_shedding(
     ls_cfg = cfg["load_shedding"]
     cost = float(load_shedding_cost) if load_shedding_cost is not None else float(ls_cfg["marginal_cost"])
 
+    # Shedding capacity is uncapped: the solver must be free to curtail the
+    # full bus demand at any snapshot. We size to the system-wide peak demand
+    # across all snapshots (covers both static p_set and time-series loads).
+    try:
+        peak_total = float(network.loads_t.p_set.sum(axis=1).max())
+    except Exception:
+        peak_total = 0.0
+    static_total = float(sum(load_totals.values())) if load_totals else 0.0
+    p_nom_uncapped = max(peak_total, static_total, 1.0)
     for bus in network.buses.index:
         shed_name = f"load_shedding_{bus}"
         network.add(
@@ -156,7 +169,7 @@ def add_load_shedding(
             shed_name,
             bus=bus,
             carrier=ls_cfg["carrier"],
-            p_nom=max(float(ls_cfg["p_nom_floor"]), load_totals.get(bus, 300.0)),
+            p_nom=p_nom_uncapped,
             marginal_cost=cost,
         )
         network.generators_t.p_max_pu.loc[:, shed_name] = 1.0

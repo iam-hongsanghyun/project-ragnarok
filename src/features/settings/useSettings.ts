@@ -11,6 +11,7 @@ export interface AppSettings {
   currencySymbol: string;    // display symbol, e.g. "$"
   enableLoadShedding: boolean;
   loadSheddingCost: number;   // VOLL in the currently-selected currency, per MWh
+  discountRate: number;       // Used to annualise CAPEX for extendable assets
 }
 
 const STORAGE_KEY = 'pypsa_gui_settings';
@@ -28,12 +29,13 @@ function loadSettings(): AppSettings {
         currencySymbol: parsed.currencySymbol ?? '$',
         enableLoadShedding: parsed.enableLoadShedding ?? false,
         loadSheddingCost: parsed.loadSheddingCost ?? 2000,
+        discountRate: parsed.discountRate ?? 0.05,
       };
     }
   } catch {
     // ignore
   }
-  return { dateFormat: 'auto', solverThreads: 0, solverType: 'simplex', currencyCode: 'USD', currencySymbol: '$', enableLoadShedding: false, loadSheddingCost: 2000 };
+  return { dateFormat: 'auto', solverThreads: 0, solverType: 'simplex', currencyCode: 'USD', currencySymbol: '$', enableLoadShedding: false, loadSheddingCost: 2000, discountRate: 0.05 };
 }
 
 function saveSettings(s: AppSettings): void {

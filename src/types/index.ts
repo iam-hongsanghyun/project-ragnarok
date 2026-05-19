@@ -22,7 +22,7 @@ export type ChartSectionType = ChartMode | 'donut';
 export type TimeframeOption = 'aggregated' | 'yearly' | 'monthly' | 'weekly' | 'daily' | 'hourly';
 
 export type ConstraintMetric =
-  | 'co2_cap' | 're_share' | 'max_load_shed'
+  | 'co2_cap' | 'max_load_shed'
   | 'carrier_max_gen' | 'carrier_min_gen'
   | 'carrier_max_share' | 'carrier_min_share'
   | 'carrier_max_cf' | 'carrier_min_cf';

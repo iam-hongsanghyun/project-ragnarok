@@ -23,15 +23,23 @@ def add_buses(
         name = text(row.get("name"))
         if not name:
             continue
-        network.add(
-            "Bus",
-            name,
-            x=number(row.get("x")),
-            y=number(row.get("y")),
-            v_nom=number(row.get("v_nom"), 154.0),
-            carrier=text(row.get("carrier"), "AC"),
-            v_mag_pu_set=number(row.get("v_mag_pu_set"), 1.0),
-        )
+        kwargs: dict[str, Any] = {
+            "x": number(row.get("x")),
+            "y": number(row.get("y")),
+        }
+        # Pass through only what the workbook actually specifies — no implicit
+        # defaults for v_nom, carrier, or v_mag_pu_set. PyPSA will use its own
+        # defaults if these keys are omitted.
+        v_nom_raw = row.get("v_nom")
+        if v_nom_raw not in (None, ""):
+            kwargs["v_nom"] = number(v_nom_raw)
+        carrier_raw = text(row.get("carrier"))
+        if carrier_raw:
+            kwargs["carrier"] = carrier_raw
+        v_mag_pu_set_raw = row.get("v_mag_pu_set")
+        if v_mag_pu_set_raw not in (None, ""):
+            kwargs["v_mag_pu_set"] = number(v_mag_pu_set_raw)
+        network.add("Bus", name, **kwargs)
 
 
 def parse_ts_sheet(
@@ -100,13 +108,11 @@ def add_loads(
         if not name or bus not in network.buses.index:
             continue
         p_set_static = number(row.get("p_set"), 0.0)
-        network.add(
-            "Load",
-            name,
-            bus=bus,
-            carrier=text(row.get("carrier"), "load"),
-            q_set=number(row.get("q_set")),
-        )
+        load_kwargs: dict[str, Any] = {"bus": bus, "q_set": number(row.get("q_set"))}
+        carrier_raw = text(row.get("carrier"))
+        if carrier_raw:
+            load_kwargs["carrier"] = carrier_raw
+        network.add("Load", name, **load_kwargs)
         if ts_p_set and name in ts_p_set:
             network.loads_t.p_set.loc[:, name] = ts_p_set[name]
         else:

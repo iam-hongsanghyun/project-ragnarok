@@ -108,8 +108,6 @@ def build_co2_shadow(
         status          – 'binding' | 'slack' | 'none'
         note            – human-readable explanation
     """
-    BINDING_THRESHOLD = 0.01
-
     result: dict[str, Any] = {
         "found": False,
         "constraint_name": None,
@@ -145,7 +143,7 @@ def build_co2_shadow(
                     mu = 0.0
 
             result["shadow_price"] = round(abs(mu), 4)
-            if abs(mu) > BINDING_THRESHOLD:
+            if abs(mu) > 0:
                 result["status"] = "binding"
                 result["note"] = (
                     f"GlobalConstraint '{name}' is binding. "
@@ -179,7 +177,7 @@ def build_co2_shadow(
     result["cap_unit"] = "kg CO₂e/MWh"
     result["shadow_price"] = round(abs(mu), 4)
 
-    if abs(mu) > BINDING_THRESHOLD:
+    if abs(mu) > 0:
         result["status"] = "binding"
         result["note"] = (
             f"CO₂ intensity constraint is binding. "

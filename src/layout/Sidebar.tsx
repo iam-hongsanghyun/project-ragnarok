@@ -49,6 +49,8 @@ export interface SidebarProps {
   onEnableLoadSheddingChange: (v: boolean) => void;
   loadSheddingCost: number;
   onLoadSheddingCostChange: (v: number) => void;
+  discountRate: number;
+  onDiscountRateChange: (v: number) => void;
   onCarrierColorChange: (rowIndex: number, color: string) => void;
   onCarrierMove: (rowIndex: number, direction: -1 | 1) => void;
 }
@@ -84,6 +86,8 @@ export function Sidebar({
   onEnableLoadSheddingChange,
   loadSheddingCost,
   onLoadSheddingCostChange,
+  discountRate,
+  onDiscountRateChange,
   onCarrierColorChange,
   onCarrierMove,
 }: SidebarProps) {
@@ -280,6 +284,30 @@ export function Sidebar({
           </div>
           <p className="sg-setting-hint">
             Sets the default color for each carrier across maps, legends, and charts.
+          </p>
+        </div>
+
+        <div className="sg-setting-divider" />
+
+        <div className="sg-setting-row">
+          <label className="sg-setting-label" htmlFor="sg-discount-rate">
+            Discount rate
+          </label>
+          <div className="sg-carbon-row">
+            <input
+              id="sg-discount-rate"
+              type="number"
+              className="sg-carbon-input"
+              min={0}
+              max={1}
+              step={0.005}
+              value={discountRate}
+              onChange={(e) => onDiscountRateChange(Math.max(0, parseFloat(e.target.value) || 0))}
+            />
+            <span className="sg-carbon-unit">(fraction)</span>
+          </div>
+          <p className="sg-setting-hint">
+            Used to annualise capital costs for extendable assets. e.g. 0.05 = 5% WACC.
           </p>
         </div>
 

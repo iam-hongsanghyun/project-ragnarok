@@ -94,11 +94,6 @@ def run_pypsa(payload: RunPayload) -> dict[str, Any]:
 
     # Capacity & energy metrics
     total_capacity = float(network.generators.p_nom.sum() + network.storage_units.p_nom.sum())
-    renewable_capacity = float(
-        network.generators.loc[network.generators.carrier.isin(["Solar", "Wind", "Hydro"]), "p_nom"].sum()
-        + network.storage_units.p_nom.sum()
-    )
-    renewable_share = (renewable_capacity / total_capacity * 100.0) if total_capacity else 0.0
     total_load = float(load_dispatch.max())
     reserve_requirement = total_load  # installed capacity vs peak demand
 
@@ -193,19 +188,13 @@ def run_pypsa(payload: RunPayload) -> dict[str, Any]:
 
     total_emissions = sum(emission_totals.values()) / 1000.0
     average_price = float(price_series.mean())
-    solar_s = by_carrier.get("Solar", pd.Series(0.0, index=network.snapshots))
-    wind_s = by_carrier.get("Wind", pd.Series(0.0, index=network.snapshots))
-    peak_net_load = round(float((load_dispatch - solar_s - wind_s).max()))
-    renewable_dispatch_share = round(
-        sum(v["value"] for v in carrier_mix if v["label"] in {"Solar", "Wind", "Hydro", "Storage"})
-        / max(sum(v["value"] for v in carrier_mix), 1.0) * 100.0
-    )
+    peak_net_load = round(float(load_dispatch.max()))
 
     summary = [
-        {"label": "Installed capacity", "value": f"{round(total_capacity):,} MW", "detail": f"{round(renewable_share)}% renewable capacity share"},
+        {"label": "Installed capacity", "value": f"{round(total_capacity):,} MW", "detail": f"{len(network.generators)} generators + {len(network.storage_units)} storage units"},
         {"label": "Peak demand", "value": f"{round(total_load):,} MW", "detail": "from workbook load profile"},
         {"label": "Reserve position", "value": f"{round(total_capacity - reserve_requirement):,} MW", "detail": "installed capacity vs peak demand"},
-        {"label": "Peak price", "value": f"{round(float(price_series.max())):,} {currency}/MWh", "detail": f"{peak_net_load:,} MW peak net load"},
+        {"label": "Peak price", "value": f"{round(float(price_series.max())):,} {currency}/MWh", "detail": f"{peak_net_load:,} MW peak load"},
         {"label": "System emissions", "value": f"{round(total_emissions):,} ktCO2e", "detail": f"Carbon price {float(scenario.get('carbonPrice', 0.0)):.0f} {currency}/t"},
         {"label": "Transmission stress", "value": f"{round(np.mean([x['value'] for x in line_loading]) if line_loading else 0):,}%", "detail": f"{sum(1 for x in line_loading if x['value'] > 80.0)} corridors above 80%"},
     ]
@@ -223,7 +212,6 @@ def run_pypsa(payload: RunPayload) -> dict[str, Any]:
         f"Backend PyPSA run solved {len(network.snapshots)} hourly snapshots with {len(network.generators)} generators and {len(network.loads)} loads.",
         f"Average price settled at {average_price:.1f} {currency}/MWh and peaked at {float(price_series.max()):.1f} {currency}/MWh.",
         f"Load shedding totalled {float(load_shed.sum()):.2f} MWh across the day.",
-        f"Renewable energy share in dispatch reached {renewable_dispatch_share}%.",
     ])
 
     return {

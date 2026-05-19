@@ -17,8 +17,8 @@
     { "col": "ramp_limit_down",  "label": "Ramp down limit",         "type": "number",  "default": 1.0,     "unit": "pu/h",    "desc": "Max decrease in output per hour as fraction of p_nom" },
     { "col": "min_up_time",      "label": "Min up time",             "type": "number",  "default": 0,       "unit": "h",       "desc": "Minimum consecutive hours a unit must stay on (MIP/unit commitment)" },
     { "col": "min_down_time",    "label": "Min down time",           "type": "number",  "default": 0,       "unit": "h",       "desc": "Minimum consecutive hours a unit must stay off (MIP/unit commitment)" },
-    { "col": "start_up_cost",    "label": "Start-up cost",           "type": "number",  "default": 0,       "unit": "$",       "desc": "One-off cost each time the unit is started (MIP/unit commitment)" },
-    { "col": "shut_down_cost",   "label": "Shut-down cost",          "type": "number",  "default": 0,       "unit": "$",       "desc": "One-off cost each time the unit is shut down (MIP/unit commitment)" },
+    { "col": "start_up_cost",    "label": "Start-up cost",           "type": "number",  "default": 0,       "unit": "currency",       "desc": "One-off cost each time the unit is started (MIP/unit commitment)" },
+    { "col": "shut_down_cost",   "label": "Shut-down cost",          "type": "number",  "default": 0,       "unit": "currency",       "desc": "One-off cost each time the unit is shut down (MIP/unit commitment)" },
     { "col": "build_year",       "label": "Build year",              "type": "number",  "default": 2025,    "unit": "yr",      "desc": "Year the asset is commissioned (multi-period investment)" },
     { "col": "retire_year",      "label": "Retire year",             "type": "number",  "default": 2050,    "unit": "yr",      "desc": "Year the asset retires (multi-period investment)" },
     { "col": "committable",      "label": "Committable (MIP)",       "type": "boolean", "default": false,   "desc": "Enable unit commitment binary on/off variables (makes LP a MIP)" },
@@ -28,17 +28,17 @@
   "storage_units": [
     { "col": "extendable",       "label": "Extendable",              "type": "boolean", "default": false,   "desc": "Allow PyPSA to optimise p_nom" },
     { "col": "asset_lifetime",   "label": "Asset lifetime",          "type": "number",  "default": 15,      "unit": "yr",      "desc": "Lifetime in years for annuity calculation" },
-    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "$/MW",    "desc": "Overnight capital cost per MW (annualised via lifetime)" },
+    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "currency/MW",    "desc": "Overnight capital cost per MW (annualised via lifetime)" },
     { "col": "p_nom_max",        "label": "Max buildable capacity",  "type": "number",  "default": 10000,   "unit": "MW",      "desc": "Upper bound on p_nom_opt when extendable=true" },
     { "col": "inflow",           "label": "Inflow",                  "type": "number",  "default": 0,       "unit": "MW",      "desc": "Natural inflow (hydro reservoir)" },
-    { "col": "spill_cost",       "label": "Spill cost",              "type": "number",  "default": 0,       "unit": "$/MWh",   "desc": "Cost per MWh of energy spilled (hydro overflow)" },
+    { "col": "spill_cost",       "label": "Spill cost",              "type": "number",  "default": 0,       "unit": "currency/MWh",   "desc": "Cost per MWh of energy spilled (hydro overflow)" },
     { "col": "build_year",       "label": "Build year",              "type": "number",  "default": 2025,    "unit": "yr",      "desc": "Year the storage unit is commissioned" }
   ],
 
   "stores": [
     { "col": "e_nom_extendable", "label": "Extendable store",        "type": "boolean", "default": false,   "desc": "Allow PyPSA to optimise e_nom (energy capacity)" },
     { "col": "e_nom_max",        "label": "Max energy capacity",     "type": "number",  "default": 100000,  "unit": "MWh",     "desc": "Upper bound on e_nom_opt when extendable" },
-    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "$/MWh",   "desc": "Overnight capital cost per MWh" },
+    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "currency/MWh",   "desc": "Overnight capital cost per MWh" },
     { "col": "e_cyclic",         "label": "Cyclic energy",           "type": "boolean", "default": false,   "desc": "Enforce that initial and final energy level are equal" },
     { "col": "build_year",       "label": "Build year",              "type": "number",  "default": 2025,    "unit": "yr",      "desc": "Year the store is commissioned" }
   ],
@@ -56,7 +56,7 @@
     { "col": "s_max_pu",         "label": "Max loading (pu)",        "type": "number",  "default": 1.0,     "unit": "pu",      "desc": "Fraction of s_nom allowed continuously (thermal derating)" },
     { "col": "s_nom_extendable", "label": "Extendable line",         "type": "boolean", "default": false,   "desc": "Allow PyPSA to optimise line capacity" },
     { "col": "s_nom_max",        "label": "Max line capacity",       "type": "number",  "default": 10000,   "unit": "MVA",     "desc": "Upper bound on s_nom_opt when extendable" },
-    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "$/MVA",   "desc": "Overnight capital cost per MVA (for extendable lines)" },
+    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "currency/MVA",   "desc": "Overnight capital cost per MVA (for extendable lines)" },
     { "col": "terrain_factor",   "label": "Terrain factor",          "type": "number",  "default": 1.0,                        "desc": "Cost multiplier for terrain (used in investment cost models)" }
   ],
 
@@ -67,7 +67,7 @@
     { "col": "efficiency3",      "label": "Efficiency 3",            "type": "number",  "default": 1.0,                        "desc": "Conversion efficiency to bus3" },
     { "col": "p_nom_extendable", "label": "Extendable link",         "type": "boolean", "default": false,   "desc": "Allow PyPSA to optimise link capacity" },
     { "col": "p_nom_max",        "label": "Max buildable capacity",  "type": "number",  "default": 10000,   "unit": "MW",      "desc": "Upper bound on p_nom_opt when extendable" },
-    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "$/MW",    "desc": "Overnight capital cost per MW" },
+    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "currency/MW",    "desc": "Overnight capital cost per MW" },
     { "col": "build_year",       "label": "Build year",              "type": "number",  "default": 2025,    "unit": "yr",      "desc": "Year the link is commissioned" },
     { "col": "ramp_limit_up",    "label": "Ramp up limit",           "type": "number",  "default": 1.0,     "unit": "pu/h",    "desc": "Max increase in flow per hour as fraction of p_nom" },
     { "col": "ramp_limit_down",  "label": "Ramp down limit",         "type": "number",  "default": 1.0,     "unit": "pu/h",    "desc": "Max decrease in flow per hour as fraction of p_nom" }
@@ -90,7 +90,7 @@
   "transformers": [
     { "col": "s_nom_extendable", "label": "Extendable transformer",  "type": "boolean", "default": false,   "desc": "Allow PyPSA to optimise transformer capacity" },
     { "col": "s_nom_max",        "label": "Max capacity",            "type": "number",  "default": 10000,   "unit": "MVA",     "desc": "Upper bound on s_nom_opt when extendable" },
-    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "$/MVA",   "desc": "Overnight capital cost per MVA" },
+    { "col": "capital_cost",     "label": "Capital cost",            "type": "number",  "default": 0,       "unit": "currency/MVA",   "desc": "Overnight capital cost per MVA" },
     { "col": "tap_ratio",        "label": "Tap ratio",               "type": "number",  "default": 1.0,                        "desc": "Off-nominal tap ratio (1.0 = nominal)" },
     { "col": "phase_shift",      "label": "Phase shift",             "type": "number",  "default": 0,       "unit": "deg",     "desc": "Fixed phase shift in degrees (phase-shifting transformer)" }
   ],

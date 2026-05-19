@@ -93,7 +93,13 @@ def build_network(payload: RunPayload) -> tuple[pypsa.Network, list[str]]:
 
     # Run parameters
     carbon_price = number(scenario.get("carbonPrice"), 0.0)
-    discount_rate = number(scenario.get("discountRate"), 0.05)
+    if "discountRate" not in scenario:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="discountRate is required (set it in Settings).",
+        )
+    discount_rate = number(scenario.get("discountRate"))
     currency = str(options.get("currencySymbol", "$"))
 
     # Topology
@@ -114,10 +120,10 @@ def build_network(payload: RunPayload) -> tuple[pypsa.Network, list[str]]:
     force_lp = bool(options.get("forceLp", False))
     add_generators(
         network, model, snapshots, period_factor,
-        carbon_price, notes,
+        carbon_price, notes, discount_rate,
         snapshot_start=snapshot_start,
         snapshot_window=window,
-        step=step, discount_rate=discount_rate,
+        step=step,
         force_lp=force_lp, currency=currency,
     )
     enable_load_shedding = bool(options.get("enableLoadShedding", False))

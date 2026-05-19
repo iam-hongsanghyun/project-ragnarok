@@ -112,15 +112,9 @@ function AppInner() {
   const [filename, setFilename] = useState('ragnarok_case.xlsx');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    loadSampleWorkbook().then((sampleModel) => {
-      if (!sampleModel) return;
-      const snapshotMax = snapshotMaxFromWorkbook(sampleModel.snapshots);
-      setMaxSnapshots(snapshotMax);
-      setSnapshotEnd(Math.min(24, snapshotMax));
-      setModel(sampleModel);
-    }).catch(() => null);
-  }, []);
+  // No workbook is auto-loaded — the user must explicitly Open a file or click
+  // the Demo button. This avoids surprising the user with someone else's data
+  // and keeps assumptions out of the empty starting state.
 
   useEffect(() => {
     setSharedCarrierColorOverrides(model.carriers);
@@ -360,7 +354,7 @@ function AppInner() {
     const snapshotCount = snapshotEnd - snapshotStart;
     const runOptions = {
       model,
-      scenario: { constraints: constraints.filter((c) => c.enabled), carbonPrice },
+      scenario: { constraints: constraints.filter((c) => c.enabled), carbonPrice, discountRate: settings.discountRate },
       options: { snapshotCount, snapshotStart, snapshotWeight, forceLp, dateFormat: settings.dateFormat, solverThreads: settings.solverThreads, solverType: settings.solverType, currencySymbol: settings.currencySymbol, enableLoadShedding: settings.enableLoadShedding, loadSheddingCost: settings.loadSheddingCost },
     };
 
@@ -666,6 +660,8 @@ function AppInner() {
               onEnableLoadSheddingChange={(v) => updateSettings({ enableLoadShedding: v })}
               loadSheddingCost={settings.loadSheddingCost}
               onLoadSheddingCostChange={(v) => updateSettings({ loadSheddingCost: v })}
+              discountRate={settings.discountRate}
+              onDiscountRateChange={(v) => updateSettings({ discountRate: v })}
               onCarrierColorChange={(rowIndex, color) => updateRowValue('carriers', rowIndex, 'color', color)}
               onCarrierMove={(rowIndex, direction) => moveRow('carriers', rowIndex, direction)}
             />

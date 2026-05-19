@@ -116,9 +116,6 @@ export function ResultsDashboard({
 
   // KPI calculations
   const totalDispatch = results.carrierMix.reduce((s, m) => s + m.value, 0);
-  const reCarriers = new Set(['Solar', 'Wind', 'Hydro']);
-  const reDispatch = results.carrierMix.filter((m) => reCarriers.has(m.label)).reduce((s, m) => s + m.value, 0);
-  const reShare = totalDispatch > 0 ? (reDispatch / totalDispatch) * 100 : 0;
 
   const avgPrice = systemPriceRows.length
     ? systemPriceRows.reduce((s, r) => s + numberValue(r['price'] as number | string | undefined), 0) / systemPriceRows.length
@@ -207,7 +204,6 @@ export function ResultsDashboard({
       {/* KPI strip */}
       <div className="kpi-strip">
         <KpiCard label="Total dispatch" value={Math.round(totalDispatch).toLocaleString()} unit="MWh" />
-        <KpiCard label="RE share" value={`${reShare.toFixed(1)}`} unit="%" green />
         <KpiCard label="Avg price" value={`${avgPrice.toFixed(1)}`} unit={`${currencySymbol}/MWh`} />
         <KpiCard label="Emissions" value={emissionsDisplay} unit="" />
       </div>

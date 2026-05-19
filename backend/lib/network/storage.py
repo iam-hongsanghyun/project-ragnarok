@@ -20,7 +20,10 @@ def add_stores(
         bus = text(row.get("bus"))
         if not name or bus not in network.buses.index:
             continue
-        carrier = text(row.get("carrier"), "Store")
+        carrier = text(row.get("carrier"))
+        if not carrier:
+            notes.append(f"Store '{name}' has no carrier — skipped.")
+            continue
         if carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
         network.add(
@@ -45,7 +48,7 @@ def add_storage_units(
     model: dict[str, list[dict[str, Any]]],
     period_factor: float,
     notes: list[str],
-    discount_rate: float = 0.05,
+    discount_rate: float,
     currency: str = "$",
 ) -> None:
     for row in workbook_rows(model, "storage_units"):
@@ -53,7 +56,10 @@ def add_storage_units(
         bus = text(row.get("bus"))
         if not name or bus not in network.buses.index:
             continue
-        carrier = text(row.get("carrier"), "Storage")
+        carrier = text(row.get("carrier"))
+        if not carrier:
+            notes.append(f"StorageUnit '{name}' has no carrier — skipped.")
+            continue
         if carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
         extendable = bool_value(row.get("extendable"), False)

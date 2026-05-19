@@ -73,6 +73,18 @@ def validate_model(payload: RunPayload) -> dict[str, Any]:
             if p_nom <= 0:
                 warnings.append(f"Generator '{name}' has p_nom ≤ 0 — it will produce no power.")
 
+    # ── Carrier CO₂ emission factor sanity check ────────────────────────────────
+    # PyPSA convention: co2_emissions is in tCO₂/MWh. No real fuel exceeds ~1.
+    # A value > 5 almost certainly means the user entered kg/MWh by mistake.
+    for row in workbook_rows(model, "carriers"):
+        name = text(row.get("name"))
+        co2 = number(row.get("co2_emissions"), None)
+        if name and co2 is not None and co2 > 5.0:
+            warnings.append(
+                f"Carrier '{name}' has co2_emissions={co2} — expected tCO₂/MWh "
+                f"(real fuels are ≤ ~1). If this is kg/MWh, divide by 1000."
+            )
+
     # ── Optional but common issues ──────────────────────────────────────────────
     for row in workbook_rows(model, "lines"):
         name = text(row.get("name"))
