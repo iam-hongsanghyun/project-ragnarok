@@ -202,10 +202,6 @@ export function RunDialog({
               })()}
             </div>
 
-            <p className="status-text" style={{ marginBottom: 12 }}>
-              Resolution selects every Nth step — <code>snapshots[::N]</code> with{' '}
-              <code>snapshot_weightings = N</code>. Higher N = coarser resolution, faster solve.
-            </p>
           </>
         )}
 
