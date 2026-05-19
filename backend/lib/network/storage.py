@@ -21,16 +21,10 @@ def add_stores(
         if not name or bus not in network.buses.index:
             continue
         carrier = text(row.get("carrier"))
-        if not carrier:
-            notes.append(f"Store '{name}' has no carrier — skipped.")
-            continue
-        if carrier not in network.carriers.index:
+        if carrier and carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
-        network.add(
-            "Store",
-            name,
+        store_kwargs: dict[str, Any] = dict(
             bus=bus,
-            carrier=carrier,
             e_nom=number(row.get("e_nom"), 0.0),
             e_initial=number(row.get("e_initial"), 0.0),
             e_min_pu=number(row.get("e_min_pu"), 0.0),
@@ -38,6 +32,9 @@ def add_stores(
             standing_loss=number(row.get("standing_loss"), 0.0),
             marginal_cost=number(row.get("marginal_cost"), 0.0),
         )
+        if carrier:
+            store_kwargs["carrier"] = carrier
+        network.add("Store", name, **store_kwargs)
         applied = apply_scaled_static_attributes(network.stores, name, row, period_factor)
         if applied:
             notes.append(f"Scaled {', '.join(applied)} for store {name} by period factor {period_factor:.2f}.")
@@ -57,10 +54,7 @@ def add_storage_units(
         if not name or bus not in network.buses.index:
             continue
         carrier = text(row.get("carrier"))
-        if not carrier:
-            notes.append(f"StorageUnit '{name}' has no carrier — skipped.")
-            continue
-        if carrier not in network.carriers.index:
+        if carrier and carrier not in network.carriers.index:
             network.add("Carrier", carrier, co2_emissions=0.0)
         extendable = bool_value(row.get("extendable"), False)
         raw_capital_cost = number(row.get("capital_cost"), 0.0)
@@ -74,11 +68,8 @@ def add_storage_units(
             )
         else:
             annualised_capital_cost = 0.0
-        network.add(
-            "StorageUnit",
-            name,
+        su_kwargs: dict[str, Any] = dict(
             bus=bus,
-            carrier=carrier,
             p_nom=number(row.get("p_nom"), 0.0),
             p_nom_extendable=extendable,
             p_nom_min=0.0,
@@ -90,6 +81,9 @@ def add_storage_units(
             marginal_cost=number(row.get("marginal_cost"), 0.0),
             capital_cost=annualised_capital_cost,
         )
+        if carrier:
+            su_kwargs["carrier"] = carrier
+        network.add("StorageUnit", name, **su_kwargs)
         applied = apply_scaled_static_attributes(network.storage_units, name, row, period_factor)
         if applied:
             notes.append(f"Scaled {', '.join(applied)} for storage unit {name} by period factor {period_factor:.2f}.")

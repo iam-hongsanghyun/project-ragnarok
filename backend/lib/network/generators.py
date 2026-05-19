@@ -62,13 +62,13 @@ def add_generators(
         carrier = text(row.get("carrier"))
         if not name or bus not in network.buses.index:
             continue
-        if not carrier:
-            notes.append(f"Generator '{name}' has no carrier — skipped.")
-            continue
+        # A blank carrier is allowed — the generator still participates in
+        # dispatch. Its emissions factor is 0 unless a carrier with a
+        # co2_emissions value is declared and referenced.
         p_nom = number(row.get("p_nom"), 0.0)
         marginal_cost = (
             number(row.get("marginal_cost"), 0.0)
-            + carbon_price * _carrier_emissions(network, carrier)
+            + carbon_price * (_carrier_emissions(network, carrier) if carrier else 0.0)
         )
         p_max_pu_static = number(row.get("p_max_pu"), 1.0)
         p_min_pu_static = number(row.get("p_min_pu"), 0.0)
@@ -94,7 +94,6 @@ def add_generators(
             annualised_capital_cost = 0.0
         gen_kwargs: dict[str, Any] = dict(
             bus=bus,
-            carrier=carrier,
             control=text(row.get("control"), "PQ"),
             p_nom=p_nom,
             p_nom_min=0.0,
@@ -105,6 +104,8 @@ def add_generators(
             p_nom_extendable=extendable,
             committable=committable,
         )
+        if carrier:
+            gen_kwargs["carrier"] = carrier
         # Unit-commitment attributes — only relevant when committable=True
         if committable:
             for uc_attr in ("min_up_time", "min_down_time", "start_up_cost", "shut_down_cost"):
