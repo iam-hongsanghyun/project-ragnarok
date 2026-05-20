@@ -30,8 +30,22 @@ function loadModuleConfigs(): Record<string, Record<string, unknown>> {
   }
 }
 
+function isFileValue(v: unknown): boolean {
+  return typeof v === 'object' && v !== null && 'content' in (v as object) && 'name' in (v as object);
+}
+
 function saveModuleConfigs(configs: Record<string, Record<string, unknown>>): void {
-  try { localStorage.setItem(CONFIGS_KEY, JSON.stringify(configs)); } catch { /* ignore */ }
+  // File values are in-memory only — strip them before persisting so localStorage
+  // never holds large binary blobs. Users re-select files after a page refresh.
+  const stripped: Record<string, Record<string, unknown>> = {};
+  for (const [moduleId, fields] of Object.entries(configs)) {
+    const safe: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (!isFileValue(v)) safe[k] = v;
+    }
+    stripped[moduleId] = safe;
+  }
+  try { localStorage.setItem(CONFIGS_KEY, JSON.stringify(stripped)); } catch { /* ignore */ }
 }
 
 function loadDisplayModes(): Record<string, PluginDisplayMode> {

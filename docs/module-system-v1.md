@@ -257,7 +257,7 @@ Each config key maps to a field descriptor:
 
 | Field | Required | Description |
 |---|---|---|
-| `type` | yes | `"boolean"`, `"number"`, `"string"`, `"select"`, `"carrier-select"` |
+| `type` | yes | `"boolean"`, `"number"`, `"string"`, `"select"`, `"carrier-select"`, `"file"` |
 | `label` | no | Display label shown in the UI. Defaults to the key name. |
 | `description` | no | Hint text shown below the field. |
 | `default` | no | Default value used before the user edits the field. |
@@ -265,14 +265,36 @@ Each config key maps to a field descriptor:
 | `min` / `max` | no | For `"number"` — renders a slider when both are present. |
 | `step` | no | Slider/input step increment for `"number"`. |
 | `options` | no | For `"select"` — array of `{ "value": ..., "label": ... }` objects. |
+| `accept` | no | For `"file"` — MIME types or extension filter passed to the browser file picker (e.g. `".csv,text/csv"`). |
 
 **`carrier-select`** is a multi-checkbox field populated from the carriers defined in the
 current workbook. The config value is a `list[str]` of selected carrier names.
+
+**`file`** shows a file-picker button. The user selects a file from their machine; the
+browser reads it as UTF-8 text and stores it in-memory. The config value passed to the
+plugin is a dict `{ "name": "<filename>", "content": "<text>", "mime": "<mime-type>" }`.
+File values are **not persisted** to localStorage — the user must re-select after a page
+refresh. Suitable for small text files (CSV, JSON, TOML). For binary files the plugin
+should use base64-decoding on the content string.
+
+```python
+# Reading a file value in a pre-build plugin
+module_config = options.get("moduleConfig", {})
+f = module_config.get("my_file")  # None if no file selected
+if f:
+    import csv, io
+    rows = list(csv.DictReader(io.StringIO(f["content"])))
+```
 
 Example:
 
 ```json
 "config": {
+  "input_csv": {
+    "type": "file",
+    "label": "Input CSV",
+    "accept": ".csv,text/csv"
+  },
   "renewable_floor": {
     "type": "number",
     "label": "Minimum renewable share",
@@ -310,8 +332,25 @@ a specific plugin.
 |---|---|
 | `"number"` | Locale-formatted number with up to 4 decimal places |
 | `"currency"` | Same as `number` |
-| `"table"` | Nested sub-table (value must be a `dict[str, scalar]`) |
+| `"table"` | Nested sub-table — accepts either a `dict[str, scalar]` (key/value pairs) or a `list[dict]` (array of rows with column headers auto-derived from first row's keys) |
 | `"text"` or absent | Plain string |
+
+**Dict table** — use when you have a named set of values (e.g. cost per carrier):
+```python
+return { "carrier_cost": { "coal": 5000.0, "gas": 3200.0 } }
+# renders as: coal | 5,000  /  gas | 3,200
+```
+
+**Array-of-rows table** — use when you have structured tabular data with multiple columns:
+```python
+return {
+  "generator_summary": [
+    { "Generator": "Coal1", "Output MWh": 2400, "Cost $": 4800 },
+    { "Generator": "Solar1", "Output MWh": 900,  "Cost $": 0 },
+  ]
+}
+# renders with column headers: Generator | Output MWh | Cost $
+```
 
 ---
 

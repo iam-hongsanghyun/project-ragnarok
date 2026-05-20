@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ModuleConfigField, ModuleDescriptor, ModuleHostInventory, PluginDisplayMode } from '../../shared/types';
+import { ModuleConfigField, ModuleDescriptor, ModuleHostInventory, PluginDisplayMode, PluginFileValue } from '../../shared/types';
 
 interface ModuleManagerSectionProps {
   inventory: ModuleHostInventory | null;
@@ -138,6 +138,38 @@ export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: C
           <span className="sg-module-config-value">
             {num}{field.unit ? <span className="sg-module-config-unit">{field.unit}</span> : null}
           </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (field.type === 'file') {
+    const fileVal = resolved as PluginFileValue | undefined | null;
+    return (
+      <div className="sg-module-config-row sg-module-config-row--file">
+        <span className="sg-module-config-label">{label}</span>
+        <div className="sg-module-file-row">
+          <label className="tb-btn sg-module-file-btn">
+            {fileVal ? 'Change' : 'Select file'}
+            <input
+              type="file"
+              accept={field.accept}
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  onChange({ name: file.name, content: reader.result as string, mime: file.type } as PluginFileValue);
+                };
+                reader.readAsText(file);
+              }}
+            />
+          </label>
+          {fileVal
+            ? <span className="sg-module-file-name">{fileVal.name}</span>
+            : <span className="sg-setting-hint" style={{ margin: 0 }}>No file selected</span>
+          }
         </div>
       </div>
     );

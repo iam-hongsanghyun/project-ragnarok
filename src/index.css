@@ -865,6 +865,29 @@ button {
   font-size: 0.82rem;
   color: var(--text);
 }
+/* file-picker field */
+.sg-module-config-row--file {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.sg-module-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sg-module-file-btn {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sg-module-file-name {
+  font-size: 0.8rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .sg-module-root-label,
 .sg-module-meta {
   font-size: 12px;
@@ -2651,25 +2674,6 @@ path.leaflet-interactive:focus {
 .dashboard-section-body { padding: 0 4px 8px; }
 
 /* ── Plugin result cards ─────────────────────────────────────────────────── */
-.plugin-result-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.plugin-result-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.72);
-}
-.plugin-result-card-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text);
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 .plugin-result-table {
   width: 100%;
   border-collapse: collapse;
@@ -2708,6 +2712,17 @@ path.leaflet-interactive:focus {
   color: var(--text);
   font-weight: 500;
   text-align: right;
+}
+.plugin-result-subtable th {
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 8px 4px 0;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 /* Export buttons */

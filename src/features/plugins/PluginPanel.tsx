@@ -18,7 +18,54 @@ function formatPluginValue(value: unknown, hint: PluginFieldHint | undefined): s
   return String(value);
 }
 
-// ── Results table (reuses existing plugin-result-* CSS) ───────────────────────
+// ── Table renderer (shared by dict and array-of-rows formats) ─────────────────
+
+function renderTableContent(value: unknown, hint: PluginFieldHint | undefined): React.ReactNode | null {
+  // array-of-rows: [{ col1: v, col2: v }, ...]
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+    const cols = Object.keys(value[0] as Record<string, unknown>);
+    return (
+      <table className="plugin-result-subtable">
+        <thead>
+          <tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
+        </thead>
+        <tbody>
+          {(value as Record<string, unknown>[]).map((row, i) => (
+            <tr key={i}>
+              {cols.map((c) => (
+                <td key={c}>
+                  {formatPluginValue(row[c], hint)}
+                  {hint?.unit ? <span className="plugin-result-unit"> {hint.unit}</span> : null}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  // dict: { key: scalar, ... }
+  if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
+    return (
+      <table className="plugin-result-subtable">
+        <tbody>
+          {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+            <tr key={k}>
+              <td>{k}</td>
+              <td>
+                {formatPluginValue(v, hint)}
+                {hint?.unit ? <span className="plugin-result-unit"> {hint.unit}</span> : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  return null;
+}
+
+// ── Results table ─────────────────────────────────────────────────────────────
 
 function PluginResults({ entry }: { entry: PluginAnalyticsEntry }) {
   const { ui, data } = entry;
@@ -30,28 +77,7 @@ function PluginResults({ entry }: { entry: PluginAnalyticsEntry }) {
       <tbody>
         {Object.entries(data).map(([key, value]) => {
           const hint = ui?.[key];
-          if (hint?.format === 'table' && value && typeof value === 'object' && !Array.isArray(value)) {
-            return (
-              <tr key={key}>
-                <td className="plugin-result-label">{hint?.label ?? key}</td>
-                <td className="plugin-result-value">
-                  <table className="plugin-result-subtable">
-                    <tbody>
-                      {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-                        <tr key={k}>
-                          <td>{k}</td>
-                          <td>
-                            {formatPluginValue(v, hint)}
-                            {hint?.unit ? <span className="plugin-result-unit"> {hint.unit}</span> : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </td>
-              </tr>
-            );
-          }
+
           if (key === 'error') {
             return (
               <tr key={key}>
@@ -61,6 +87,19 @@ function PluginResults({ entry }: { entry: PluginAnalyticsEntry }) {
               </tr>
             );
           }
+
+          if (hint?.format === 'table') {
+            const tableContent = renderTableContent(value, hint);
+            if (tableContent) {
+              return (
+                <tr key={key}>
+                  <td className="plugin-result-label" style={{ verticalAlign: 'top' }}>{hint?.label ?? key}</td>
+                  <td className="plugin-result-value">{tableContent}</td>
+                </tr>
+              );
+            }
+          }
+
           return (
             <tr key={key}>
               <td className="plugin-result-label">{hint?.label ?? key}</td>

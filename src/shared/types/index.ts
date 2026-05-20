@@ -371,7 +371,7 @@ export interface ModuleHostRoot {
   managed: boolean;
 }
 
-export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select';
+export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select' | 'file';
 
 export interface ModuleConfigField {
   type: ModuleConfigFieldType;
@@ -383,6 +383,13 @@ export interface ModuleConfigField {
   max?: number;
   step?: number;
   options?: Array<{ value: unknown; label: string }>;
+  accept?: string;  // for 'file' fields: MIME types / extension filter passed to <input accept>
+}
+
+export interface PluginFileValue {
+  name: string;
+  content: string;
+  mime: string;
 }
 
 export type ModuleConfigSchema = Record<string, ModuleConfigField>;
