@@ -6,7 +6,7 @@ import {
 } from '../../shared/types';
 import { ConfigFieldRow } from '../modules/ModuleManagerSection';
 
-// ── Helpers (mirrored from ResultsDashboard) ─────────────────────────────────
+// ── Value formatter ───────────────────────────────────────────────────────────
 
 function formatPluginValue(value: unknown, hint: PluginFieldHint | undefined): string {
   if (value === null || value === undefined) return '—';
@@ -18,7 +18,7 @@ function formatPluginValue(value: unknown, hint: PluginFieldHint | undefined): s
   return String(value);
 }
 
-// ── Plugin results table ──────────────────────────────────────────────────────
+// ── Results table (reuses existing plugin-result-* CSS) ───────────────────────
 
 function PluginResults({ entry }: { entry: PluginAnalyticsEntry }) {
   const { ui, data } = entry;
@@ -26,7 +26,7 @@ function PluginResults({ entry }: { entry: PluginAnalyticsEntry }) {
     return <p className="sg-setting-hint">No results yet — run the model first.</p>;
   }
   return (
-    <table className="plugin-result-table pp-result-table">
+    <table className="plugin-result-table">
       <tbody>
         {Object.entries(data).map(([key, value]) => {
           const hint = ui?.[key];
@@ -89,14 +89,15 @@ interface PluginTabContentProps {
 function PluginTabContent({ module, config, onConfigChange, carriers, analytics }: PluginTabContentProps) {
   const hasConfig = module.config && Object.keys(module.config).length > 0;
   return (
-    <div className="pp-tab-content">
-      <div className="pp-columns">
-        {/* Left: config */}
+    <div className="plugin-panel-content">
+      <div className="plugin-panel-columns">
         {hasConfig && (
-          <div className="pp-col pp-col--config">
-            <p className="pp-section-title">Configuration</p>
-            <p className="sg-setting-hint" style={{ marginBottom: 12 }}>{module.description}</p>
-            <div className="sg-module-config-form pp-config-form">
+          <div className="plugin-panel-col plugin-panel-col--config">
+            <p className="plugin-panel-col-title">Configuration</p>
+            {module.description && (
+              <p className="sg-setting-hint" style={{ marginBottom: 12 }}>{module.description}</p>
+            )}
+            <div className="sg-module-config-form">
               {Object.entries(module.config!).map(([key, field]) => (
                 <ConfigFieldRow
                   key={key}
@@ -111,9 +112,8 @@ function PluginTabContent({ module, config, onConfigChange, carriers, analytics 
           </div>
         )}
 
-        {/* Right: results */}
-        <div className="pp-col pp-col--results">
-          <p className="pp-section-title">Results</p>
+        <div className="plugin-panel-col plugin-panel-col--results">
+          <p className="plugin-panel-col-title">Results</p>
           {analytics
             ? <PluginResults entry={analytics} />
             : <p className="sg-setting-hint">No results yet — run the model first.</p>
@@ -127,7 +127,7 @@ function PluginTabContent({ module, config, onConfigChange, carriers, analytics 
 // ── Plugin panel (top-level) ──────────────────────────────────────────────────
 
 interface PluginPanelProps {
-  modules: ModuleDescriptor[];          // only 'panel' mode + enabled + ready
+  modules: ModuleDescriptor[];
   moduleConfigs: Record<string, Record<string, unknown>>;
   onModuleConfigChange: (moduleId: string, key: string, value: unknown) => void;
   carriers?: string[];
@@ -141,10 +141,11 @@ export function PluginPanel({
 
   if (modules.length === 0) {
     return (
-      <div className="pp-empty">
-        <p>No plugins are set to <strong>Main panel</strong> mode.</p>
-        <p className="sg-setting-hint">
-          Open the Modules section in the sidebar, expand a plugin card, and switch its Location to "Main panel".
+      <div className="analytics-empty">
+        <h3>No plugins in Main panel mode</h3>
+        <p>
+          Open the Modules section in the sidebar, expand a plugin card,
+          and switch its Location to "Main panel".
         </p>
       </div>
     );
@@ -153,24 +154,35 @@ export function PluginPanel({
   const active = modules.find((m) => m.id === activeId) ?? modules[0];
 
   return (
-    <div className="pp-root">
-      {/* Sub-tab bar */}
-      <div className="pp-subtab-bar">
-        {modules.map((m) => (
-          <button
-            key={m.id}
-            className={`pp-subtab${(activeId || modules[0].id) === m.id ? ' pp-subtab--active' : ''}`}
-            onClick={() => setActiveId(m.id)}
-          >
-            {m.name || m.id}
-            {pluginAnalytics[m.id] && (
-              <span className="pp-subtab-dot" title="Has results" />
-            )}
-          </button>
-        ))}
+    <div className="plugin-panel-root">
+      <div className="analytics-pane-header" style={{ padding: '14px 20px 10px' }}>
+        <nav className="analytics-subtab-nav">
+          {modules.map((m) => (
+            <button
+              key={m.id}
+              className={`analytics-subtab${(activeId || modules[0].id) === m.id ? ' analytics-subtab--active' : ''}`}
+              onClick={() => setActiveId(m.id)}
+            >
+              {m.name || m.id}
+              {pluginAnalytics[m.id] && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--brand, #2563eb)',
+                    marginLeft: 6,
+                    verticalAlign: 'middle',
+                  }}
+                  title="Has results"
+                />
+              )}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Active tab */}
       <PluginTabContent
         key={active.id}
         module={active}

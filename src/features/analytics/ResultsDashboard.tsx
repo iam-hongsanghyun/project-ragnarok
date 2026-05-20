@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { PluginAnalyticsEntry, PluginFieldHint, RunResults, TimeSeriesRow, TimeSeriesSeries } from '../../shared/types';
+import { RunResults, TimeSeriesRow, TimeSeriesSeries } from '../../shared/types';
 import { numberValue } from '../../shared/utils/helpers';
 import { exportChartToExcel } from '../../shared/utils/exportChart';
 import { useToast } from '../../shared/components/Toast';
@@ -72,73 +72,6 @@ function DashboardSection({ title, defaultOpen = true, onExport, children }: Sec
   );
 }
 
-// ── Generic plugin result card ────────────────────────────────────────────────
-
-function formatPluginValue(value: unknown, hint: PluginFieldHint | undefined): string {
-  if (value === null || value === undefined) return '—';
-  if (hint?.format === 'currency' || hint?.format === 'number') {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return String(value);
-    return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
-  }
-  return String(value);
-}
-
-function PluginResultCard({ moduleId, entry }: { moduleId: string; entry: PluginAnalyticsEntry }) {
-  const { name, ui, data } = entry;
-  if (!data || Object.keys(data).length === 0) return null;
-
-  return (
-    <div className="plugin-result-card">
-      <p className="plugin-result-card-title">{name}</p>
-      <table className="plugin-result-table">
-        <tbody>
-          {Object.entries(data).map(([key, value]) => {
-            const hint = ui?.[key];
-            if (hint?.format === 'table' && value && typeof value === 'object' && !Array.isArray(value)) {
-              return (
-                <tr key={key}>
-                  <td className="plugin-result-label">{hint?.label ?? key}</td>
-                  <td className="plugin-result-value">
-                    <table className="plugin-result-subtable">
-                      <tbody>
-                        {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-                          <tr key={k}>
-                            <td>{k}</td>
-                            <td>{formatPluginValue(v, hint)}{hint?.unit ? <span className="plugin-result-unit"> {hint.unit}</span> : null}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-              );
-            }
-            if (key === 'error') {
-              return (
-                <tr key={key}>
-                  <td colSpan={2} style={{ color: 'var(--danger, #dc2626)', fontSize: '0.82rem' }}>
-                    Plugin error: {String(value)}
-                  </td>
-                </tr>
-              );
-            }
-            return (
-              <tr key={key}>
-                <td className="plugin-result-label">{hint?.label ?? key}</td>
-                <td className="plugin-result-value">
-                  {formatPluginValue(value, hint)}
-                  {hint?.unit ? <span className="plugin-result-unit"> {hint.unit}</span> : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // ── Cost breakdown color palette ──────────────────────────────────────────────
 
 const COST_COLORS: Record<string, string> = {
@@ -159,8 +92,6 @@ interface Props {
   storageRows: TimeSeriesRow[];
   currencySymbol?: string;
   onExportAll?: () => void;
-  /** Module IDs that are in 'panel' mode — their analytics are shown in the Plugins tab, not here. */
-  panelModeModuleIds?: Set<string>;
 }
 
 export function ResultsDashboard({
@@ -172,7 +103,6 @@ export function ResultsDashboard({
   storageRows,
   currencySymbol = '$',
   onExportAll,
-  panelModeModuleIds,
 }: Props) {
   const { showToast } = useToast();
 
@@ -395,19 +325,6 @@ export function ResultsDashboard({
             currencySymbol={currencySymbol}
           />
         </DashboardSection>
-        {results.pluginAnalytics && Object.entries(results.pluginAnalytics).some(
-          ([id]) => !panelModeModuleIds?.has(id)
-        ) && (
-          <DashboardSection title="Plugin results" defaultOpen>
-            <div className="plugin-result-list">
-              {Object.entries(results.pluginAnalytics)
-                .filter(([id]) => !panelModeModuleIds?.has(id))
-                .map(([moduleId, entry]) => (
-                  <PluginResultCard key={moduleId} moduleId={moduleId} entry={entry} />
-                ))}
-            </div>
-          </DashboardSection>
-        )}
 
         <DashboardSection title="CO₂ constraint shadow price">
           <Co2ShadowCard currencySymbol={currencySymbol} shadow={results.co2Shadow ?? {

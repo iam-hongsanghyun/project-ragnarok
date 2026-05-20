@@ -880,11 +880,6 @@ function AppInner() {
                       exportFullResults(model, results, filename.replace(/\.xlsx$/i, ''));
                       showToast('Full results exported to Excel', 'success');
                     }}
-                    panelModeModuleIds={new Set(
-                      moduleHost.modules
-                        .filter((m) => moduleHost.pluginDisplayModes[m.id] === 'panel')
-                        .map((m) => m.id)
-                    )}
                   />
                 )
               )}

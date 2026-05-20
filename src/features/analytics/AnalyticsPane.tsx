@@ -32,7 +32,6 @@ interface Props {
   subTab: AnalyticsSubTab;
   currencySymbol: string;
   onExportAll?: () => void;
-  panelModeModuleIds?: Set<string>;
 }
 
 function EmptyAnalytics() {
@@ -58,7 +57,6 @@ export function AnalyticsPane({
   subTab,
   currencySymbol,
   onExportAll,
-  panelModeModuleIds,
 }: Props) {
   const focusTitle =
     analyticsFocus.type === 'system' ? 'System analytics' : analyticsFocus.key;
@@ -149,7 +147,6 @@ export function AnalyticsPane({
           storageRows={storageRows}
           currencySymbol={currencySymbol}
           onExportAll={onExportAll}
-          panelModeModuleIds={panelModeModuleIds}
         />
       )}
 
