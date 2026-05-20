@@ -257,7 +257,7 @@ Each config key maps to a field descriptor:
 
 | Field | Required | Description |
 |---|---|---|
-| `type` | yes | `"boolean"`, `"number"`, `"string"`, `"select"`, `"carrier-select"`, `"file"` |
+| `type` | yes | `"boolean"`, `"number"`, `"string"`, `"select"`, `"carrier-select"`, `"file"`, `"table"` |
 | `label` | no | Display label shown in the UI. Defaults to the key name. |
 | `description` | no | Hint text shown below the field. |
 | `default` | no | Default value used before the user edits the field. |
@@ -266,24 +266,59 @@ Each config key maps to a field descriptor:
 | `step` | no | Slider/input step increment for `"number"`. |
 | `options` | no | For `"select"` — array of `{ "value": ..., "label": ... }` objects. |
 | `accept` | no | For `"file"` — MIME types or extension filter passed to the browser file picker (e.g. `".csv,text/csv"`). |
+| `binary` | no | For `"file"` — when `true`, the picker reads the file as a base64 data URL instead of UTF-8 text. Use for xlsx, png, parquet, or any non-text format. |
+| `columns` | yes for `"table"` | Column schema for editable tables — see below. |
+| `visibleWhen` | no | Conditional visibility — see below. |
 
 **`carrier-select`** is a multi-checkbox field populated from the carriers defined in the
 current workbook. The config value is a `list[str]` of selected carrier names.
 
 **`file`** shows a file-picker button. The user selects a file from their machine; the
-browser reads it as UTF-8 text and stores it in-memory. The config value passed to the
-plugin is a dict `{ "name": "<filename>", "content": "<text>", "mime": "<mime-type>" }`.
+browser reads it (text by default, base64 data URL when `binary: true`) and stores the
+value in memory. The config value passed to the plugin is a dict
+`{ "name": "<filename>", "content": "<text-or-data-url>", "mime": "<mime-type>" }`.
 File values are **not persisted** to localStorage — the user must re-select after a page
-refresh. Suitable for small text files (CSV, JSON, TOML). For binary files the plugin
-should use base64-decoding on the content string.
+refresh.
 
 ```python
-# Reading a file value in a pre-build plugin
+# Text file (binary: false, the default)
 module_config = options.get("moduleConfig", {})
-f = module_config.get("my_file")  # None if no file selected
+f = module_config.get("my_csv")  # None if no file selected
 if f:
     import csv, io
     rows = list(csv.DictReader(io.StringIO(f["content"])))
+
+# Binary file (binary: true)
+import base64
+g = module_config.get("my_xlsx")
+if g:
+    header, b64 = g["content"].split(",", 1)   # "data:<mime>;base64,<payload>"
+    raw_bytes = base64.b64decode(b64)
+    # ... write to temp file, parse with openpyxl/pandas, etc.
+```
+
+**`table`** shows an editable spreadsheet-style grid. The config value passed to the
+plugin is a `list[dict]` — one dict per row, with keys matching the column `key`s.
+Each table requires a `columns` array:
+
+| Column field | Description |
+|---|---|
+| `key` | Property name on each row dict (required). |
+| `label` | Header text (defaults to `key`). |
+| `type` | `"string"` (default), `"number"`, or `"select"`. |
+| `options` | For `"select"` cells, an array of `{ value, label? }`. |
+| `width` | Optional column width (CSS string or number-as-px). |
+
+Users add and delete rows via inline buttons. The `default` value on a `table` field is
+applied when the config is first loaded; subsequent edits persist across runs.
+
+**`visibleWhen`** hides a field unless a sibling has a specific value. Apply it to any
+field type — boolean, string, table, file, etc. The gate uses tolerant equality so
+`equals: true` matches a checkbox state, `equals: "wind"` matches a select string, and
+`equals: 0` matches a numeric slider.
+
+```json
+"visibleWhen": { "field": "use_aggregation", "equals": true }
 ```
 
 Example:
@@ -294,6 +329,33 @@ Example:
     "type": "file",
     "label": "Input CSV",
     "accept": ".csv,text/csv"
+  },
+  "input_xlsx": {
+    "type": "file",
+    "label": "Input workbook",
+    "accept": ".xlsx",
+    "binary": true
+  },
+  "use_aggregation": {
+    "type": "boolean",
+    "label": "Aggregate by region",
+    "default": false
+  },
+  "region_rules": {
+    "type": "table",
+    "label": "Region aggregation rules",
+    "visibleWhen": { "field": "use_aggregation", "equals": true },
+    "columns": [
+      { "key": "component", "label": "Component", "type": "select",
+        "options": [{ "value": "buses" }, { "value": "links" }] },
+      { "key": "attribute", "label": "Attribute" },
+      { "key": "rule", "label": "Rule", "type": "select",
+        "options": [{ "value": "sum" }, { "value": "mean" }, { "value": "min" }, { "value": "max" }] }
+    ],
+    "default": [
+      { "component": "buses", "attribute": "v_nom", "rule": "max" },
+      { "component": "links", "attribute": "p_nom", "rule": "sum" }
+    ]
   },
   "renewable_floor": {
     "type": "number",
