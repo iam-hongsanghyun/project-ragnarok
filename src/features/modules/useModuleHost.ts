@@ -3,6 +3,7 @@ import { API_BASE, MODULES_CONFIG } from '../../constants';
 import { ModuleDescriptor, ModuleHostInventory } from '../../shared/types';
 
 const STORAGE_KEY = MODULES_CONFIG.storageKey;
+const CONFIGS_KEY = `${MODULES_CONFIG.storageKey}_configs`;
 
 function loadEnabledIds(): string[] {
   try {
@@ -15,11 +16,21 @@ function loadEnabledIds(): string[] {
 }
 
 function saveEnabledIds(ids: string[]): void {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ids)); } catch { /* ignore */ }
+}
+
+function loadModuleConfigs(): Record<string, Record<string, unknown>> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    const raw = localStorage.getItem(CONFIGS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
   } catch {
-    // ignore
+    return {};
   }
+}
+
+function saveModuleConfigs(configs: Record<string, Record<string, unknown>>): void {
+  try { localStorage.setItem(CONFIGS_KEY, JSON.stringify(configs)); } catch { /* ignore */ }
 }
 
 function isEnableEligible(module: ModuleDescriptor): boolean {
@@ -29,29 +40,68 @@ function isEnableEligible(module: ModuleDescriptor): boolean {
 export function useModuleHost() {
   const [inventory, setInventory] = useState<ModuleHostInventory | null>(null);
   const [enabledIds, setEnabledIds] = useState<string[]>(loadEnabledIds);
+  const [moduleConfigs, setModuleConfigsState] = useState<Record<string, Record<string, unknown>>>(loadModuleConfigs);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const fetchInventory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const resp = await fetch(`${API_BASE}/api/modules`);
-      if (!resp.ok) {
-        throw new Error(`Module discovery failed with status ${resp.status}.`);
-      }
+      if (!resp.ok) throw new Error(`Module fetch failed with status ${resp.status}.`);
       const data = await resp.json() as ModuleHostInventory;
       setInventory(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Module discovery failed.');
+      setError(err instanceof Error ? err.message : 'Module fetch failed.');
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const installFromFile = useCallback(async (file: File): Promise<{ ok: boolean; error?: string; moduleId?: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const resp = await fetch(`${API_BASE}/api/modules/install`, {
+        method: 'POST',
+        body: form,
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return { ok: false, error: typeof data.detail === 'string' ? data.detail : `Install failed with status ${resp.status}.` };
+      }
+      await fetchInventory();
+      return { ok: true, moduleId: data.id as string | undefined };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Install failed.' };
+    }
+  }, [fetchInventory]);
+
+  const uninstall = useCallback(async (moduleId: string) => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/modules/${encodeURIComponent(moduleId)}`, {
+        method: 'DELETE',
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return { ok: false, error: typeof data.detail === 'string' ? data.detail : `Uninstall failed with status ${resp.status}.` };
+      }
+      setEnabledIds((prev) => {
+        const next = prev.filter((id) => id !== moduleId);
+        saveEnabledIds(next);
+        return next;
+      });
+      await fetchInventory();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Uninstall failed.' };
+    }
+  }, [fetchInventory]);
+
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    fetchInventory();
+  }, [fetchInventory]);
 
   useEffect(() => {
     if (!inventory) return;
@@ -63,6 +113,14 @@ export function useModuleHost() {
     });
   }, [inventory]);
 
+  const setModuleConfig = useCallback((moduleId: string, key: string, value: unknown) => {
+    setModuleConfigsState((prev) => {
+      const next = { ...prev, [moduleId]: { ...(prev[moduleId] ?? {}), [key]: value } };
+      saveModuleConfigs(next);
+      return next;
+    });
+  }, []);
+
   const toggleEnabled = useCallback((moduleId: string, enabled: boolean) => {
     setEnabledIds((prev) => {
       const next = enabled
@@ -73,7 +131,7 @@ export function useModuleHost() {
     });
   }, []);
 
-  const discoveredModules = inventory?.modules ?? [];
+  const discoveredModules = useMemo(() => inventory?.modules ?? [], [inventory]);
   const enabledSet = useMemo(() => new Set(enabledIds), [enabledIds]);
   const effectiveEnabledIds = useMemo(
     () => discoveredModules.filter((module) => enabledSet.has(module.id) && isEnableEligible(module)).map((module) => module.id),
@@ -85,10 +143,13 @@ export function useModuleHost() {
     modules: discoveredModules,
     loading,
     error,
-    refresh,
     enabledIds: effectiveEnabledIds,
+    moduleConfigs,
     isEnabled: (moduleId: string) => enabledSet.has(moduleId),
     isEnableEligible,
     toggleEnabled,
+    setModuleConfig,
+    installFromFile,
+    uninstall,
   };
 }

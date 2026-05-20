@@ -11,5 +11,3 @@ class RunPayload(BaseModel):
     options: dict[str, Any] | None = None
 
 
-class ModuleManifestPayload(BaseModel):
-    manifest: dict[str, Any]

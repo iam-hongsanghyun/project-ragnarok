@@ -185,3 +185,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 node_modules
+.ragnarok/modules/

@@ -8,6 +8,7 @@ import {
   ChartSectionConfig,
   CustomConstraint,
   GridRow,
+  ModuleDescriptor,
   Primitive,
   RunHistoryEntry,
   RunResults,
@@ -21,9 +22,9 @@ import {
   AnalyticsSubTab,
 } from './shared/types';
 import { API_BASE, DEFAULT_CONSTRAINTS, DEFAULT_SHEET_ROWS, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
-import { createEmptyWorkbook, exportWorkbook, loadSampleWorkbook, parseWorkbook, workbookToArrayBuffer, parseCsvToGridRows } from './shared/utils/workbook';
+import { createEmptyWorkbook, exportWorkbook, loadSampleWorkbook, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
-import { getBounds, getBusIndex, carrierColor, hashColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
+import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
 import { buildRowsFromGeneratorDetails, buildSystemLoadRows, normalizeSeriesPoint } from './shared/utils/analytics';
 import { RunDialog } from './features/run/RunDialog';
 import { Sidebar } from './layout/Sidebar';
@@ -57,7 +58,6 @@ function AppInner() {
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [dryRun, setDryRun] = useState(false);
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
-  const [runCount, setRunCount] = useState(0);
   const [validateResult, setValidateResult] = useState<{
     valid: boolean;
     errors: string[];
@@ -84,6 +84,31 @@ function AppInner() {
   const [settings, updateSettings] = useSettings();
   const moduleHost = useModuleHost();
   const modelIssues = useModelIssues(model);
+
+  const handleInstallModule = useCallback(async (file: File) => {
+    const result = await moduleHost.installFromFile(file);
+    if (!result.ok) {
+      showToast(result.error || 'Module install failed.', 'error');
+      setStatus(result.error || 'Module install failed.');
+      return;
+    }
+    const moduleId = result.moduleId ? ` (${result.moduleId})` : '';
+    showToast(`Module installed${moduleId}`, 'success');
+    setStatus(`Installed local module${moduleId}.`);
+  }, [moduleHost, showToast]);
+
+  const handleUninstallModule = useCallback(async (module: ModuleDescriptor) => {
+    const confirmed = window.confirm(`Uninstall local module "${module.name || module.id}"? This removes it completely from the managed module directory.`);
+    if (!confirmed) return;
+    const result = await moduleHost.uninstall(module.id);
+    if (!result.ok) {
+      showToast(result.error || 'Module uninstall failed.', 'error');
+      setStatus(result.error || 'Module uninstall failed.');
+      return;
+    }
+    showToast(`Module uninstalled (${module.id})`, 'success');
+    setStatus(`Uninstalled local module ${module.id}.`);
+  }, [moduleHost, showToast]);
 
   // Elapsed-time ticker while running
   useEffect(() => {
@@ -369,6 +394,7 @@ function AppInner() {
       enableLoadShedding: settings.enableLoadShedding,
       loadSheddingCost: settings.loadSheddingCost,
       enabledModules: moduleHost.enabledIds,
+      moduleConfigs: moduleHost.moduleConfigs,
     };
 
     setRunDialogOpen(false);
@@ -436,8 +462,8 @@ function AppInner() {
       const doneMsg = `Completed — ${nextResults.runMeta.snapshotCount} snapshots, ${nextResults.runMeta.modeledHours} h.`;
       setStatus(doneMsg);
       showToast(doneMsg, 'success');
-      setRunCount((n) => {
-        const next = n + 1;
+      setRunHistory((hist) => {
+        const next = hist.length + 1;
         const entry: RunHistoryEntry = {
           id: Date.now().toString(),
           label: `Run ${next}`,
@@ -459,13 +485,10 @@ function AppInner() {
           inComparison: true,
           results: nextResults,
         };
-        setRunHistory((hist) => {
-          const withNew = [entry, ...hist];
-          const pinned = withNew.filter((e) => e.pinned);
-          const unpinned = withNew.filter((e) => !e.pinned).slice(0, MAX_UNPINNED_HISTORY);
-          return [...pinned, ...unpinned];
-        });
-        return next;
+        const withNew = [entry, ...hist];
+        const pinned = withNew.filter((e) => e.pinned);
+        const unpinned = withNew.filter((e) => !e.pinned).slice(0, MAX_UNPINNED_HISTORY);
+        return [...pinned, ...unpinned];
       });
     };
 
@@ -538,18 +561,6 @@ function AppInner() {
       ? orderByCarrierRows(model.carriers, inferredDispatchKeys)
       : (results?.carrierMix || []).map((item) => item.label).filter(Boolean);
   const systemDispatchSeries: TimeSeriesSeries[] = dispatchKeys.map((key) => ({ key, label: key, color: carrierColor(key) }));
-
-  const rawSystemGeneratorDispatchRows: TimeSeriesRow[] = (results?.generatorDispatchSeries || []).map(normalizeSeriesPoint);
-  const systemGeneratorDispatchRows: TimeSeriesRow[] =
-    rawSystemGeneratorDispatchRows.some((row) =>
-      Object.keys(row).some((key) => !['label', 'timestamp', 'total'].includes(key) && Math.abs(numberValue(row[key] as string | number | undefined)) > 1e-6),
-    )
-      ? rawSystemGeneratorDispatchRows
-      : buildRowsFromGeneratorDetails(results?.assetDetails.generators || {}, 'generator');
-  const generatorDispatchKeys = Array.from(
-    new Set(systemGeneratorDispatchRows.flatMap((row) => Object.keys(row).filter((key) => !['label', 'timestamp', 'total'].includes(key)))),
-  );
-  const systemGeneratorDispatchSeries: TimeSeriesSeries[] = generatorDispatchKeys.map((key) => ({ key, label: key, color: hashColor(key) }));
 
   const systemPriceRows: TimeSeriesRow[] = (results?.systemPriceSeries || []).map((point) => ({ label: point.label, timestamp: point.timestamp, price: point.value }));
   const storageRows: TimeSeriesRow[] = (results?.storageSeries || []).map((point) => ({ label: point.label, timestamp: point.timestamp, charge: point.charge, discharge: point.discharge, state: point.state }));
@@ -685,8 +696,11 @@ function AppInner() {
               enabledModuleIds={moduleHost.enabledIds}
               isModuleEnabled={moduleHost.isEnabled}
               isModuleEnableEligible={moduleHost.isEnableEligible}
-              onRefreshModules={moduleHost.refresh}
               onToggleModuleEnabled={moduleHost.toggleEnabled}
+              moduleConfigs={moduleHost.moduleConfigs}
+              onModuleConfigChange={moduleHost.setModuleConfig}
+              onInstallModule={handleInstallModule}
+              onUninstallModule={handleUninstallModule}
               onCarrierColorChange={(rowIndex, color) => updateRowValue('carriers', rowIndex, 'color', color)}
               onCarrierMove={(rowIndex, direction) => moveRow('carriers', rowIndex, direction)}
             />

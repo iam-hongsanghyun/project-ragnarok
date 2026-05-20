@@ -8,12 +8,12 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .lib.config import load_system_defaults
-from .lib.models import ModuleManifestPayload, RunPayload
-from .lib.module_host import discover_modules, validate_manifest_payload
+from .lib.models import RunPayload
+from .lib.module_host import discover_modules, install_module_from_upload, uninstall_module
 from .lib.network import validate_model
 from .lib.results import run_pypsa
 
@@ -122,9 +122,23 @@ def get_modules() -> dict[str, Any]:
     return discover_modules()
 
 
-@app.post("/api/modules/validate")
-def validate_module_manifest(payload: ModuleManifestPayload) -> dict[str, Any]:
-    return validate_manifest_payload(payload.manifest)
+@app.post("/api/modules/install")
+async def install_module(file: UploadFile) -> dict[str, Any]:
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are accepted.")
+    try:
+        zip_bytes = await file.read()
+        return install_module_from_upload(zip_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/modules/{module_id}")
+def delete_module(module_id: str) -> dict[str, Any]:
+    try:
+        return uninstall_module(module_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/validate")

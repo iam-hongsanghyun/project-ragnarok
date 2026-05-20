@@ -697,6 +697,105 @@ button {
   align-items: center;
   gap: 10px;
 }
+
+.sg-module-card-header {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.sg-module-card-header:hover strong {
+  color: var(--brand);
+}
+.sg-module-card-chevron {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  font-size: 0.65rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.sg-module-card-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.sg-module-action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sg-module-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sg-module-toggle-btn {
+  min-width: 72px;
+}
+.sg-module-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(15,23,42,0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.sg-module-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+.sg-module-config-label {
+  flex: 0 0 auto;
+  min-width: 120px;
+  color: var(--text);
+  font-weight: 500;
+}
+.sg-module-config-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.sg-module-config-slider {
+  flex: 1;
+  accent-color: var(--brand);
+}
+.sg-module-config-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 44px;
+  text-align: right;
+}
+.sg-module-config-unit {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 2px;
+}
+.sg-module-config-input {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: rgba(255,255,255,0.9);
+}
+.sg-module-config-select {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: rgba(255,255,255,0.9);
+}
 .sg-module-root-label,
 .sg-module-meta {
   font-size: 12px;
@@ -2481,6 +2580,66 @@ path.leaflet-interactive:focus {
   color: var(--text);
 }
 .dashboard-section-body { padding: 0 4px 8px; }
+
+/* ── Plugin result cards ─────────────────────────────────────────────────── */
+.plugin-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.plugin-result-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.72);
+}
+.plugin-result-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.plugin-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.plugin-result-table tr + tr td {
+  border-top: 1px solid var(--border);
+}
+.plugin-result-label {
+  color: var(--muted);
+  padding: 5px 12px 5px 0;
+  white-space: nowrap;
+  width: 40%;
+}
+.plugin-result-value {
+  color: var(--text);
+  padding: 5px 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.plugin-result-unit {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+.plugin-result-subtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.plugin-result-subtable td {
+  padding: 2px 8px 2px 0;
+  color: var(--muted);
+}
+.plugin-result-subtable td:last-child {
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
+}
 
 /* Export buttons */
 .chart-export-btn {

@@ -234,7 +234,24 @@ export interface ExpansionAsset {
   unit?: string;   // 'MW' (default), 'MWh' (Store), 'MVA' (Line)
 }
 
+// ── Plugin analytics ─────────────────────────────────────────────────────────
+
+export type PluginFieldFormat = 'number' | 'currency' | 'table' | 'text';
+
+export interface PluginFieldHint {
+  label?: string;
+  unit?: string;
+  format?: PluginFieldFormat;
+}
+
+export interface PluginAnalyticsEntry {
+  name: string;
+  ui: Record<string, PluginFieldHint>;
+  data: Record<string, unknown>;
+}
+
 export interface RunResults {
+  pluginAnalytics?: Record<string, PluginAnalyticsEntry>;
   summary: SummaryItem[];
   dispatchSeries: SeriesPoint[];
   generatorDispatchSeries: SeriesPoint[];
@@ -350,7 +367,24 @@ export interface ModuleHostRoot {
   configuredPath: string;
   exists: boolean;
   isDirectory: boolean;
+  managed: boolean;
 }
+
+export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select';
+
+export interface ModuleConfigField {
+  type: ModuleConfigFieldType;
+  label?: string;
+  description?: string;
+  default?: unknown;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: Array<{ value: unknown; label: string }>;
+}
+
+export type ModuleConfigSchema = Record<string, ModuleConfigField>;
 
 export interface ModuleDescriptor {
   id: string;
@@ -369,18 +403,17 @@ export interface ModuleDescriptor {
   diagnostics: string[];
   manifestPath: string;
   modulePath: string;
-  rootLabel: string;
-  rootPath: string;
+  isManaged: boolean;
+  config?: ModuleConfigSchema;
 }
 
 export interface ModuleHostInventory {
   host: {
     sdkVersion: string;
-    runtimeMode: string;
     supportedCapabilities: ModuleCapability[];
     supportedPermissions: ModulePermission[];
+    managedRoot: ModuleHostRoot;
   };
-  roots: ModuleHostRoot[];
   modules: ModuleDescriptor[];
   summary: {
     discovered: number;

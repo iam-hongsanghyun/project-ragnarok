@@ -18,6 +18,7 @@ from .assets import (
     build_store_details,
 )
 from ..network.custom_constraints import apply_custom_constraints
+from ..module_host import execute_plugins_at_stage, get_module_metadata
 from .dispatch import (
     build_dispatch_series,
     build_price_emissions_series,
@@ -36,7 +37,24 @@ def run_pypsa(
 ) -> dict[str, Any]:
     """Build the network from the JSON workbook model, optimise, return results."""
     options = options or {}
+    enabled_modules: list[str] = list(options.get("enabledModules") or [])
+
+    # ── pre-build ─────────────────────────────────────────────────────────────
+    pre_outputs = execute_plugins_at_stage(
+        "pre-build", enabled_modules, model=model, scenario=scenario, options=options
+    )
+    # Any plugin that returns a dict replaces the model (last writer wins)
+    for result in pre_outputs.values():
+        if isinstance(result, dict) and not result.get("error"):
+            model = result
+
     network, notes = build_network(model, scenario, options)
+
+    # ── post-build ────────────────────────────────────────────────────────────
+    execute_plugins_at_stage(
+        "post-build", enabled_modules, network=network, scenario=scenario, options=options
+    )
+
     snapshot_count = len(network.snapshots)
     snapshot_weight = float(network.snapshot_weightings["objective"].iloc[0]) if snapshot_count else 1.0
     emissions_factors: dict[str, float] = (
@@ -49,6 +67,11 @@ def run_pypsa(
 
     def extra_functionality(n, snapshots):
         apply_custom_constraints(n, custom_constraints, emissions_factors, notes)
+        # ── in-solve ──────────────────────────────────────────────────────────
+        execute_plugins_at_stage(
+            "in-solve", enabled_modules,
+            network=n, model=model, scenario=scenario, options=options,
+        )
 
 
     # Currency symbol for formatted output strings
@@ -217,7 +240,24 @@ def run_pypsa(
         f"Load shedding totalled {float(load_shed.sum()):.2f} MWh across the day.",
     ])
 
+    # ── post-solve ────────────────────────────────────────────────────────────
+    raw_plugin_outputs = execute_plugins_at_stage(
+        "post-solve", enabled_modules,
+        network=network, results={}, scenario=scenario, options=options,
+    )
+    # Enrich each plugin result with its display metadata (name, ui hints from
+    # module.json) so the frontend can render generically without hardcoding.
+    plugin_analytics: dict[str, Any] = {}
+    for module_id, data in raw_plugin_outputs.items():
+        meta = get_module_metadata(module_id)
+        plugin_analytics[module_id] = {
+            "name": meta.get("name", module_id),
+            "ui":   meta.get("ui", {}),
+            "data": data if isinstance(data, dict) else {"result": data},
+        }
+
     return {
+        "pluginAnalytics": plugin_analytics,
         "summary": summary,
         "dispatchSeries": dispatch_s,
         "generatorDispatchSeries": gen_dispatch_s,

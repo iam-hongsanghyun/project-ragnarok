@@ -1,0 +1,24 @@
+{
+  "id": "ragnarok-renewable-floor",
+  "name": "Renewable Floor Constraint",
+  "version": "0.1.0",
+  "sdkVersion": "1",
+  "entry": "main.py",
+  "stage": "in-solve",
+  "hook": "add_constraints",
+  "description": "Adds a minimum renewable energy share constraint via PyPSA's extra_functionality hook. Generators whose carrier contains 'wind', 'solar', 'hydro', or 'biomass' count as renewable.",
+  "capabilities": ["constraint-pack"],
+  "permissions": ["workbook.read", "constraints.register"],
+  "config": {
+    "renewable_floor": {
+      "type": "number",
+      "label": "Minimum renewable share",
+      "description": "Minimum fraction of total generation that must come from renewable sources.",
+      "default": 20,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
+    }
+  }
+}

@@ -58,8 +58,11 @@ export interface SidebarProps {
   enabledModuleIds: string[];
   isModuleEnabled: (moduleId: string) => boolean;
   isModuleEnableEligible: (module: ModuleDescriptor) => boolean;
-  onRefreshModules: () => void;
   onToggleModuleEnabled: (moduleId: string, enabled: boolean) => void;
+  moduleConfigs: Record<string, Record<string, unknown>>;
+  onModuleConfigChange: (moduleId: string, key: string, value: unknown) => void;
+  onInstallModule: (file: File) => void;
+  onUninstallModule: (module: ModuleDescriptor) => void;
   onCarrierColorChange: (rowIndex: number, color: string) => void;
   onCarrierMove: (rowIndex: number, direction: -1 | 1) => void;
 }
@@ -103,8 +106,11 @@ export function Sidebar({
   enabledModuleIds,
   isModuleEnabled,
   isModuleEnableEligible,
-  onRefreshModules,
   onToggleModuleEnabled,
+  moduleConfigs,
+  onModuleConfigChange,
+  onInstallModule,
+  onUninstallModule,
   onCarrierColorChange,
   onCarrierMove,
 }: SidebarProps) {
@@ -215,26 +221,6 @@ export function Sidebar({
           </p>
         </SidebarGroup>
       )}
-
-      <SidebarGroup
-        title="Modules"
-        badge={
-          moduleInventory
-            ? <span className="sg-badge">{enabledModuleIds.length}/{moduleInventory.summary.ready}</span>
-            : undefined
-        }
-      >
-        <ModuleManagerSection
-          inventory={moduleInventory}
-          loading={moduleHostLoading}
-          error={moduleHostError}
-          enabledIds={enabledModuleIds}
-          isEnabled={isModuleEnabled}
-          isEnableEligible={isModuleEnableEligible}
-          onRefresh={onRefreshModules}
-          onToggleEnabled={onToggleModuleEnabled}
-        />
-      </SidebarGroup>
 
       <SidebarGroup title="Settings">
         <div className="sg-setting-row">
@@ -431,6 +417,29 @@ export function Sidebar({
             IPM (interior point) is often faster for large LP models. Use Simplex for MIP / unit commitment runs.
           </p>
         </div>
+      </SidebarGroup>
+
+      <SidebarGroup
+        title="Modules"
+        badge={
+          moduleInventory
+            ? <span className="sg-badge">{enabledModuleIds.length}/{moduleInventory.summary.ready}</span>
+            : undefined
+        }
+      >
+        <ModuleManagerSection
+          inventory={moduleInventory}
+          loading={moduleHostLoading}
+          error={moduleHostError}
+          enabledIds={enabledModuleIds}
+          isEnabled={isModuleEnabled}
+          isEnableEligible={isModuleEnableEligible}
+          onToggleEnabled={onToggleModuleEnabled}
+          moduleConfigs={moduleConfigs}
+          onModuleConfigChange={onModuleConfigChange}
+          onInstall={onInstallModule}
+          onUninstall={onUninstallModule}
+        />
       </SidebarGroup>
     </>
   );
