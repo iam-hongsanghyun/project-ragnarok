@@ -14,16 +14,24 @@ parameters in a modal dialog, and the React frontend posts the workbook data to 
 backend that constructs a `pypsa.Network`, solves it with HiGHS, and returns structured results.
 Charts, maps, and tables then display the outputs without any round-trips to a remote server.
 
-## Planned extension system
+## Extension system
 
-The repository includes a design-only v1 module system proposal for `user-installed trusted local
+The repository includes a plugin-ready v1 module host foundation for `user-installed trusted local
 modules`:
 
 - [docs/module-system-v1.md](./docs/module-system-v1.md)
 - [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
 
-That proposal keeps module orchestration in the frontend host, allows controlled capability
-registration, and does not yet implement a live runtime loader in core.
+Current implementation:
+
+- backend module discovery and manifest validation via `/api/modules`
+- backend manifest validation endpoint via `/api/modules/validate`
+- frontend module manager in the sidebar with persisted enable/disable state
+
+Not implemented yet:
+
+- third-party module execution runtime
+- dynamic host lifecycle calls into installed module entrypoints
 
 ---
 

@@ -1,0 +1,32 @@
+{
+  "sdk_version": "1",
+  "runtime_mode": "manifest-discovery",
+  "search_roots": [
+    {
+      "label": "User modules",
+      "path": "${HOME}/.ragnarok/modules"
+    },
+    {
+      "label": "Project modules",
+      "path": "${PROJECT_ROOT}/.ragnarok/modules"
+    }
+  ],
+  "capabilities": [
+    "data-importer",
+    "data-manipulator",
+    "analytics-pack",
+    "constraint-pack"
+  ],
+  "permissions": [
+    "filesystem.read",
+    "filesystem.write",
+    "network.access",
+    "workbook.read",
+    "workbook.write",
+    "results.read",
+    "ui.panel",
+    "ui.action",
+    "constraints.register",
+    "analytics.register"
+  ]
+}

@@ -33,6 +33,7 @@ import { ValidationPane } from './features/validation/ValidationPane';
 import { useModelIssues } from './features/validation/useModelIssues';
 import { AnalyticsPane, EmptyAnalytics } from './features/analytics/AnalyticsPane';
 import { ComparisonPane } from './features/analytics/ComparisonPane';
+import { useModuleHost } from './features/modules/useModuleHost';
 import { ToastProvider, useToast } from './shared/components/Toast';
 
 function AppInner() {
@@ -81,6 +82,7 @@ function AppInner() {
   }, []);
 
   const [settings, updateSettings] = useSettings();
+  const moduleHost = useModuleHost();
   const modelIssues = useModelIssues(model);
 
   // Elapsed-time ticker while running
@@ -366,6 +368,7 @@ function AppInner() {
       currencySymbol: settings.currencySymbol,
       enableLoadShedding: settings.enableLoadShedding,
       loadSheddingCost: settings.loadSheddingCost,
+      enabledModules: moduleHost.enabledIds,
     };
 
     setRunDialogOpen(false);
@@ -676,6 +679,14 @@ function AppInner() {
               onLoadSheddingCostChange={(v) => updateSettings({ loadSheddingCost: v })}
               discountRate={settings.discountRate}
               onDiscountRateChange={(v) => updateSettings({ discountRate: v })}
+              moduleInventory={moduleHost.inventory}
+              moduleHostLoading={moduleHost.loading}
+              moduleHostError={moduleHost.error}
+              enabledModuleIds={moduleHost.enabledIds}
+              isModuleEnabled={moduleHost.isEnabled}
+              isModuleEnableEligible={moduleHost.isEnableEligible}
+              onRefreshModules={moduleHost.refresh}
+              onToggleModuleEnabled={moduleHost.toggleEnabled}
               onCarrierColorChange={(rowIndex, color) => updateRowValue('carriers', rowIndex, 'color', color)}
               onCarrierMove={(rowIndex, direction) => moveRow('carriers', rowIndex, direction)}
             />

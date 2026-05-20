@@ -27,6 +27,24 @@ export type ConstraintMetric =
   | 'carrier_max_share' | 'carrier_min_share'
   | 'carrier_max_cf' | 'carrier_min_cf';
 
+export type ModuleCapability =
+  | 'data-importer'
+  | 'data-manipulator'
+  | 'analytics-pack'
+  | 'constraint-pack';
+
+export type ModulePermission =
+  | 'filesystem.read'
+  | 'filesystem.write'
+  | 'network.access'
+  | 'workbook.read'
+  | 'workbook.write'
+  | 'results.read'
+  | 'ui.panel'
+  | 'ui.action'
+  | 'constraints.register'
+  | 'analytics.register';
+
 // ── Domain model ──────────────────────────────────────────────────────────────
 
 export interface WorkbookModel {
@@ -323,3 +341,51 @@ export interface ChartSectionConfig {
 
 export type TableSelKind = 'static' | 'ts';
 export interface TableSel { kind: TableSelKind; sheet: AnySheetName }
+
+// ── Module host types ────────────────────────────────────────────────────────
+
+export interface ModuleHostRoot {
+  label: string;
+  path: string;
+  configuredPath: string;
+  exists: boolean;
+  isDirectory: boolean;
+}
+
+export interface ModuleDescriptor {
+  id: string;
+  name: string;
+  version: string;
+  sdkVersion: string;
+  entry: string;
+  entryPath: string;
+  entryExists: boolean;
+  description: string;
+  capabilities: ModuleCapability[];
+  permissions: ModulePermission[];
+  compatible: boolean;
+  valid: boolean;
+  status: 'ready' | 'invalid' | 'incompatible';
+  diagnostics: string[];
+  manifestPath: string;
+  modulePath: string;
+  rootLabel: string;
+  rootPath: string;
+}
+
+export interface ModuleHostInventory {
+  host: {
+    sdkVersion: string;
+    runtimeMode: string;
+    supportedCapabilities: ModuleCapability[];
+    supportedPermissions: ModulePermission[];
+  };
+  roots: ModuleHostRoot[];
+  modules: ModuleDescriptor[];
+  summary: {
+    discovered: number;
+    ready: number;
+    invalid: number;
+    incompatible: number;
+  };
+}

@@ -8,16 +8,26 @@ This repository is a local React + FastAPI application for editing a PyPSA-style
 
 This README is written as a handoff document for another AI or engineer. It explains the current structure, how data flows through the app, where the key logic lives, and which parts are still fragile.
 
-## Module System Proposal
+## Module System
 
-The repository now includes a design-only proposal for a full v1 module system based on
+The repository now includes a plugin-ready v1 module host foundation for
 `user-installed trusted local modules`.
 
 - host/runtime/SDK spec: [docs/module-system-v1.md](./docs/module-system-v1.md)
 - module authoring guide: [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
 
-This is intentionally documentation-first. No runtime module loader or bundled module is part of
-this proposal branch.
+What is implemented now:
+
+- backend discovery of local module roots and `module.json` manifests
+- manifest validation against supported SDK version, capabilities, and permissions
+- frontend module manager UI with enable/disable persistence
+- run payload wiring for enabled module ids
+
+What is not implemented yet:
+
+- actual third-party module code execution
+- dynamic panel rendering from module entrypoints
+- runtime lifecycle execution such as `activate()` / `deactivate()`
 
 ## 1. High-Level Architecture
 

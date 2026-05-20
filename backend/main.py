@@ -12,7 +12,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .lib.config import load_system_defaults
-from .lib.models import RunPayload
+from .lib.models import ModuleManifestPayload, RunPayload
+from .lib.module_host import discover_modules, validate_manifest_payload
 from .lib.network import validate_model
 from .lib.results import run_pypsa
 
@@ -114,6 +115,16 @@ def get_config() -> dict[str, Any]:
         "defaultSnapshotCount": int(sim.get("default_snapshot_count", 24)),
         "defaultSnapshotWeight": float(sim.get("default_snapshot_weight", 1.0)),
     }
+
+
+@app.get("/api/modules")
+def get_modules() -> dict[str, Any]:
+    return discover_modules()
+
+
+@app.post("/api/modules/validate")
+def validate_module_manifest(payload: ModuleManifestPayload) -> dict[str, Any]:
+    return validate_manifest_payload(payload.manifest)
 
 
 @app.post("/api/validate")
