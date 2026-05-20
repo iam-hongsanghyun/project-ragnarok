@@ -14,7 +14,7 @@ What is working:
 - frontend sidebar manager: enable/disable, per-plugin config editing, display-mode toggle
 - full backend execution pipeline across four stages (pre-build, post-build, in-solve, post-solve)
 - post-solve analytics returned in `RunResults.pluginAnalytics` and rendered in the Plugins tab
-- four sample plugins covering all four capability types (`sample-plugins/`)
+- five sample plugins covering all four capability types (`sample-plugins/`)
 
 What is **not** in v1:
 
