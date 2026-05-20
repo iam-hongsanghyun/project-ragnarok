@@ -145,6 +145,7 @@ function PluginTabContent({ module, config, onConfigChange, carriers, analytics 
                   value={config[key]}
                   onChange={(v) => onConfigChange(key, v)}
                   carriers={carriers}
+                  formValues={config}
                 />
               ))}
             </div>

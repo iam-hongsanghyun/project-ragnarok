@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ModuleConfigField, ModuleDescriptor, ModuleHostInventory, PluginDisplayMode, PluginFileValue } from '../../shared/types';
+import { ModuleConfigField, ModuleConfigTableColumn, ModuleConfigVisibleWhen, ModuleDescriptor, ModuleHostInventory, PluginDisplayMode, PluginFileValue } from '../../shared/types';
 
 interface ModuleManagerSectionProps {
   inventory: ModuleHostInventory | null;
@@ -33,9 +33,32 @@ interface ConfigFieldProps {
   value: unknown;
   onChange: (value: unknown) => void;
   carriers?: string[];
+  /** Sibling field values, used to evaluate `visibleWhen` gates. */
+  formValues?: Record<string, unknown>;
 }
 
-export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: ConfigFieldProps) {
+function evaluateVisibleWhen(
+  gate: ModuleConfigVisibleWhen | undefined,
+  formValues: Record<string, unknown> | undefined,
+  schema?: Record<string, ModuleConfigField>,
+): boolean {
+  if (!gate) return true;
+  if (!formValues) return true;
+  const raw = formValues[gate.field];
+  const resolved = raw !== undefined ? raw : schema?.[gate.field]?.default;
+  // Strict equality after a tolerant coercion: matches numeric/string parity
+  // the way most config form values arrive (numbers from sliders, strings
+  // from selects, booleans from checkboxes).
+  if (typeof gate.equals === 'boolean') return Boolean(resolved) === gate.equals;
+  if (typeof gate.equals === 'number')  return Number(resolved) === gate.equals;
+  return String(resolved ?? '') === String(gate.equals);
+}
+
+export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers, formValues }: ConfigFieldProps) {
+  if (!evaluateVisibleWhen(field.visibleWhen, formValues)) {
+    return null;
+  }
+
   const resolved = value !== undefined ? value : field.default;
   const label = field.label ?? fieldKey;
 
@@ -145,6 +168,7 @@ export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: C
 
   if (field.type === 'file') {
     const fileVal = resolved as PluginFileValue | undefined | null;
+    const binary = field.binary === true;
     return (
       <div className="sg-module-config-row sg-module-config-row--file">
         <span className="sg-module-config-label">{label}</span>
@@ -160,9 +184,16 @@ export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: C
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = () => {
+                  // For binary fields, result is a `data:<mime>;base64,<payload>`
+                  // string from readAsDataURL — the plugin decodes the base64.
+                  // For text fields, result is the UTF-8 decoded text.
                   onChange({ name: file.name, content: reader.result as string, mime: file.type } as PluginFileValue);
                 };
-                reader.readAsText(file);
+                if (binary) {
+                  reader.readAsDataURL(file);
+                } else {
+                  reader.readAsText(file);
+                }
               }}
             />
           </label>
@@ -171,6 +202,22 @@ export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: C
             : <span className="sg-setting-hint" style={{ margin: 0 }}>No file selected</span>
           }
         </div>
+      </div>
+    );
+  }
+
+  if (field.type === 'table' && field.columns && field.columns.length > 0) {
+    const rows: Array<Record<string, unknown>> = Array.isArray(resolved)
+      ? (resolved as Array<Record<string, unknown>>)
+      : (Array.isArray(field.default) ? (field.default as Array<Record<string, unknown>>) : []);
+    return (
+      <div className="sg-module-config-row sg-module-config-row--table">
+        <span className="sg-module-config-label">{label}</span>
+        <TableEditor
+          columns={field.columns}
+          rows={rows}
+          onChange={(next) => onChange(next)}
+        />
       </div>
     );
   }
@@ -190,6 +237,121 @@ export function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: C
       />
       {field.unit && <span className="sg-module-config-unit">{field.unit}</span>}
     </label>
+  );
+}
+
+// ── Table editor (config field type 'table') ─────────────────────────────────
+
+interface TableEditorProps {
+  columns: ModuleConfigTableColumn[];
+  rows: Array<Record<string, unknown>>;
+  onChange: (rows: Array<Record<string, unknown>>) => void;
+}
+
+function emptyRow(columns: ModuleConfigTableColumn[]): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  for (const c of columns) row[c.key] = c.type === 'number' ? 0 : '';
+  return row;
+}
+
+function cellInput(
+  column: ModuleConfigTableColumn,
+  cell: unknown,
+  onCellChange: (v: unknown) => void,
+): React.ReactNode {
+  if (column.type === 'select' && column.options) {
+    return (
+      <select
+        className="sg-module-table-cell-input"
+        value={String(cell ?? '')}
+        onChange={(e) => onCellChange(e.target.value)}
+      >
+        <option value="" />
+        {column.options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label ?? opt.value}</option>
+        ))}
+      </select>
+    );
+  }
+  if (column.type === 'number') {
+    return (
+      <input
+        type="number"
+        className="sg-module-table-cell-input"
+        value={cell === null || cell === undefined ? '' : String(cell)}
+        onChange={(e) => onCellChange(e.target.value === '' ? '' : Number(e.target.value))}
+      />
+    );
+  }
+  return (
+    <input
+      type="text"
+      className="sg-module-table-cell-input"
+      value={cell === null || cell === undefined ? '' : String(cell)}
+      onChange={(e) => onCellChange(e.target.value)}
+    />
+  );
+}
+
+function TableEditor({ columns, rows, onChange }: TableEditorProps) {
+  const updateCell = (rowIdx: number, key: string, val: unknown) => {
+    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [key]: val } : r));
+    onChange(next);
+  };
+  const addRow = () => onChange([...rows, emptyRow(columns)]);
+  const deleteRow = (rowIdx: number) => {
+    const next = rows.filter((_, i) => i !== rowIdx);
+    onChange(next);
+  };
+
+  return (
+    <div className="sg-module-table-editor">
+      <table className="sg-module-table">
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th
+                key={c.key}
+                style={c.width ? { width: typeof c.width === 'number' ? `${c.width}px` : c.width } : undefined}
+              >
+                {c.label ?? c.key}
+              </th>
+            ))}
+            <th className="sg-module-table-actions-col" aria-label="actions" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length + 1} className="sg-module-table-empty">
+                No rows — click “+ Add row” to start.
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, rowIdx) => (
+              <tr key={rowIdx}>
+                {columns.map((c) => (
+                  <td key={c.key}>{cellInput(c, row[c.key], (v) => updateCell(rowIdx, c.key, v))}</td>
+                ))}
+                <td className="sg-module-table-actions-col">
+                  <button
+                    type="button"
+                    className="sg-module-table-row-delete"
+                    onClick={() => deleteRow(rowIdx)}
+                    aria-label={`Delete row ${rowIdx + 1}`}
+                  >
+                    ×
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      <button type="button" className="tb-btn sg-module-table-add" onClick={addRow}>
+        + Add row
+      </button>
+    </div>
   );
 }
 
@@ -259,6 +421,7 @@ function ModuleCard({
                   value={config[key]}
                   onChange={(v) => onModuleConfigChange(key, v)}
                   carriers={carriers}
+                  formValues={config}
                 />
               ))}
             </div>

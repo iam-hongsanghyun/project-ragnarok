@@ -371,7 +371,29 @@ export interface ModuleHostRoot {
   managed: boolean;
 }
 
-export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select' | 'file';
+export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select' | 'file' | 'table';
+
+/** Column descriptor for an editable 'table' config field. */
+export interface ModuleConfigTableColumn {
+  /** Property name on each row object. Required. */
+  key: string;
+  /** Header label. Defaults to `key`. */
+  label?: string;
+  /** Cell input type. Defaults to 'string'. */
+  type?: 'string' | 'number' | 'select';
+  /** Options for 'select'-typed cells. */
+  options?: Array<{ value: string; label?: string }>;
+  /** Optional CSS width (px or rem string, or number-as-px). */
+  width?: string | number;
+}
+
+/** Condition under which a config field is visible. */
+export interface ModuleConfigVisibleWhen {
+  /** Sibling field key whose current value drives visibility. */
+  field: string;
+  /** Field is visible iff sibling value strictly equals this. */
+  equals: string | number | boolean;
+}
 
 export interface ModuleConfigField {
   type: ModuleConfigFieldType;
@@ -383,7 +405,19 @@ export interface ModuleConfigField {
   max?: number;
   step?: number;
   options?: Array<{ value: unknown; label: string }>;
-  accept?: string;  // for 'file' fields: MIME types / extension filter passed to <input accept>
+  /** For 'file' fields: MIME types / extension filter passed to <input accept>. */
+  accept?: string;
+  /**
+   * For 'file' fields: when true, the picker reads the file as a base64 data
+   * URL (readAsDataURL) instead of text (readAsText). Use for binary formats
+   * like xlsx, png, parquet where UTF-8 decoding would corrupt the bytes.
+   * The plugin receives `content` as `data:<mime>;base64,<payload>`.
+   */
+  binary?: boolean;
+  /** For 'table' fields: column schema. Required when type === 'table'. */
+  columns?: ModuleConfigTableColumn[];
+  /** Field is hidden unless this gate is satisfied. */
+  visibleWhen?: ModuleConfigVisibleWhen;
 }
 
 export interface PluginFileValue {
