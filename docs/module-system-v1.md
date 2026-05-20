@@ -1,469 +1,368 @@
-# Ragnarok Module System v1
+# Ragnarok Plugin System v1
 
 ## Status
 
 **v1 is fully implemented.**
 
-The repository implements the complete plugin pipeline:
+All four capability types are supported, plugin code is executed by the backend at runtime,
+and the frontend renders configuration and results without any hardcoded knowledge of
+individual plugins.
 
-- local module-root discovery and `module.json` manifest validation
-- frontend module manager (sidebar) with install, uninstall, enable/disable, and per-plugin config
-- plugin display-mode toggle: Sidebar (config in sidebar card) or Main panel (dedicated Plugins workspace tab)
-- backend API endpoints: `GET /api/modules`, `POST /api/modules/install`, `DELETE /api/modules/{id}`
-- **full plugin execution** at all four stages: `pre-build`, `post-build`, `in-solve`, `post-solve`
-- post-solve analytics results returned in `RunResults.pluginAnalytics` and rendered in `PluginPanel`
-- four sample plugins covering all four capability types (see `sample-plugins/`)
+What is working:
 
-Not in v1:
+- local module discovery, `module.json` manifest validation, install/uninstall via the UI
+- frontend sidebar manager: enable/disable, per-plugin config editing, display-mode toggle
+- full backend execution pipeline across four stages (pre-build, post-build, in-solve, post-solve)
+- post-solve analytics returned in `RunResults.pluginAnalytics` and rendered in the Plugins tab
+- four sample plugins covering all four capability types (`sample-plugins/`)
 
-- `activate()` / `deactivate()` lifecycle hooks — plugins are stateless Python callables, not long-lived objects
-- dynamic frontend UI injection from module entrypoints (all plugin output is rendered through the generic `PluginPanel` result table)
+What is **not** in v1:
+
+- `activate()` / `deactivate()` lifecycle hooks — plugins are stateless Python callables
+- dynamic frontend UI injection from module entrypoints (output is rendered through the
+  generic `PluginPanel` result table, not custom React components bundled with the plugin)
 - remote registry, signed modules, or sandboxed worker-process isolation
 
-The trust model for v1 is:
+---
 
-- `user-installed`
-- `trusted`
-- `local`
+## Trust model
 
-That means modules are installed from the local filesystem by the user, are assumed to be trusted
-by that user, and are not fetched from a remote registry by Ragnarok itself.
+v1 uses `user-installed trusted local modules`.
+
+- Modules are installed by the user from their own machine.
+- The host copies the extracted module into a managed local directory.
+- The host validates the manifest before the module can be enabled.
+- The user explicitly enables each module before it participates in a run.
+- No remote code is fetched by Ragnarok itself.
+
+---
 
 ## Goals
 
-- Let users extend Ragnarok without modifying core frontend or backend code.
-- Keep the host app in control of UI, workbook state, solver execution, and compatibility checks.
-- Support a narrow, versioned contract so modules remain understandable to both humans and AI.
-- Start with four module categories:
-  - `data-importer`
-  - `data-manipulator`
-  - `analytics-pack`
-  - `constraint-pack`
+- Let users extend Ragnarok without modifying core frontend or backend source code.
+- Keep the host in control of UI, workbook state, solver execution, and compatibility checks.
+- Use a narrow, versioned Python function contract so plugins are easy to write and easy to audit.
+- Support four plugin capability types:
+  - `data-importer` — transform or inject workbook data before the network is built
+  - `data-manipulator` — patch the built network before it is solved
+  - `analytics-pack` — compute and return extra metrics after the solve
+  - `constraint-pack` — register additional solver constraints during solve
 
 ## Non-goals for v1
 
 - No online marketplace or registry.
-- No arbitrary code execution inside core app state.
-- No direct module patching of frontend routes or backend endpoints.
+- No sandboxed third-party execution environment.
+- No direct plugin access to React internals or FastAPI route registration.
 - No remote module download by Ragnarok.
-- No bundled first-party modules in the initial implementation.
-- No promise of sandboxing beyond host-level validation and explicit trust by the local user.
+- No promise of process isolation beyond explicit trust by the local user.
 
-## Architecture
+---
 
-The module system has three layers:
+## Installation
 
-1. `host`
-   - discovers installed modules
-   - validates manifests
-   - enables or disables modules
-   - exposes approved APIs
-   - mounts module-defined surfaces in allowed UI slots
-2. `runtime`
-   - loads module entrypoints
-   - calls lifecycle hooks
-   - isolates failures per module
-   - mediates access to host capabilities
-3. `sdk`
-   - defines manifest format
-   - defines lifecycle hooks
-   - defines capabilities and data contracts
-   - defines authoring rules for third-party modules
+Plugins are distributed as `.zip` archives containing a `module.json` and a Python entry file.
 
-Core rule:
+To install, click **Install** in the **Modules** sidebar section and select the `.zip`.
+The backend extracts it into the managed module root:
 
-`modules contribute through contracts, never through internal reach-through`
-
-Modules must not import private React components, mutate internal application state directly, or
-depend on unpublished backend functions.
-
-## Trust and installation model
-
-v1 uses `trusted local modules`.
-
-- The user installs a module from a local folder.
-- The host copies or references that folder in a managed local modules directory.
-- The host validates the module manifest before enabling it.
-- The host may warn about requested permissions before activation.
-- The user can enable, disable, reload, or uninstall a module from the UI.
-
-Recommended managed directory:
-
-```text
-~/.ragnarok/modules/
+```
+.ragnarok/modules/          ← managed root (${PROJECT_ROOT}/.ragnarok/modules)
   <module-id>/
-    module.json
-    dist/index.js
-    README.md
+    module.json             ← required
+    main.py                 ← or whatever "entry" names
+    README.md               ← optional but recommended
 ```
 
-## Initial module categories
+To pack a local plugin directory into an installable zip:
 
-### `data-importer`
-
-Purpose:
-
-- ingest external data from files, folders, APIs, or prepared exports
-- validate source shape
-- normalize source data into a Ragnarok `WorkbookModel`
-
-Allowed outputs:
-
-- workbook payload
-- diagnostics
-- import metadata
-
-Examples:
-
-- import from CSV pack
-- import from an API-backed planning system
-- import a prepared PyPSA-Earth export
-
-### `data-manipulator`
-
-Purpose:
-
-- transform an existing workbook
-- apply repeatable mapping, cleanup, expansion, or templating logic
-
-Allowed outputs:
-
-- modified workbook payload
-- diagnostics
-- action summary
-
-Examples:
-
-- clone a scenario and scale demand
-- map generator metadata from carrier rules
-- harmonize technology names and units
-
-### `analytics-pack`
-
-Purpose:
-
-- contribute reusable analysis definitions
-- add charts, tables, or report sections built on top of input or output data
-
-Allowed outputs:
-
-- chart definitions
-- analysis descriptors
-- diagnostics
-
-Examples:
-
-- system planning KPI pack
-- emissions and dispatch storytelling pack
-- project-specific input QA views
-
-### `constraint-pack`
-
-Purpose:
-
-- declare additional custom constraints and their schemas
-- validate user input for those constraints
-- translate approved settings into host-recognized solver directives
-
-Allowed outputs:
-
-- constraint definitions
-- validation results
-- serialized constraint payloads understood by the core backend
-
-Examples:
-
-- renewable build floor pack
-- reserve margin pack
-- carrier capacity factor pack
-
-## Module lifecycle
-
-Every module must export a single module object that conforms to the v1 lifecycle:
-
-```ts
-export interface RagnarokModuleV1 {
-  manifest: ModuleManifest
-  activate(context: ModuleContext): Promise<void>
-  deactivate(): Promise<void>
-  capabilities?: ModuleCapabilities
-}
+```bash
+cd sample-plugins/ragnarok-cost-reporter
+zip -r ragnarok-cost-reporter.zip .
 ```
 
-Lifecycle expectations:
+To uninstall, expand the module card in the sidebar and click **Uninstall**.
 
-- `activate()` is called after manifest validation and permission approval.
-- `deactivate()` must release held resources and unregister listeners.
-- Module activation failure must not crash the host application.
-- The host may deactivate and reload a module during development or upgrade flows.
+---
 
-## Manifest
+## Manifest (`module.json`)
 
-Each module must include a `module.json` file at its root.
+Every plugin must include a `module.json` at its root.
 
 ```json
 {
-  "id": "example-module",
-  "name": "Example Module",
+  "id": "my-plugin",
+  "name": "My Plugin",
   "version": "0.1.0",
   "sdkVersion": "1",
-  "entry": "dist/index.js",
-  "description": "Example Ragnarok module.",
-  "capabilities": ["data-importer"],
-  "permissions": ["filesystem.read", "workbook.write", "ui.panel"],
-  "hostCompatibility": {
-    "minAppVersion": "0.1.0"
+  "entry": "main.py",
+  "stage": "post-solve",
+  "hook": "analyse",
+  "description": "One-line description shown in the sidebar.",
+  "capabilities": ["analytics-pack"],
+  "permissions": ["results.read", "analytics.register"],
+  "config": {
+    "my_flag": {
+      "type": "boolean",
+      "label": "Enable feature",
+      "default": true
+    }
+  },
+  "ui": {
+    "my_metric": { "label": "My Metric", "unit": "MWh", "format": "number" }
   }
 }
 ```
 
-Required fields:
+### Required fields
 
-- `id`
-- `name`
-- `version`
-- `sdkVersion`
-- `entry`
-- `capabilities`
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Stable unique identifier (kebab-case). Never changes across versions. |
+| `name` | string | Display name shown in the sidebar and Plugins tab. |
+| `version` | string | Semver string (e.g. `"0.1.0"`). |
+| `sdkVersion` | string | Must be `"1"` for v1 plugins. |
+| `entry` | string | Relative path to the Python entry file (e.g. `"main.py"`). |
+| `stage` | string | Which pipeline stage the plugin runs at (see [Execution stages](#execution-stages)). |
+| `hook` | string | Name of the Python function to call in the entry file. |
+| `capabilities` | array | At least one of the four capability type strings (see below). |
 
-Optional fields:
+### Optional fields
 
-- `description`
-- `permissions`
-- `hostCompatibility`
-- `author`
-- `homepage`
+| Field | Type | Description |
+|---|---|---|
+| `description` | string | Shown in the module card and the Plugins tab. |
+| `permissions` | array | Declared but not currently enforced at runtime; used for auditing. |
+| `config` | object | Per-plugin config schema (see [Config schema](#config-schema)). |
+| `ui` | object | Display hints for post-solve analytics results (see [UI hints](#ui-hints)). |
 
-Manifest validation rules:
+### Validation rules
 
-- `id` must be stable and unique.
-- `sdkVersion` must match the host-supported major SDK version.
-- `capabilities` must be a subset of the host-known capability list.
-- Unknown permissions must cause rejection.
+- `sdkVersion` must match the host's supported SDK version (currently `"1"`).
+- `capabilities` must be a subset of the host's known list.
+- Unknown permissions are rejected during manifest validation.
+- The entry file must exist in the module directory for status to be `"ready"`.
+
+### Module status values
+
+| Status | Meaning |
+|---|---|
+| `ready` | Manifest valid, SDK compatible, entry file present. Can be enabled. |
+| `incompatible` | `sdkVersion` does not match the host. Disabled. |
+| `invalid` | Manifest has missing/unknown fields, or entry file missing. Disabled. |
+
+---
+
+## Execution stages
+
+When the user clicks **Run**, `run_pypsa()` calls `execute_plugins_at_stage()` at each
+stage in order. Only plugins whose `stage` field matches are invoked.
+
+```
+POST /api/run
+  │
+  ├── stage: pre-build    → plugins with stage="pre-build"
+  │     └─ build_network()
+  │
+  ├── stage: post-build   → plugins with stage="post-build"
+  │
+  │   network.optimize(extra_functionality=...)
+  │     └── stage: in-solve   → plugins with stage="in-solve"
+  │
+  └── stage: post-solve   → plugins with stage="post-solve"
+        └─ results returned to frontend
+```
+
+### Stage contracts
+
+Each stage defines the arguments the hook function receives and what it may return.
+
+#### `pre-build`
+
+```python
+def <hook>(
+    model: dict[str, list[dict]],   # workbook JSON — sheet → list of row dicts
+    scenario: dict,                  # carbonPrice, constraints, …
+    options: dict,                   # snapshotWeight, snapshotStart, …
+                                     # options["moduleConfig"] = this plugin's config
+) -> dict | None:
+    ...
+    # Return a modified model dict to replace the workbook for downstream stages.
+    # Return None to leave the model unchanged.
+```
+
+Typical capability: `data-importer`.
+The host replaces the model with the plugin's return value (last writer wins if multiple
+pre-build plugins are enabled).
+
+#### `post-build`
+
+```python
+def <hook>(
+    network: pypsa.Network,   # fully assembled network, not yet solved
+    scenario: dict,
+    options: dict,            # options["moduleConfig"] = this plugin's config
+) -> None:
+    ...
+    # Modify network in-place. Return value is ignored.
+```
+
+Typical capability: `data-manipulator`.
+
+#### `in-solve`
+
+```python
+def <hook>(
+    network: pypsa.Network,          # network with linopy model at network.model
+    model: dict[str, list[dict]],    # workbook JSON (read-only)
+    scenario: dict,
+    options: dict,                   # options["moduleConfig"] = this plugin's config
+) -> None:
+    ...
+    # Register constraints via network.model.add_constraints(...).
+    # Return value is ignored.
+    # Exceptions are re-raised — failure aborts the solve rather than silently
+    # running without the constraint.
+```
+
+Typical capability: `constraint-pack`.
+
+#### `post-solve`
+
+```python
+def <hook>(
+    network: pypsa.Network,        # solved network
+    results: dict,                 # core Ragnarok results assembled so far (read-only)
+    scenario: dict,
+    options: dict,                 # options["moduleConfig"] = this plugin's config
+) -> dict | None:
+    ...
+    # Return a dict of metric values to expose in the frontend.
+    # Keys must match keys in the "ui" map in module.json for labelling to work.
+    # Return None to emit no analytics.
+```
+
+Typical capability: `analytics-pack`.
+The returned dict is stored in `RunResults.pluginAnalytics[<module-id>]` and displayed
+in the Plugins workspace tab (or the sidebar card, depending on the plugin's display mode).
+
+---
+
+## Config schema
+
+The `config` object in `module.json` declares per-plugin settings that are editable in
+the UI before a run. The host injects the current values as `options["moduleConfig"]`
+so the plugin reads its own config without knowing its ID.
+
+Each config key maps to a field descriptor:
+
+| Field | Required | Description |
+|---|---|---|
+| `type` | yes | `"boolean"`, `"number"`, `"string"`, `"select"`, `"carrier-select"` |
+| `label` | no | Display label shown in the UI. Defaults to the key name. |
+| `description` | no | Hint text shown below the field. |
+| `default` | no | Default value used before the user edits the field. |
+| `unit` | no | Unit label appended after the value. |
+| `min` / `max` | no | For `"number"` — renders a slider when both are present. |
+| `step` | no | Slider/input step increment for `"number"`. |
+| `options` | no | For `"select"` — array of `{ "value": ..., "label": ... }` objects. |
+
+**`carrier-select`** is a multi-checkbox field populated from the carriers defined in the
+current workbook. The config value is a `list[str]` of selected carrier names.
+
+Example:
+
+```json
+"config": {
+  "renewable_floor": {
+    "type": "number",
+    "label": "Minimum renewable share",
+    "default": 20,
+    "min": 0,
+    "max": 100,
+    "step": 5,
+    "unit": "%"
+  },
+  "renewable_carriers": {
+    "type": "carrier-select",
+    "label": "Renewable carriers",
+    "default": ["wind", "solar", "hydro"]
+  }
+}
+```
+
+---
+
+## UI hints
+
+The `ui` object in `module.json` maps post-solve result keys to display metadata.
+This is how the frontend labels and formats results without hardcoding anything about
+a specific plugin.
+
+```json
+"ui": {
+  "total_cost":   { "label": "Total System Cost", "unit": "$",     "format": "currency" },
+  "lcoe_per_mwh": { "label": "LCOE",              "unit": "$/MWh", "format": "number"   },
+  "by_carrier":   { "label": "Cost by Carrier",   "unit": "$",     "format": "table"    }
+}
+```
+
+| `format` value | Rendered as |
+|---|---|
+| `"number"` | Locale-formatted number with up to 4 decimal places |
+| `"currency"` | Same as `number` |
+| `"table"` | Nested sub-table (value must be a `dict[str, scalar]`) |
+| `"text"` or absent | Plain string |
+
+---
 
 ## Permissions
 
-Permissions must be explicit in `module.json`.
+Permissions are declared in `module.json` as a signal of intent. They are validated
+against the host's supported set during manifest validation; unknown permissions cause
+rejection. They are not currently enforced at Python runtime — v1 relies on the user's
+trust in locally installed code.
 
-Initial permission set:
+Supported permissions:
 
-- `filesystem.read`
-- `filesystem.write`
+- `filesystem.read` / `filesystem.write`
 - `network.access`
-- `workbook.read`
-- `workbook.write`
+- `workbook.read` / `workbook.write`
 - `results.read`
-- `ui.panel`
-- `ui.action`
+- `ui.panel` / `ui.action`
 - `constraints.register`
 - `analytics.register`
 
-Rules:
-
-- Modules only receive host APIs matching granted permissions.
-- The host should surface permission prompts during install or first enable.
-- Permissions are capability-level declarations, not a blanket trust bypass.
-
-## Host API
-
-The host must expose a versioned runtime context to modules.
-
-```ts
-export interface ModuleContext {
-  sdkVersion: '1'
-  app: {
-    version: string
-    getActiveWorkbook(): Promise<WorkbookModel | null>
-    setActiveWorkbook(workbook: WorkbookModel): Promise<void>
-    getLatestResults(): Promise<RunResults | null>
-    showNotification(input: NotificationInput): void
-  }
-  files: {
-    openFileDialog(options?: FileDialogOptions): Promise<SelectedFile[]>
-    openFolderDialog(): Promise<SelectedFolder | null>
-    readText(path: string): Promise<string>
-    readBinary(path: string): Promise<ArrayBuffer>
-  }
-  ui: {
-    registerPanel(panel: PanelDefinition): void
-    registerAction(action: ActionDefinition): void
-  }
-  backend: {
-    validateModulePayload(type: string, payload: unknown): Promise<ValidationResult>
-  }
-}
-```
-
-The host API must stay smaller than the internal app surface. If a module needs something the host
-does not expose yet, the API should be extended intentionally instead of letting modules reach into
-private code.
-
-## Capability interfaces
-
-### `data-importer`
-
-```ts
-export interface DataImporterCapability {
-  getConfigSchema?(): JsonSchema
-  validateSource(input: ModuleInput): Promise<Diagnostic[]>
-  load(input: ModuleInput): Promise<ModuleLoadResult>
-}
-```
-
-### `data-manipulator`
-
-```ts
-export interface DataManipulatorCapability {
-  getActions(): Promise<ManipulatorActionDefinition[]>
-  run(actionId: string, input: ManipulatorRunInput): Promise<ManipulatorRunResult>
-}
-```
-
-### `analytics-pack`
-
-```ts
-export interface AnalyticsPackCapability {
-  getPanels(): Promise<PanelDefinition[]>
-  getChartDefinitions(): Promise<ChartDefinition[]>
-}
-```
-
-### `constraint-pack`
-
-```ts
-export interface ConstraintPackCapability {
-  getConstraintDefinitions(): Promise<ConstraintDefinition[]>
-  validateConstraint(input: ConstraintInput): Promise<Diagnostic[]>
-}
-```
-
-Combined container:
-
-```ts
-export interface ModuleCapabilities {
-  dataImporter?: DataImporterCapability
-  dataManipulator?: DataManipulatorCapability
-  analyticsPack?: AnalyticsPackCapability
-  constraintPack?: ConstraintPackCapability
-}
-```
-
-## Data contracts
-
-The most important stable contract is the normalized workbook handoff.
-
-```ts
-export interface ModuleLoadResult {
-  workbook: WorkbookModel
-  diagnostics?: Diagnostic[]
-  metadata?: ModuleMetadata
-}
-```
-
-Additional shared contracts:
-
-- `WorkbookModel`
-- `RunResults`
-- `Diagnostic`
-- `NotificationInput`
-- `PanelDefinition`
-- `ActionDefinition`
-- `ConstraintDefinition`
-- `ChartDefinition`
-
-Rules:
-
-- `WorkbookModel` is the canonical input to Ragnarok.
-- A module may prepare or transform workbook data, but the host owns storage and persistence.
-- `RunResults` are read-only to modules.
-
-## Frontend vs backend call path
-
-The module system should be orchestrated from the frontend.
-
-Call flow:
-
-1. frontend discovers installed modules
-2. frontend shows modules in a `Modules` or `Connector` surface
-3. user selects and configures a module
-4. frontend activates the module through the runtime
-5. module runs capability logic
-6. module returns normalized payloads
-7. frontend writes workbook state or registers UI surfaces
-8. backend is called only through approved host APIs when heavy or privileged work is needed
-
-This keeps the user interaction model in the frontend while avoiding backend-led UI behavior.
-
-## UI extension points
-
-v1 should use narrow extension points instead of arbitrary layout injection.
-
-Allowed slots:
-
-- left sidebar module panel
-- import/action dialogs
-- analytics panel registration
-- constraint definition registration
-
-v1 should not allow:
-
-- arbitrary route creation
-- unrestricted React tree injection
-- uncontrolled style or layout overrides
+---
 
 ## Error isolation
 
-The runtime must isolate failures per module.
+The runtime isolates failures per plugin:
 
-Required behaviors:
+- Import errors or missing entry files are logged and the plugin is skipped for that run.
+- Runtime exceptions at `pre-build`, `post-build`, and `post-solve` are caught, logged,
+  and stored as `{"error": "<message>"}` in the results — the rest of the pipeline continues.
+- **`in-solve` exceptions are re-raised.** A constraint plugin that fails must abort the
+  solve; swallowing the error would let the solver run silently without the declared
+  constraint and produce wrong results.
+- The frontend shows a plugin error row in the results table when `{"error": ...}` is present.
 
-- failed activation marks the module as disabled for the session
-- a broken module panel does not crash the rest of the app
-- capability timeouts surface a visible error
-- diagnostics are attributable to a specific module id and version
+---
 
 ## Compatibility and versioning
 
-The SDK version must be explicit and major-versioned.
+- The host supports exactly one `sdkVersion` major at a time (currently `"1"`).
+- Each plugin declares exactly one `sdkVersion`. Mismatched plugins are shown as
+  `incompatible` and cannot be enabled.
+- Capability or hook contract changes that would break existing plugins require a new
+  SDK major version bump.
 
-Rules:
+---
 
-- host supports one or more `sdkVersion` majors
-- module declares exactly one `sdkVersion`
-- incompatible modules are shown as installed but disabled
-- capability changes that break existing modules require a new SDK major
+## Out of scope (post-v1)
 
-## Recommended implementation sequence
-
-1. Add module manifest schema and validation.
-2. Add managed local module directory and discovery.
-3. Add enable, disable, reload, and uninstall flows.
-4. Add runtime loader and lifecycle hooks.
-5. Add permission prompt and persistence.
-6. Add `data-importer` capability.
-7. Add `data-manipulator` capability.
-8. Add `analytics-pack` capability.
-9. Add `constraint-pack` capability.
-10. Add diagnostics, logging, and failure isolation.
-11. Add module management UI in the sidebar.
-
-## Acceptance criteria for v1
-
-Ragnarok has a real v1 module system when all of the following are true:
-
-- a user can install a local module without editing core source code
-- the host validates `module.json`
-- the host can enable or disable modules
-- the host can call module lifecycle hooks
-- at least the four initial module categories are supported by contract
-- modules can contribute workbook, analytics, or constraint definitions only through host APIs
-- a broken module cannot take down the rest of the application
-
-## Out of scope follow-ups
-
-- remote registry
-- signed modules
-- sandboxed third-party execution
-- backend worker isolation for untrusted code
-- module billing or marketplace
-- cloud-hosted module deployment
+- Remote module registry or marketplace
+- Signed module packages
+- Sandboxed or worker-process isolated execution for untrusted code
+- Dynamic frontend UI injection from plugin bundles (custom charts, panels)
+- `activate()` / `deactivate()` stateful lifecycle
+- Module billing or cloud deployment
