@@ -5,20 +5,18 @@ Stage : in-solve
 Hook  : add_constraints(network, model, scenario, options) -> None
 
 Called inside PyPSA's extra_functionality callback, after the linopy model has
-been built but before the solver runs.  Modifies network.model in-place by
-adding a minimum renewable generation share constraint.
+been built but before the solver runs.  Modifies n.model in-place by adding a
+minimum renewable energy-share constraint over the full optimisation horizon:
 
-Constraint (per snapshot t):
+    Σ_t Σ_{g ∈ renewables} w_t · p[g,t]
+        ≥  floor · Σ_t Σ_{g ∈ all} w_t · p[g,t]
 
-    Σ p[g, t]  (g ∈ renewables)  ≥  floor · Σ p[g, t]  (g ∈ all generators)
-
-where "renewables" are generators whose carrier exactly matches one of the
-carriers selected in the module config (``renewable_carriers``).
+where w_t is the snapshot weighting (matches PyPSA's objective weighting).
 
 Config (module.json):
-  renewable_carriers  (carrier-select)  — list of carrier names that count as
-                                          renewable; populated from the workbook.
-  renewable_floor     (number, 0–100%)  — minimum renewable share floor.
+  renewable_carriers  (carrier-select)  — exact carrier names that count as
+                                          renewable; populated from workbook.
+  renewable_floor     (number, 0–100%)  — minimum renewable share.
 """
 from __future__ import annotations
 
@@ -29,11 +27,9 @@ import pypsa
 
 logger = logging.getLogger(__name__)
 
-# Default floor percentage when not set via config.
 DEFAULT_FLOOR_PCT: float = 20.0
 
-# Fallback keywords used ONLY when no carrier config is provided at all
-# (e.g. plugin installed but workbook not yet opened).
+# Keyword fallback used only when no carriers are configured yet.
 _FALLBACK_KEYWORDS = ("wind", "solar", "hydro", "biomass", "geothermal", "wave", "tidal")
 
 
@@ -43,32 +39,52 @@ def add_constraints(
     scenario: dict[str, Any],
     options: dict[str, Any],
 ) -> None:
-    """Add a per-snapshot minimum renewable share constraint.
+    """Add a minimum renewable energy-share constraint.
 
     Args:
-        network:  Built pypsa.Network with linopy model attached as
-                  ``network.model``.  Add constraints via ``network.model``.
-        model:    Original workbook JSON (read-only).
+        network:  pypsa.Network with linopy model at ``network.model``.
+        model:    Workbook JSON (read-only).
         scenario: Scenario parameters.
-        options:  Run options; ``options["moduleConfig"]`` is injected by the
-                  host and contains this module's own config values.
+        options:  Run options; ``options["moduleConfig"]`` contains this
+                  module's own config values injected by the host.
     """
-    lm = getattr(network, "model", None)
+    n = network
+    lm = getattr(n, "model", None)
     if lm is None:
-        logger.warning("[renewable-floor] network.model not attached — skipped.")
+        logger.warning("[renewable-floor] n.model not attached — skipped.")
         return
 
     module_config = options.get("moduleConfig", {})
 
-    # ── Floor fraction ────────────────────────────────────────────────────────
+    # ── Floor fraction ─────────────────────────────────────────────────────────
     floor_pct = float(module_config.get("renewable_floor", DEFAULT_FLOOR_PCT))
     floor = floor_pct / 100.0
     if floor <= 0:
         logger.info("[renewable-floor] floor_pct=%.0f — constraint disabled.", floor_pct)
         return
 
-    # ── Identify renewable generators ─────────────────────────────────────────
-    gens = network.generators
+    # ── Generator variable — use subscript access, same as custom_constraints.py
+    try:
+        gen_p = lm["Generator-p"]
+    except KeyError:
+        available = list(lm.variables)
+        logger.warning(
+            "[renewable-floor] Variable 'Generator-p' not in linopy model. "
+            "Available: %s — skipped.", available,
+        )
+        return
+
+    # Generator dimension (non-snapshot axis)
+    dim = next((d for d in gen_p.dims if d != "snapshot" and "snapshot" not in d.lower()), None)
+    if dim is None:
+        logger.warning("[renewable-floor] Cannot identify generator dim in %s — skipped.", gen_p.dims)
+        return
+
+    # Snapshot weights (matches PyPSA's objective weighting)
+    weights = n.snapshot_weightings["generators"]
+
+    # ── Identify renewable generators ──────────────────────────────────────────
+    gens = n.generators
     if gens.empty:
         logger.warning("[renewable-floor] No generators — skipped.")
         return
@@ -76,11 +92,9 @@ def add_constraints(
     renewable_carriers_cfg = module_config.get("renewable_carriers", None)
 
     if renewable_carriers_cfg and isinstance(renewable_carriers_cfg, list) and len(renewable_carriers_cfg) > 0:
-        # Exact match against user-selected carriers
         renewable_mask = gens["carrier"].isin(renewable_carriers_cfg)
         match_method = f"exact match ({len(renewable_carriers_cfg)} selected carriers)"
     else:
-        # Fallback: keyword substring matching (no carriers configured yet)
         renewable_mask = gens["carrier"].str.lower().str.contains(
             "|".join(_FALLBACK_KEYWORDS), na=False
         )
@@ -95,52 +109,39 @@ def add_constraints(
         )
         return
 
-    # ── Locate the generator dispatch variable in the linopy model ────────────
-    p = lm.variables.get("Generator-p")
-    if p is None:
-        logger.warning(
-            "[renewable-floor] Variable 'Generator-p' not found in linopy model. "
-            "Available: %s — skipped.",
-            list(lm.variables),
-        )
-        return
+    # Intersect with generators that actually appear in the LP variable
+    valid_coords = set(gen_p.coords[dim].values.tolist())
+    renewable_in_lp = [g for g in renewable_idx    if g in valid_coords]
+    all_in_lp       = [g for g in gens.index.tolist() if g in valid_coords]
 
-    # Identify the generator-axis dimension (non-snapshot dim)
-    gen_dim = next(
-        (dim for dim in p.dims if "snapshot" not in dim.lower()),
-        None,
-    )
-    if gen_dim is None:
+    if not renewable_in_lp:
         logger.warning(
-            "[renewable-floor] Could not identify generator dimension in %s — skipped.",
-            p.dims,
-        )
-        return
-
-    valid_coords = list(p.coords[gen_dim].values)
-    renewable_in_model = [g for g in renewable_idx if g in valid_coords]
-    all_in_model = valid_coords
-
-    if not renewable_in_model:
-        logger.warning(
-            "[renewable-floor] None of the renewable generators appear in the LP "
-            "variable — skipped."
+            "[renewable-floor] None of the %d renewable generators appear in the LP "
+            "variable — skipped.", len(renewable_idx),
         )
         return
 
     logger.info(
-        "[renewable-floor] %.0f%% floor | %d/%d generators renewable | method: %s",
-        floor_pct, len(renewable_in_model), len(all_in_model), match_method,
+        "[renewable-floor] %.0f%% floor | %d/%d generators renewable | %s",
+        floor_pct, len(renewable_in_lp), len(all_in_lp), match_method,
     )
 
+    # ── Build constraint — energy-share over full horizon ─────────────────────
+    # Same pattern as carrier_min_share in custom_constraints.py:
+    #   (gen_p.sel({dim: gens}) * weights).sum() — scalar linopy expression
     try:
-        p_renew = p.sel({gen_dim: renewable_in_model}).sum(gen_dim)
-        p_total = p.sel({gen_dim: all_in_model}).sum(gen_dim)
+        renew_energy = (gen_p.sel({dim: renewable_in_lp}) * weights).sum()
+        total_energy = (gen_p.sel({dim: all_in_lp})       * weights).sum()
 
-        lm.add_constraints(
-            p_renew - floor * p_total >= 0,
+        n.model.add_constraints(
+            renew_energy - floor * total_energy >= 0,
             name="ragnarok_renewable_floor",
         )
-        logger.info("[renewable-floor] Constraint 'ragnarok_renewable_floor' registered.")
-    except Exception as exc:  # noqa: BLE001
+        logger.info(
+            "[renewable-floor] Constraint 'ragnarok_renewable_floor' registered "
+            "(%.0f%% of total energy must be renewable).", floor_pct,
+        )
+    except Exception as exc:
+        # Re-raise so the infeasibility surfaces properly rather than being swallowed.
         logger.error("[renewable-floor] Failed to register constraint: %s", exc)
+        raise

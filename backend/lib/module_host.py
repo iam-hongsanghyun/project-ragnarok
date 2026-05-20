@@ -459,6 +459,11 @@ def execute_plugins_at_stage(
                 outputs[module_id] = result
         except Exception as exc:  # noqa: BLE001
             logger.error("Plugin '%s' at stage '%s' failed: %s.", module_id, stage, exc)
+            if stage == "in-solve":
+                # Constraint-registration failures must propagate — swallowing them
+                # would let the solver run WITHOUT the constraint, silently producing
+                # wrong results.  Re-raise so extra_functionality aborts.
+                raise
             outputs[module_id] = {"error": str(exc)}
 
     return outputs
