@@ -20,7 +20,7 @@ import {
   ModelSubTab,
   AnalyticsSubTab,
 } from './shared/types';
-import { API_BASE, DEFAULT_CONSTRAINTS, DEFAULT_SHEET_ROWS, MAX_UNPINNED_HISTORY } from './constants';
+import { API_BASE, DEFAULT_CONSTRAINTS, DEFAULT_SHEET_ROWS, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
 import { createEmptyWorkbook, exportWorkbook, loadSampleWorkbook, parseWorkbook, workbookToArrayBuffer, parseCsvToGridRows } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
 import { getBounds, getBusIndex, carrierColor, hashColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
@@ -43,10 +43,10 @@ function AppInner() {
   const [analyticsSubTab, setAnalyticsSubTab] = useState<AnalyticsSubTab>('Result');
   const [results, setResults] = useState<RunResults | null>(null);
   const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [maxSnapshots, setMaxSnapshots] = useState<number>(1);
-  const [snapshotStart, setSnapshotStart] = useState(0);
-  const [snapshotEnd, setSnapshotEnd] = useState(24);
-  const [snapshotWeight, setSnapshotWeight] = useState(1);
+  const [maxSnapshots, setMaxSnapshots] = useState<number>(RUN_WINDOW.initialMaxSnapshots);
+  const [snapshotStart, setSnapshotStart] = useState(RUN_WINDOW.initialSnapshotStart);
+  const [snapshotEnd, setSnapshotEnd] = useState(RUN_WINDOW.defaultSnapshotEnd);
+  const [snapshotWeight, setSnapshotWeight] = useState(RUN_WINDOW.defaultSnapshotWeight);
   const [constraints, setConstraints] = useState<CustomConstraint[]>(DEFAULT_CONSTRAINTS);
   const [carbonPrice, setCarbonPrice] = useState<number>(0);
   const [forceLp, setForceLp] = useState<boolean>(false);
@@ -140,8 +140,8 @@ function AppInner() {
   const resetForNewModel = (nextModel: WorkbookModel, name?: string) => {
     const snapshotMax = snapshotMaxFromWorkbook(nextModel.snapshots);
     setMaxSnapshots(snapshotMax);
-    setSnapshotEnd(Math.min(24, snapshotMax));
-    setSnapshotStart(0);
+    setSnapshotEnd(Math.min(RUN_WINDOW.defaultSnapshotEnd, snapshotMax));
+    setSnapshotStart(RUN_WINDOW.initialSnapshotStart);
     setModel(nextModel);
     setResults(null);
     setRunStatus('idle');
@@ -500,13 +500,13 @@ function AppInner() {
       } catch {
         // Network error — keep retrying silently
         if (jobIdRef.current === jobId) {
-          pollTimerRef.current = setTimeout(poll, 2000);
+          pollTimerRef.current = setTimeout(poll, RUN_POLLING.retryDelayMs);
         }
         return;
       }
 
       if (data.status === 'running') {
-        pollTimerRef.current = setTimeout(poll, 1500);
+        pollTimerRef.current = setTimeout(poll, RUN_POLLING.runningDelayMs);
         return;
       }
 
@@ -515,7 +515,7 @@ function AppInner() {
     };
 
     // First poll after a short delay to let the process spin up
-    pollTimerRef.current = setTimeout(poll, 1000);
+    pollTimerRef.current = setTimeout(poll, RUN_POLLING.initialDelayMs);
   };
 
   // ── Metric series derived data ────────────────────────────────────────────

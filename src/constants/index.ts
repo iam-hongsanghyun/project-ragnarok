@@ -1,13 +1,7 @@
+export { API_BASE, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW, SETTINGS_CONFIG, SETTINGS_DEFAULTS, CURRENCIES } from './config';
+
 import { ConstraintMetric, CustomConstraint, GridRow, SheetName, TsSheetName } from '../shared/types';
 export { SHEETS, TS_SHEETS } from './sheets';
-
-// ── API ───────────────────────────────────────────────────────────────────────
-
-export const API_BASE =
-  window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000' : '';
-
-// Maximum number of unpinned run-history entries to retain (pinned entries are unaffected).
-export const MAX_UNPINNED_HISTORY = 5;
 
 // ── Default row templates ─────────────────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { SETTINGS_CONFIG, SETTINGS_DEFAULTS } from '../../constants';
 
 export type DateFormat = 'auto' | 'dmy' | 'mdy' | 'ymd';
 export type SolverType = 'simplex' | 'ipm';
@@ -14,7 +15,7 @@ export interface AppSettings {
   discountRate: number;       // Used to annualise CAPEX for extendable assets
 }
 
-const STORAGE_KEY = 'pypsa_gui_settings';
+const STORAGE_KEY = SETTINGS_CONFIG.storageKey;
 
 function loadSettings(): AppSettings {
   try {
@@ -22,20 +23,20 @@ function loadSettings(): AppSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppSettings>;
       return {
-        dateFormat: parsed.dateFormat ?? 'auto',
-        solverThreads: parsed.solverThreads ?? 0,
-        solverType: parsed.solverType ?? 'simplex',
-        currencyCode: parsed.currencyCode ?? 'USD',
-        currencySymbol: parsed.currencySymbol ?? '$',
-        enableLoadShedding: parsed.enableLoadShedding ?? false,
-        loadSheddingCost: parsed.loadSheddingCost ?? 2000,
-        discountRate: parsed.discountRate ?? 0.05,
+        dateFormat: parsed.dateFormat ?? SETTINGS_DEFAULTS.dateFormat,
+        solverThreads: parsed.solverThreads ?? SETTINGS_DEFAULTS.solverThreads,
+        solverType: parsed.solverType ?? SETTINGS_DEFAULTS.solverType,
+        currencyCode: parsed.currencyCode ?? SETTINGS_DEFAULTS.currencyCode,
+        currencySymbol: parsed.currencySymbol ?? SETTINGS_DEFAULTS.currencySymbol,
+        enableLoadShedding: parsed.enableLoadShedding ?? SETTINGS_DEFAULTS.enableLoadShedding,
+        loadSheddingCost: parsed.loadSheddingCost ?? SETTINGS_DEFAULTS.loadSheddingCost,
+        discountRate: parsed.discountRate ?? SETTINGS_DEFAULTS.discountRate,
       };
     }
   } catch {
     // ignore
   }
-  return { dateFormat: 'auto', solverThreads: 0, solverType: 'simplex', currencyCode: 'USD', currencySymbol: '$', enableLoadShedding: false, loadSheddingCost: 2000, discountRate: 0.05 };
+  return { ...SETTINGS_DEFAULTS };
 }
 
 function saveSettings(s: AppSettings): void {

@@ -8,6 +8,7 @@
 import React, { useMemo } from 'react';
 import { GridRow } from '../../shared/types';
 import { DualRangeSlider } from '../../shared/components/DualRangeSlider';
+import { RUN_WINDOW } from '../../constants';
 
 export interface RunDialogProps {
   open: boolean;
@@ -186,7 +187,7 @@ export function RunDialog({
                       {' '}({modeledSnapshots} snapshots of {windowSize} hourly steps)
                     </span>
                     <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      {[1, 2, 3, 4, 6, 8, 12, 24].map((n) => (
+                      {RUN_WINDOW.weightOptions.map((n) => (
                         <button
                           key={n}
                           className={`tb-btn${snapshotWeight === n ? '' : ' tb-btn--muted'}`}

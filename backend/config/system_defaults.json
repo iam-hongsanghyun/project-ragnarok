@@ -1,12 +1,13 @@
 {
-  "_comment": "Parameters for system-managed generators that the backend injects automatically. Edit here to adjust system generator behaviour without touching source code.",
+  "_comment": "Parameters for system-managed backend behavior and automatically injected components.",
   "simulation": {
     "max_snapshots": 8760,
     "default_snapshot_count": 24,
-    "default_snapshot_weight": 1.0
+    "default_snapshot_weight": 1.0,
+    "hours_in_year": 8760.0
   },
   "load_shedding": {
-    "_comment": "Per-bus load-shedding (VOLL) generators, added only when enableLoadShedding=true. The marginal_cost here is the default; the running app overrides it from Settings (loadSheddingCost) in the user-selected currency.",
+    "_comment": "Per-bus load-shedding (VOLL) generators, added only when enableLoadShedding=true. The marginal_cost here is the backend default; the running app can override it from frontend Settings in the user-selected currency.",
     "carrier": "LoadShedding",
     "p_nom_floor": 1000,
     "marginal_cost": 2000.0
