@@ -2,17 +2,23 @@
 
 ## Status
 
-This document defines the first full module system for Ragnarok.
+**v1 is fully implemented.**
 
-The repository now implements the host-readiness layer:
+The repository implements the complete plugin pipeline:
 
-- local module-root discovery
-- `module.json` manifest validation
-- frontend module inventory and enable/disable persistence
-- backend API endpoints for module discovery and manifest validation
+- local module-root discovery and `module.json` manifest validation
+- frontend module manager (sidebar) with install, uninstall, enable/disable, and per-plugin config
+- plugin display-mode toggle: Sidebar (config in sidebar card) or Main panel (dedicated Plugins workspace tab)
+- backend API endpoints: `GET /api/modules`, `POST /api/modules/install`, `DELETE /api/modules/{id}`
+- **full plugin execution** at all four stages: `pre-build`, `post-build`, `in-solve`, `post-solve`
+- post-solve analytics results returned in `RunResults.pluginAnalytics` and rendered in `PluginPanel`
+- four sample plugins covering all four capability types (see `sample-plugins/`)
 
-The repository does not yet implement third-party module entrypoint execution, dynamic UI injection
-from installed bundles, or lifecycle calls such as `activate()` and `deactivate()`.
+Not in v1:
+
+- `activate()` / `deactivate()` lifecycle hooks — plugins are stateless Python callables, not long-lived objects
+- dynamic frontend UI injection from module entrypoints (all plugin output is rendered through the generic `PluginPanel` result table)
+- remote registry, signed modules, or sandboxed worker-process isolation
 
 The trust model for v1 is:
 

@@ -8,26 +8,56 @@ This repository is a local React + FastAPI application for editing a PyPSA-style
 
 This README is written as a handoff document for another AI or engineer. It explains the current structure, how data flows through the app, where the key logic lives, and which parts are still fragile.
 
-## Module System
+## Plugin System
 
-The repository now includes a plugin-ready v1 module host foundation for
-`user-installed trusted local modules`.
+Ragnarok ships a fully operational v1 plugin system for `user-installed trusted local modules`.
 
 - host/runtime/SDK spec: [docs/module-system-v1.md](./docs/module-system-v1.md)
 - module authoring guide: [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
 
-What is implemented now:
+### What is implemented
 
-- backend discovery of local module roots and `module.json` manifests
-- manifest validation against supported SDK version, capabilities, and permissions
-- frontend module manager UI with enable/disable persistence
-- run payload wiring for enabled module ids
+**Backend**
+- Discovery of installed local modules from the managed directory (`~/.ragnarok/modules/` or project-local `.ragnarok/modules/`)
+- `module.json` manifest validation against SDK version, capabilities, and permissions
+- `GET /api/modules` — inventory endpoint
+- `POST /api/modules/install` — upload a `.zip` package and install it
+- `DELETE /api/modules/{id}` — uninstall a module by ID
+- **Full plugin execution pipeline** across four stages:
 
-What is not implemented yet:
+| Stage | Trigger | Hook function | Typical use |
+|---|---|---|---|
+| `pre-build` | before `build_network()` | `transform(model, scenario, options)` | data-importer, model rewriter |
+| `post-build` | after `build_network()`, before `optimize()` | `manipulate(network, scenario, options)` | topology patcher, validator |
+| `in-solve` | inside PyPSA's `extra_functionality` | `add_constraints(network, model, scenario, options)` | custom solver constraints |
+| `post-solve` | after `network.optimize()` | `analyse(network, results, scenario, options)` | KPI reporter, cost breakdown |
 
-- actual third-party module code execution
-- dynamic panel rendering from module entrypoints
-- runtime lifecycle execution such as `activate()` / `deactivate()`
+- Per-plugin isolated error handling — a failing plugin logs an error and is reported in the frontend, but does not abort the solve pipeline (exception: `in-solve` failures are re-raised to prevent silently incorrect results)
+- Plugin analytics results (`pluginAnalytics` dict) returned inside the `RunResults` payload alongside model results
+
+**Frontend**
+- `ModuleManagerSection` in the sidebar: install, uninstall, enable/disable, per-plugin config editing, display-mode toggle (Sidebar / Main panel)
+- `useModuleHost` hook: localStorage persistence for enabled IDs, module configs, and display modes
+- `PluginPanel` workspace tab: shown only when at least one plugin is set to Main panel mode; renders per-plugin tabs with config form and results table
+- Config field types supported: `boolean`, `number` (bare input or slider when `min`/`max` are set), `select`, `carrier-select` (multi-checkbox populated from workbook carriers)
+- Result rendering: scalar values, formatted numbers/currencies, and nested sub-tables (keyed by `format` in `module.json`'s `ui` map)
+- Blue dot indicator on plugin tabs that have received post-solve results
+
+**Sample plugins** (in `sample-plugins/`, ready to install as `.zip`):
+
+| Plugin | Stage | Capability | Description |
+|---|---|---|---|
+| `ragnarok-cost-reporter` | post-solve | analytics-pack | Total system cost, LCOE, nodal price stats, carrier cost breakdown |
+| `ragnarok-renewable-floor` | in-solve | constraint-pack | Adds a minimum renewable energy share constraint via `extra_functionality` |
+| `ragnarok-network-patcher` | post-build | data-manipulator | Logs topology stats, clamps negative `p_nom_min`, warns zero-capacity generators |
+| `ragnarok-log-importer` | pre-build | data-importer | Logs model summary before build; baseline template for data-importer plugins |
+
+### What is not in v1
+
+- Remote module registry or marketplace
+- Sandboxed or worker-process isolation for untrusted code
+- Frontend UI injection from module entrypoints (charts/panels must use the generic `PluginPanel` result renderer)
+- `activate()` / `deactivate()` lifecycle hooks (plugins are stateless callables, not long-lived objects)
 
 ## 1. High-Level Architecture
 

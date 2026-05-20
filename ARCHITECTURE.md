@@ -14,24 +14,117 @@ parameters in a modal dialog, and the React frontend posts the workbook data to 
 backend that constructs a `pypsa.Network`, solves it with HiGHS, and returns structured results.
 Charts, maps, and tables then display the outputs without any round-trips to a remote server.
 
-## Extension system
+## Extension system (Plugin System v1)
 
-The repository includes a plugin-ready v1 module host foundation for `user-installed trusted local
-modules`:
+Ragnarok ships a fully operational plugin system. The full spec and authoring guide are in:
 
 - [docs/module-system-v1.md](./docs/module-system-v1.md)
 - [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
 
-Current implementation:
+### Backend implementation
 
-- backend module discovery and manifest validation via `/api/modules`
-- backend manifest validation endpoint via `/api/modules/validate`
-- frontend module manager in the sidebar with persisted enable/disable state
+**API endpoints**
 
-Not implemented yet:
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/modules` | Return `ModuleHostInventory` (all discovered modules + host metadata) |
+| `POST` | `/api/modules/install` | Upload `.zip`, extract to managed dir, validate, return module descriptor |
+| `DELETE` | `/api/modules/{id}` | Remove module directory from managed root |
 
-- third-party module execution runtime
-- dynamic host lifecycle calls into installed module entrypoints
+**Module discovery** (`backend/lib/module_host.py`)
+
+On every `/api/modules` call the backend scans the managed module root
+(`${PROJECT_ROOT}/.ragnarok/modules/` by default, overridable in `system-defaults.yaml`),
+reads each `module.json`, validates it against the host's supported SDK version, capabilities,
+and permissions, and returns a full descriptor per module including `status`, `valid`,
+`compatible`, `entryExists`, and `diagnostics`.
+
+**Execution pipeline**
+
+When `POST /api/run` fires, `run_pypsa()` in `backend/lib/results/__init__.py` calls
+`execute_plugins_at_stage()` from `module_host.py` at each stage with the IDs and configs
+that were sent in `options.enabledModules` / `options.moduleConfigs`:
+
+| Stage | When it runs | Hook fn signature | Typical plugin type |
+|---|---|---|---|
+| `pre-build` | Before `build_network()` | `transform(model, scenario, options)` | `data-importer` |
+| `post-build` | After `build_network()`, before `optimize()` | `manipulate(network, scenario, options)` | `data-manipulator` |
+| `in-solve` | Inside PyPSA `extra_functionality` | `add_constraints(network, model, scenario, options)` | `constraint-pack` |
+| `post-solve` | After `network.optimize()` | `analyse(network, results, scenario, options)` | `analytics-pack` |
+
+`execute_plugins_at_stage()` loads each enabled module's Python entry file via
+`importlib`, looks up the hook function named in `manifest.hook`, calls it with only
+the stage-specific kwargs, and collects return values. Per-module configs are injected as
+`options["moduleConfig"]` so plugins stay ID-agnostic. Failures are caught, logged, and
+stored as `{"error": "..."}` — except `in-solve` failures which re-raise to prevent the
+solver from running without a declared constraint.
+
+Post-solve outputs are enriched with display metadata from `module.json`'s `ui` map and
+returned inside the `RunResults` payload under `pluginAnalytics`.
+
+### Frontend implementation
+
+**`src/features/modules/useModuleHost.ts`**
+
+Custom hook that owns all module-system state:
+- `inventory` — fetched from `/api/modules` on mount
+- `enabledIds` — persisted to `localStorage`
+- `moduleConfigs` — per-plugin config values, persisted to `localStorage`
+- `pluginDisplayModes` — `'sidebar' | 'panel'` per plugin, persisted to `localStorage`
+- `installFromFile()` / `uninstall()` — call the install/delete endpoints and re-fetch inventory
+
+**`src/features/modules/ModuleManagerSection.tsx`**
+
+Sidebar section rendered inside the `Modules` `SidebarGroup`. Each plugin gets a
+collapsible `ModuleCard` showing status, version, capabilities, config form, and action
+buttons. Config field types rendered:
+
+| `type` in `module.json` | Rendered as |
+|---|---|
+| `boolean` | checkbox |
+| `number` (no range) | number input |
+| `number` (with `min`/`max`) | range slider + live value label |
+| `select` | `<select>` dropdown |
+| `carrier-select` | multi-checkbox list populated from workbook carriers |
+
+Each card has a **Location** toggle: **Sidebar** (config lives in the sidebar card) or
+**Main panel** (config and results move to the dedicated Plugins workspace tab).
+
+**`src/features/plugins/PluginPanel.tsx`**
+
+Full-page workspace tab (labelled **Plugins**) shown only when at least one enabled
+plugin is in Main panel mode. Renders a tab bar — one tab per plugin — with a blue dot
+indicator once post-solve results arrive. Each tab shows:
+- left column: config form (same `ConfigFieldRow` components as the sidebar card)
+- right column: `PluginResults` table, formatted via the `ui` hints from `module.json`
+
+Result `format` values supported: `number`, `currency` (locale-formatted), `table`
+(nested sub-table for `Record<string, unknown>` values), plain string fallback.
+
+**Wiring in `App.tsx`**
+
+`moduleHost.enabledIds` and `moduleHost.moduleConfigs` are passed in the `RunPayload`
+as `options.enabledModules` and `options.moduleConfigs`, connecting frontend selection
+to backend execution. `results?.pluginAnalytics` is forwarded to `PluginPanel` after
+each successful run.
+
+### Sample plugins
+
+Four ready-to-install sample plugins live in `sample-plugins/` (pack each sub-directory
+into a `.zip` and use the Install button in the sidebar):
+
+| Directory | Stage | Capability | What it does |
+|---|---|---|---|
+| `ragnarok-cost-reporter` | post-solve | analytics-pack | Total cost, LCOE, nodal price stats, cost-by-carrier table |
+| `ragnarok-renewable-floor` | in-solve | constraint-pack | Minimum renewable share constraint; carriers and floor % are configurable |
+| `ragnarok-network-patcher` | post-build | data-manipulator | Topology log, clamps `p_nom_min < 0`, warns zero-capacity generators |
+| `ragnarok-log-importer` | pre-build | data-importer | Model summary log before build; reference template for importers |
+
+### What is NOT in v1
+
+- Remote registry, signed modules, or sandboxed worker-process isolation
+- Dynamic frontend UI injection from module entrypoints (all plugin UI goes through `PluginPanel`'s generic renderer)
+- `activate()` / `deactivate()` lifecycle hooks — plugins are stateless Python callables
 
 ---
 
