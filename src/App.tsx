@@ -53,6 +53,10 @@ function AppInner() {
   const [carbonPrice, setCarbonPrice] = useState<number>(0);
   const [forceLp, setForceLp] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(252);
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
+  const dragStartX = useRef<number>(0);
+  const dragStartWidth = useRef<number>(252);
   const [analyticsFocus, setAnalyticsFocus] = useState<AnalyticsFocus>({ type: 'system' });
   const [chartSections, setChartSections] = useState<ChartSectionConfig[]>([]);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
@@ -589,6 +593,27 @@ function AppInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
 
+  // ── Sidebar resize handlers ──────────────────────────────────────────────────
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+    setIsDraggingSidebar(true);
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - dragStartX.current;
+      const next  = Math.min(520, Math.max(180, dragStartWidth.current + delta));
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      setIsDraggingSidebar(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [sidebarWidth]);
+
   return (
     <div className="studio-shell">
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
@@ -643,8 +668,11 @@ function AppInner() {
       </header>
 
       {/* ── Sidebar + Main ── */}
-      <div className="workspace-body">
-        <aside className={`app-sidebar${sidebarOpen ? '' : ' app-sidebar--collapsed'}`}>
+      <div className="workspace-body" style={isDraggingSidebar ? { userSelect: 'none', cursor: 'col-resize' } : undefined}>
+        <aside
+          className={`app-sidebar${sidebarOpen ? '' : ' app-sidebar--collapsed'}`}
+          style={sidebarOpen ? { width: sidebarWidth } : undefined}
+        >
           <button className="sidebar-toggle" onClick={() => setSidebarOpen((o) => !o)} title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
             {sidebarOpen ? '<' : '>'}
           </button>
@@ -706,6 +734,15 @@ function AppInner() {
             />
           )}
         </aside>
+
+        {/* Drag-to-resize handle */}
+        {sidebarOpen && (
+          <div
+            className={`sidebar-resize-handle${isDraggingSidebar ? ' sidebar-resize-handle--dragging' : ''}`}
+            onMouseDown={handleResizeMouseDown}
+            title="Drag to resize sidebar"
+          />
+        )}
 
         <div className="workspace-main">
 

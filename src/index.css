@@ -409,22 +409,41 @@ button {
 
 /* ── Left sidebar ─────────────────────────────────────────────────── */
 .app-sidebar {
+  /* width is set via inline style when resizing; fallback only */
   width: 252px;
+  min-width: 180px;
+  max-width: 520px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   background: #f8fafc;
-  border-right: 1px solid var(--border);
+  /* border-right handled by the resize handle */
   padding: 10px 0 16px;
   gap: 2px;
-  transition: width 180ms ease;
+  /* no transition — interferes with live drag */
 }
 
 .app-sidebar--collapsed {
-  width: 34px;
+  width: 34px !important;
+  min-width: 34px;
   padding: 10px 0;
+}
+
+/* Drag-to-resize strip between sidebar and main content */
+.sidebar-resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 120ms;
+  position: relative;
+  z-index: 10;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle--dragging {
+  background: var(--brand);
 }
 
 .sidebar-toggle {
@@ -753,26 +772,36 @@ button {
   gap: 8px;
   font-size: 0.82rem;
 }
+/* Slider rows need a different layout: label on one line, track+value below */
+.sg-module-config-row--slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
 .sg-module-config-label {
   flex: 0 0 auto;
-  min-width: 120px;
   color: var(--text);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sg-module-config-slider-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  width: 100%;
 }
 .sg-module-config-slider {
   flex: 1;
+  min-width: 0;
   accent-color: var(--brand);
 }
 .sg-module-config-value {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  min-width: 44px;
+  white-space: nowrap;
+  min-width: 40px;
   text-align: right;
 }
 .sg-module-config-unit {

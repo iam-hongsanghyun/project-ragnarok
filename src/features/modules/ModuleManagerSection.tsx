@@ -69,7 +69,7 @@ function ConfigFieldRow({ fieldKey, field, value, onChange }: ConfigFieldProps) 
   if (field.type === 'number' && field.min !== undefined && field.max !== undefined) {
     const num = Number(resolved ?? field.default ?? field.min);
     return (
-      <div className="sg-module-config-row">
+      <div className="sg-module-config-row sg-module-config-row--slider">
         <span className="sg-module-config-label">{label}</span>
         <div className="sg-module-config-slider-row">
           <input
