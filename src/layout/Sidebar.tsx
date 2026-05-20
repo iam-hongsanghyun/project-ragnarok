@@ -10,7 +10,7 @@ import { SidebarGroup } from '../shared/components/SidebarGroup';
 import { GlobalConstraintsSection } from '../features/constraints/GlobalConstraintsSection';
 import { RunHistoryList } from '../features/run-history/RunHistoryList';
 import { DateFormat, SolverType } from '../features/settings/useSettings';
-import { API_BASE, MAX_UNPINNED_HISTORY } from '../constants';
+import { CURRENCIES, MAX_UNPINNED_HISTORY, SETTINGS_CONFIG } from '../constants';
 import { resolvedColor, stringValue } from '../shared/utils/helpers';
 
 interface Currency { code: string; symbol: string; name: string; }
@@ -91,12 +91,13 @@ export function Sidebar({
   onCarrierColorChange,
   onCarrierMove,
 }: SidebarProps) {
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>(CURRENCIES);
+  const settingsRanges = SETTINGS_CONFIG.ranges;
+  const solverThreadOptions = SETTINGS_CONFIG.solverThreads.options;
+  const solverTypes = SETTINGS_CONFIG.solverTypes as Array<{ value: SolverType; label: string }>;
+  const loadSheddingOptions = SETTINGS_CONFIG.loadSheddingOptions as Array<{ value: boolean; label: string }>;
   useEffect(() => {
-    fetch(`${API_BASE}/api/currencies`)
-      .then((r) => r.json())
-      .then((data: Currency[]) => setCurrencies(data))
-      .catch(() => {/* keep empty — currency select will be hidden */});
+    setCurrencies(CURRENCIES);
   }, []);
   const carriers = Array.from(
     new Set(model.carriers.map((c) => String(c.name ?? '')).filter(Boolean)),
@@ -150,11 +151,11 @@ export function Sidebar({
               id="sg-carbon-price"
               type="number"
               className="sg-carbon-input"
-              min={0}
-              max={10000}
-              step={1}
+              min={settingsRanges.carbonPrice.min}
+              max={settingsRanges.carbonPrice.max}
+              step={settingsRanges.carbonPrice.step}
               value={carbonPrice}
-              onChange={(e) => onCarbonPriceChange(Math.max(0, parseFloat(e.target.value) || 0))}
+              onChange={(e) => onCarbonPriceChange(Math.max(settingsRanges.carbonPrice.min, parseFloat(e.target.value) || 0))}
             />
             <span className="sg-carbon-unit">/tCO₂</span>
           </div>
@@ -240,7 +241,7 @@ export function Sidebar({
               ))}
             </select>
             <p className="sg-setting-hint">
-              Used in all cost and price displays. Edit data/currencies.json to add more.
+              Used in all cost and price displays. Edit src/config/currencies.json to add more.
             </p>
           </div>
         )}
@@ -298,11 +299,11 @@ export function Sidebar({
               id="sg-discount-rate"
               type="number"
               className="sg-carbon-input"
-              min={0}
-              max={1}
-              step={0.005}
+              min={settingsRanges.discountRate.min}
+              max={settingsRanges.discountRate.max}
+              step={settingsRanges.discountRate.step}
               value={discountRate}
-              onChange={(e) => onDiscountRateChange(Math.max(0, parseFloat(e.target.value) || 0))}
+              onChange={(e) => onDiscountRateChange(Math.max(settingsRanges.discountRate.min, parseFloat(e.target.value) || 0))}
             />
             <span className="sg-carbon-unit">(fraction)</span>
           </div>
@@ -316,13 +317,13 @@ export function Sidebar({
         <div className="sg-setting-row">
           <label className="sg-setting-label">Load shedding</label>
           <div className="sg-btn-row">
-            {([false, true] as boolean[]).map((v) => (
+            {loadSheddingOptions.map(({ value, label }) => (
               <button
-                key={String(v)}
-                className={`tb-btn sg-solver-btn${enableLoadShedding === v ? '' : ' tb-btn--muted'}`}
-                onClick={() => onEnableLoadSheddingChange(v)}
+                key={String(value)}
+                className={`tb-btn sg-solver-btn${enableLoadShedding === value ? '' : ' tb-btn--muted'}`}
+                onClick={() => onEnableLoadSheddingChange(value)}
               >
-                {v ? 'On' : 'Off'}
+                {label}
               </button>
             ))}
           </div>
@@ -340,10 +341,10 @@ export function Sidebar({
                   id="sg-loadshed-cost"
                   type="number"
                   className="sg-carbon-input"
-                  min={0}
-                  step={1}
+                  min={settingsRanges.loadSheddingCost.min}
+                  step={settingsRanges.loadSheddingCost.step}
                   value={loadSheddingCost}
-                  onChange={(e) => onLoadSheddingCostChange(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) => onLoadSheddingCostChange(Math.max(settingsRanges.loadSheddingCost.min, parseFloat(e.target.value) || 0))}
                 />
                 <span className="sg-carbon-unit">/MWh</span>
               </div>
@@ -361,7 +362,7 @@ export function Sidebar({
         <div className="sg-setting-row">
           <label className="sg-setting-label">Threads</label>
           <div className="sg-btn-row">
-            {([0, 1, 2, 4, 8] as number[]).map((n) => (
+            {solverThreadOptions.map((n) => (
               <button
                 key={n}
                 className={`tb-btn sg-solver-btn${solverThreads === n ? '' : ' tb-btn--muted'}`}
@@ -379,13 +380,13 @@ export function Sidebar({
         <div className="sg-setting-row">
           <label className="sg-setting-label">Algorithm</label>
           <div className="sg-btn-row">
-            {(['simplex', 'ipm'] as SolverType[]).map((t) => (
+            {solverTypes.map(({ value, label }) => (
               <button
-                key={t}
-                className={`tb-btn sg-solver-btn${solverType === t ? '' : ' tb-btn--muted'}`}
-                onClick={() => onSolverTypeChange(t)}
+                key={value}
+                className={`tb-btn sg-solver-btn${solverType === value ? '' : ' tb-btn--muted'}`}
+                onClick={() => onSolverTypeChange(value)}
               >
-                {t === 'simplex' ? 'Simplex' : 'IPM'}
+                {label}
               </button>
             ))}
           </div>

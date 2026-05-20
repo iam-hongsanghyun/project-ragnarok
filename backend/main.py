@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .lib.config import load_currencies, load_system_defaults
+from .lib.config import load_system_defaults
 from .lib.models import RunPayload
 from .lib.network import validate_model
 from .lib.results import run_pypsa
@@ -103,12 +103,6 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@app.get("/api/currencies")
-def get_currencies() -> list[dict]:
-    """Return the list of supported currencies from data/currencies.json."""
-    return load_currencies()
 
 
 @app.get("/api/config")

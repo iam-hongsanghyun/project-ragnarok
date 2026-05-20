@@ -1,0 +1,49 @@
+{
+  "api": {
+    "localhostBaseUrl": "http://127.0.0.1:8000"
+  },
+  "runHistory": {
+    "maxUnpinnedEntries": 5
+  },
+  "runPolling": {
+    "initialDelayMs": 1000,
+    "runningDelayMs": 1500,
+    "retryDelayMs": 2000
+  },
+  "runWindow": {
+    "initialMaxSnapshots": 1,
+    "initialSnapshotStart": 0,
+    "defaultSnapshotEnd": 24,
+    "defaultSnapshotWeight": 1,
+    "weightOptions": [1, 2, 3, 4, 6, 8, 12, 24]
+  },
+  "settings": {
+    "storageKey": "pypsa_gui_settings",
+    "defaults": {
+      "dateFormat": "auto",
+      "solverThreads": 0,
+      "solverType": "simplex",
+      "currencyCode": "USD",
+      "currencySymbol": "$",
+      "enableLoadShedding": false,
+      "loadSheddingCost": 2000,
+      "discountRate": 0.05
+    },
+    "ranges": {
+      "carbonPrice": { "min": 0, "max": 10000, "step": 1 },
+      "discountRate": { "min": 0, "max": 1, "step": 0.005 },
+      "loadSheddingCost": { "min": 0, "step": 1 }
+    },
+    "solverThreads": {
+      "options": [0, 1, 2, 4, 8]
+    },
+    "solverTypes": [
+      { "value": "simplex", "label": "Simplex" },
+      { "value": "ipm", "label": "IPM" }
+    ],
+    "loadSheddingOptions": [
+      { "value": false, "label": "Off" },
+      { "value": true, "label": "On" }
+    ]
+  }
+}

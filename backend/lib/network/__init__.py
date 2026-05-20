@@ -25,6 +25,7 @@ from typing import Any
 import pandas as pd
 import pypsa
 
+from ..config import load_system_defaults
 from ..utils.annuity import annuity_factor
 from ..utils.coerce import number
 from .load_shedding import add_load_shedding
@@ -139,7 +140,8 @@ def build_network(
         )
 
     # ── Period-factor scaling of annual energy caps ───────────────────────────
-    hours_in_year = 8760.0
+    sim_cfg = load_system_defaults().get("simulation", {})
+    hours_in_year = float(sim_cfg.get("hours_in_year", 8760.0))
     modelled_hours = float(len(network.snapshots)) * float(step)
     period_factor = min(1.0, modelled_hours / hours_in_year) if modelled_hours > 0 else 1.0
     if period_factor < 1.0:
