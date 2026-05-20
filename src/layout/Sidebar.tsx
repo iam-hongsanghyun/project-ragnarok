@@ -439,6 +439,7 @@ export function Sidebar({
           onModuleConfigChange={onModuleConfigChange}
           onInstall={onInstallModule}
           onUninstall={onUninstallModule}
+          carriers={carriers}
         />
       </SidebarGroup>
     </>

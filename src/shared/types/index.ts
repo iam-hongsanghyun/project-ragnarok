@@ -370,7 +370,7 @@ export interface ModuleHostRoot {
   managed: boolean;
 }
 
-export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select';
+export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select';
 
 export interface ModuleConfigField {
   type: ModuleConfigFieldType;

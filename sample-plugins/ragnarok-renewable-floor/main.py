@@ -12,9 +12,13 @@ Constraint (per snapshot t):
 
     Σ p[g, t]  (g ∈ renewables)  ≥  floor · Σ p[g, t]  (g ∈ all generators)
 
-Renewable carriers are identified by substring match against RENEWABLE_KEYWORDS.
-The floor fraction defaults to 0.20 and can be overridden by setting
-``renewable_floor`` in the scenario dict (e.g. from a future module-config UI).
+where "renewables" are generators whose carrier exactly matches one of the
+carriers selected in the module config (``renewable_carriers``).
+
+Config (module.json):
+  renewable_carriers  (carrier-select)  — list of carrier names that count as
+                                          renewable; populated from the workbook.
+  renewable_floor     (number, 0–100%)  — minimum renewable share floor.
 """
 from __future__ import annotations
 
@@ -25,9 +29,12 @@ import pypsa
 
 logger = logging.getLogger(__name__)
 
-# Default floor as a percentage (0–100); divide by 100 before use.
+# Default floor percentage when not set via config.
 DEFAULT_FLOOR_PCT: float = 20.0
-RENEWABLE_KEYWORDS = ("wind", "solar", "hydro", "biomass", "geothermal", "wave", "tidal")
+
+# Fallback keywords used ONLY when no carrier config is provided at all
+# (e.g. plugin installed but workbook not yet opened).
+_FALLBACK_KEYWORDS = ("wind", "solar", "hydro", "biomass", "geothermal", "wave", "tidal")
 
 
 def add_constraints(
@@ -42,44 +49,53 @@ def add_constraints(
         network:  Built pypsa.Network with linopy model attached as
                   ``network.model``.  Add constraints via ``network.model``.
         model:    Original workbook JSON (read-only).
-        scenario: Scenario parameters; reads ``renewable_floor`` if present.
-        options:  Run options.
+        scenario: Scenario parameters.
+        options:  Run options; ``options["moduleConfig"]`` is injected by the
+                  host and contains this module's own config values.
     """
     lm = getattr(network, "model", None)
     if lm is None:
         logger.warning("[renewable-floor] network.model not attached — skipped.")
         return
 
-    # Read floor from the module's own config (set via the UI card).
-    # The backend injects options["moduleConfig"] with this module's values.
     module_config = options.get("moduleConfig", {})
+
+    # ── Floor fraction ────────────────────────────────────────────────────────
     floor_pct = float(module_config.get("renewable_floor", DEFAULT_FLOOR_PCT))
     floor = floor_pct / 100.0
-
     if floor <= 0:
         logger.info("[renewable-floor] floor_pct=%.0f — constraint disabled.", floor_pct)
         return
 
+    # ── Identify renewable generators ─────────────────────────────────────────
     gens = network.generators
     if gens.empty:
         logger.warning("[renewable-floor] No generators — skipped.")
         return
 
-    renewable_mask = gens["carrier"].str.lower().str.contains(
-        "|".join(RENEWABLE_KEYWORDS), na=False
-    )
+    renewable_carriers_cfg = module_config.get("renewable_carriers", None)
+
+    if renewable_carriers_cfg and isinstance(renewable_carriers_cfg, list) and len(renewable_carriers_cfg) > 0:
+        # Exact match against user-selected carriers
+        renewable_mask = gens["carrier"].isin(renewable_carriers_cfg)
+        match_method = f"exact match ({len(renewable_carriers_cfg)} selected carriers)"
+    else:
+        # Fallback: keyword substring matching (no carriers configured yet)
+        renewable_mask = gens["carrier"].str.lower().str.contains(
+            "|".join(_FALLBACK_KEYWORDS), na=False
+        )
+        match_method = "keyword fallback"
+
     renewable_idx = gens.index[renewable_mask].tolist()
 
     if not renewable_idx:
         logger.warning(
-            "[renewable-floor] No renewable generators found (keywords: %s) — skipped.",
-            RENEWABLE_KEYWORDS,
+            "[renewable-floor] No renewable generators found via %s — skipped.",
+            match_method,
         )
         return
 
     # ── Locate the generator dispatch variable in the linopy model ────────────
-    # PyPSA names the variable "Generator-p"; the generator dimension is the
-    # component index dimension (label varies by PyPSA version).
     p = lm.variables.get("Generator-p")
     if p is None:
         logger.warning(
@@ -89,28 +105,32 @@ def add_constraints(
         )
         return
 
-    # Identify the generator-axis dimension (last non-snapshot dim)
-    gen_dim = None
-    for dim in p.dims:
-        if dim != "snapshot" and "snapshot" not in dim.lower():
-            gen_dim = dim
-            break
+    # Identify the generator-axis dimension (non-snapshot dim)
+    gen_dim = next(
+        (dim for dim in p.dims if "snapshot" not in dim.lower()),
+        None,
+    )
     if gen_dim is None:
-        logger.warning("[renewable-floor] Could not identify generator dimension in %s — skipped.", p.dims)
+        logger.warning(
+            "[renewable-floor] Could not identify generator dimension in %s — skipped.",
+            p.dims,
+        )
         return
 
-    # Filter to generators that actually appear in this variable's coordinates
     valid_coords = list(p.coords[gen_dim].values)
     renewable_in_model = [g for g in renewable_idx if g in valid_coords]
-    all_in_model = valid_coords  # all generators present in the LP variable
+    all_in_model = valid_coords
 
     if not renewable_in_model:
-        logger.warning("[renewable-floor] None of the renewable generators appear in the LP variable — skipped.")
+        logger.warning(
+            "[renewable-floor] None of the renewable generators appear in the LP "
+            "variable — skipped."
+        )
         return
 
     logger.info(
-        "[renewable-floor] Applying %.0f%% floor — %d/%d generators classified renewable.",
-        floor_pct, len(renewable_in_model), len(all_in_model),
+        "[renewable-floor] %.0f%% floor | %d/%d generators renewable | method: %s",
+        floor_pct, len(renewable_in_model), len(all_in_model), match_method,
     )
 
     try:

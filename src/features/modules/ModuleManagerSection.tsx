@@ -13,6 +13,8 @@ interface ModuleManagerSectionProps {
   onModuleConfigChange: (moduleId: string, key: string, value: unknown) => void;
   onInstall: (file: File) => void;
   onUninstall: (module: ModuleDescriptor) => void;
+  /** Carrier names from the current workbook, used by carrier-select fields. */
+  carriers?: string[];
 }
 
 function statusLabel(module: ModuleDescriptor): string {
@@ -28,9 +30,10 @@ interface ConfigFieldProps {
   field: ModuleConfigField;
   value: unknown;
   onChange: (value: unknown) => void;
+  carriers?: string[];
 }
 
-function ConfigFieldRow({ fieldKey, field, value, onChange }: ConfigFieldProps) {
+function ConfigFieldRow({ fieldKey, field, value, onChange, carriers }: ConfigFieldProps) {
   const resolved = value !== undefined ? value : field.default;
   const label = field.label ?? fieldKey;
 
@@ -63,6 +66,55 @@ function ConfigFieldRow({ fieldKey, field, value, onChange }: ConfigFieldProps) 
           ))}
         </select>
       </label>
+    );
+  }
+
+  if (field.type === 'carrier-select') {
+    // Current selection: value from store, else field default, else empty array
+    const selected: string[] = Array.isArray(resolved)
+      ? (resolved as string[])
+      : Array.isArray(field.default) ? (field.default as string[]) : [];
+
+    // Available options: workbook carriers if present, otherwise fall back to
+    // the defaults so the card is usable before any workbook is loaded.
+    const options: string[] = carriers && carriers.length > 0
+      ? carriers
+      : (Array.isArray(field.default) ? (field.default as string[]) : []);
+
+    const toggle = (carrier: string, checked: boolean) => {
+      const next = checked
+        ? [...selected, carrier]
+        : selected.filter((c) => c !== carrier);
+      onChange(next);
+    };
+
+    return (
+      <div className="sg-module-config-row sg-module-config-row--carrier">
+        <span className="sg-module-config-label">{label}</span>
+        {options.length > 0 ? (
+          <div className="sg-carrier-select-list">
+            {options.map((carrier) => (
+              <label key={carrier} className="sg-carrier-select-item">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(carrier)}
+                  onChange={(e) => toggle(carrier, e.target.checked)}
+                />
+                <span className="sg-carrier-select-name">{carrier}</span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="sg-setting-hint" style={{ margin: 0 }}>
+            No carriers defined in this workbook yet.
+          </p>
+        )}
+        {carriers && carriers.length > 0 && (
+          <p className="sg-setting-hint" style={{ margin: '4px 0 0' }}>
+            {selected.length} of {options.length} selected as renewable.
+          </p>
+        )}
+      </div>
     );
   }
 
@@ -117,10 +169,11 @@ interface ModuleCardProps {
   onToggleEnabled: () => void;
   onModuleConfigChange: (key: string, value: unknown) => void;
   onUninstall: () => void;
+  carriers?: string[];
 }
 
 function ModuleCard({
-  module, enabled, eligible, config,
+  module, enabled, eligible, config, carriers,
   onToggleEnabled, onModuleConfigChange, onUninstall,
 }: ModuleCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -168,6 +221,7 @@ function ModuleCard({
                   field={field}
                   value={config[key]}
                   onChange={(v) => onModuleConfigChange(key, v)}
+                  carriers={carriers}
                 />
               ))}
             </div>
@@ -213,7 +267,7 @@ export function ModuleManagerSection({
   inventory, loading, error,
   enabledIds, isEnabled, isEnableEligible,
   onToggleEnabled, moduleConfigs, onModuleConfigChange,
-  onInstall, onUninstall,
+  onInstall, onUninstall, carriers,
 }: ModuleManagerSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modules = inventory?.modules ?? [];
@@ -258,6 +312,7 @@ export function ModuleManagerSection({
               enabled={isEnabled(module.id) && isEnableEligible(module)}
               eligible={isEnableEligible(module)}
               config={moduleConfigs[module.id] ?? {}}
+              carriers={carriers}
               onToggleEnabled={() => {
                 const enabled = isEnabled(module.id) && isEnableEligible(module);
                 onToggleEnabled(module.id, !enabled);
