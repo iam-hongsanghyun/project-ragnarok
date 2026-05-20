@@ -1,53 +1,47 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
 VENV_DIR=".venv-pypsa"
+REQ_HASH_FILE="$VENV_DIR/.req_hash"
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+die() { echo "ERROR: $1" >&2; exit 1; }
+need_cmd() { command -v "$1" >/dev/null 2>&1 || die "$1 not found. $2"; }
+
+# ── Dependency checks ─────────────────────────────────────────────────────────
+
+need_cmd npm "Install Node.js (includes npm) from https://nodejs.org"
+need_cmd git "Install Git from https://git-scm.com (required for the PyPSA dependency)"
+
+# Find Python 3.11+
 PREFERRED_PYTHON=""
-CONDA_BASE=""
-
-if command -v conda >/dev/null 2>&1; then
-  CONDA_BASE="$(conda info --base 2>/dev/null || true)"
-
-  for candidate in \
-    "$CONDA_BASE/envs/pypsa_alternative/bin/python" \
-    "$CONDA_BASE/bin/python"; do
-    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+for candidate in python3.13 python3.12 python3.11 python3; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    if "$candidate" -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null; then
       PREFERRED_PYTHON="$candidate"
       break
     fi
-  done
-fi
-
-for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
-  if [ -n "$PREFERRED_PYTHON" ]; then
-    break
-  fi
-
-  if command -v "$candidate" >/dev/null 2>&1; then
-    PREFERRED_PYTHON="$candidate"
-    break
   fi
 done
 
-if [ -z "$PREFERRED_PYTHON" ]; then
-  echo "No suitable Python 3 interpreter found." >&2
-  exit 1
-fi
+[ -n "$PREFERRED_PYTHON" ] || die "Python 3.11 or later is required. Download from https://www.python.org/downloads/"
+
+# ── Virtual environment ───────────────────────────────────────────────────────
 
 if [ -d "$VENV_DIR" ]; then
-  if ! "$VENV_DIR/bin/python" -c "import pyexpat" >/dev/null 2>&1; then
-    rm -rf "$VENV_DIR"
-  elif [ -n "$CONDA_BASE" ] && [ -x "$CONDA_BASE/bin/python" ] && ! grep -Fq "/opt/miniconda3/" "$VENV_DIR/pyvenv.cfg"; then
-    rm -rf "$VENV_DIR"
-  elif ! "$VENV_DIR/bin/python" -c "import sys; assert sys.version_info[:2] >= (3, 12)" >/dev/null 2>&1; then
+  # Rebuild if the venv Python is broken or below 3.11
+  if ! "$VENV_DIR/bin/python" -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" >/dev/null 2>&1; then
+    echo "Rebuilding virtual environment (Python version changed)..."
     rm -rf "$VENV_DIR"
   fi
 fi
 
 if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating Python virtual environment..."
   "$PREFERRED_PYTHON" -m venv "$VENV_DIR"
 fi
 
@@ -56,26 +50,43 @@ source "$VENV_DIR/bin/activate"
 export MPLCONFIGDIR="$ROOT_DIR/.matplotlib"
 mkdir -p "$MPLCONFIGDIR"
 
-python -m pip install --upgrade pip
-python -m pip install -r backend/requirements.txt
+# ── Install backend dependencies (skipped when requirements.txt is unchanged) ─
+
+REQ_HASH="$(md5 -q backend/requirements.txt 2>/dev/null \
+           || md5sum backend/requirements.txt 2>/dev/null | cut -d' ' -f1)"
+STORED_HASH="$(cat "$REQ_HASH_FILE" 2>/dev/null || echo '')"
+
+if [ "$REQ_HASH" != "$STORED_HASH" ]; then
+  echo "Installing backend dependencies..."
+  python -m pip install --upgrade pip -q
+  python -m pip install -r backend/requirements.txt
+  echo "$REQ_HASH" > "$REQ_HASH_FILE"
+else
+  echo "Backend dependencies are up to date."
+fi
+
+# ── Install frontend dependencies ─────────────────────────────────────────────
 
 if [ ! -d "node_modules" ]; then
+  echo "Installing Node.js packages..."
   npm install
 fi
 
-cleanup() {
-  if [ -n "${BACKEND_PID:-}" ]; then
-    kill "$BACKEND_PID" >/dev/null 2>&1 || true
-  fi
-}
+# ── Launch ────────────────────────────────────────────────────────────────────
 
+cleanup() {
+  [ -n "${BACKEND_PID:-}" ] && kill "$BACKEND_PID" >/dev/null 2>&1 || true
+}
 trap cleanup EXIT INT TERM
 
+echo "Starting backend..."
 "$VENV_DIR/bin/python" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 
+echo "Waiting for backend to be ready..."
 until curl -sf http://127.0.0.1:8000/api/health >/dev/null 2>&1; do
   sleep 1
 done
 
+echo "Backend ready. Opening app in browser..."
 npm run start:frontend

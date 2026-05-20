@@ -135,11 +135,16 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-pypsa/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# App runtime directories
+.matplotlib/
+.ragnarok/
 
 # Spyder project settings
 .spyderproject
