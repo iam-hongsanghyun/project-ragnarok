@@ -5,9 +5,10 @@
  * The parent (<App>) keeps the <aside> shell and the collapse toggle button.
  */
 import React, { useEffect, useState } from 'react';
-import { CustomConstraint, RunHistoryEntry, RunResults, WorkbookModel } from '../shared/types';
+import { CustomConstraint, ModuleDescriptor, ModuleHostInventory, RunHistoryEntry, RunResults, WorkbookModel } from '../shared/types';
 import { SidebarGroup } from '../shared/components/SidebarGroup';
 import { GlobalConstraintsSection } from '../features/constraints/GlobalConstraintsSection';
+import { ModuleManagerSection } from '../features/modules/ModuleManagerSection';
 import { RunHistoryList } from '../features/run-history/RunHistoryList';
 import { DateFormat, SolverType } from '../features/settings/useSettings';
 import { CURRENCIES, MAX_UNPINNED_HISTORY, SETTINGS_CONFIG } from '../constants';
@@ -51,6 +52,17 @@ export interface SidebarProps {
   onLoadSheddingCostChange: (v: number) => void;
   discountRate: number;
   onDiscountRateChange: (v: number) => void;
+  moduleInventory: ModuleHostInventory | null;
+  moduleHostLoading: boolean;
+  moduleHostError: string | null;
+  enabledModuleIds: string[];
+  isModuleEnabled: (moduleId: string) => boolean;
+  isModuleEnableEligible: (module: ModuleDescriptor) => boolean;
+  onToggleModuleEnabled: (moduleId: string, enabled: boolean) => void;
+  moduleConfigs: Record<string, Record<string, unknown>>;
+  onModuleConfigChange: (moduleId: string, key: string, value: unknown) => void;
+  onInstallModule: (file: File) => void;
+  onUninstallModule: (module: ModuleDescriptor) => void;
   onCarrierColorChange: (rowIndex: number, color: string) => void;
   onCarrierMove: (rowIndex: number, direction: -1 | 1) => void;
 }
@@ -88,6 +100,17 @@ export function Sidebar({
   onLoadSheddingCostChange,
   discountRate,
   onDiscountRateChange,
+  moduleInventory,
+  moduleHostLoading,
+  moduleHostError,
+  enabledModuleIds,
+  isModuleEnabled,
+  isModuleEnableEligible,
+  onToggleModuleEnabled,
+  moduleConfigs,
+  onModuleConfigChange,
+  onInstallModule,
+  onUninstallModule,
   onCarrierColorChange,
   onCarrierMove,
 }: SidebarProps) {
@@ -394,6 +417,30 @@ export function Sidebar({
             IPM (interior point) is often faster for large LP models. Use Simplex for MIP / unit commitment runs.
           </p>
         </div>
+      </SidebarGroup>
+
+      <SidebarGroup
+        title="Modules"
+        badge={
+          moduleInventory
+            ? <span className="sg-badge">{enabledModuleIds.length}/{moduleInventory.summary.ready}</span>
+            : undefined
+        }
+      >
+        <ModuleManagerSection
+          inventory={moduleInventory}
+          loading={moduleHostLoading}
+          error={moduleHostError}
+          enabledIds={enabledModuleIds}
+          isEnabled={isModuleEnabled}
+          isEnableEligible={isModuleEnableEligible}
+          onToggleEnabled={onToggleModuleEnabled}
+          moduleConfigs={moduleConfigs}
+          onModuleConfigChange={onModuleConfigChange}
+          onInstall={onInstallModule}
+          onUninstall={onUninstallModule}
+          carriers={carriers}
+        />
       </SidebarGroup>
     </>
   );

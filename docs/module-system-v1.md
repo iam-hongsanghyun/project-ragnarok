@@ -2,8 +2,17 @@
 
 ## Status
 
-This document defines the first full module system for Ragnarok. It is a design and contract
-proposal only. This PR does not implement runtime loading, UI injection, or any bundled modules.
+This document defines the first full module system for Ragnarok.
+
+The repository now implements the host-readiness layer:
+
+- local module-root discovery
+- `module.json` manifest validation
+- frontend module inventory and enable/disable persistence
+- backend API endpoints for module discovery and manifest validation
+
+The repository does not yet implement third-party module entrypoint execution, dynamic UI injection
+from installed bundles, or lifecycle calls such as `activate()` and `deactivate()`.
 
 The trust model for v1 is:
 

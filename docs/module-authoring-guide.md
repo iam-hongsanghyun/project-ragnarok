@@ -8,6 +8,12 @@ without needing private knowledge of the host codebase.
 This guide assumes the Ragnarok module system described in
 [`docs/module-system-v1.md`](./module-system-v1.md).
 
+Current host reality:
+
+- the host already discovers local modules and validates manifests
+- the host already exposes a sidebar module manager and persisted enable/disable state
+- the host does not yet execute third-party module code
+
 ## Module types in v1
 
 Ragnarok v1 supports four module categories:

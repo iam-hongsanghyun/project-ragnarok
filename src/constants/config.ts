@@ -32,3 +32,4 @@ export const RUN_POLLING = APP_CONFIG.runPolling;
 export const RUN_WINDOW = APP_CONFIG.runWindow;
 export const SETTINGS_CONFIG = APP_CONFIG.settings;
 export const SETTINGS_DEFAULTS: SettingsDefaultsConfig = APP_CONFIG.settings.defaults as SettingsDefaultsConfig;
+export const MODULES_CONFIG = APP_CONFIG.modules;

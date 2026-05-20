@@ -45,5 +45,8 @@
       { "value": false, "label": "Off" },
       { "value": true, "label": "On" }
     ]
+  },
+  "modules": {
+    "storageKey": "ragnarok_enabled_modules"
   }
 }

@@ -1,6 +1,5 @@
-export { API_BASE, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW, SETTINGS_CONFIG, SETTINGS_DEFAULTS, CURRENCIES } from './config';
-
 import { ConstraintMetric, CustomConstraint, GridRow, SheetName, TsSheetName } from '../shared/types';
+export { API_BASE, MAX_UNPINNED_HISTORY, MODULES_CONFIG, RUN_POLLING, RUN_WINDOW, SETTINGS_CONFIG, SETTINGS_DEFAULTS, CURRENCIES } from './config';
 export { SHEETS, TS_SHEETS } from './sheets';
 
 // ── Default row templates ─────────────────────────────────────────────────────

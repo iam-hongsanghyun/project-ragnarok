@@ -409,22 +409,41 @@ button {
 
 /* ── Left sidebar ─────────────────────────────────────────────────── */
 .app-sidebar {
+  /* width is set via inline style when resizing; fallback only */
   width: 252px;
+  min-width: 180px;
+  max-width: 520px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   background: #f8fafc;
-  border-right: 1px solid var(--border);
+  /* border-right handled by the resize handle */
   padding: 10px 0 16px;
   gap: 2px;
-  transition: width 180ms ease;
+  /* no transition — interferes with live drag */
 }
 
 .app-sidebar--collapsed {
-  width: 34px;
+  width: 34px !important;
+  min-width: 34px;
   padding: 10px 0;
+}
+
+/* Drag-to-resize strip between sidebar and main content */
+.sidebar-resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 120ms;
+  position: relative;
+  z-index: 10;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle--dragging {
+  background: var(--brand);
 }
 
 .sidebar-toggle {
@@ -664,6 +683,235 @@ button {
   min-width: 24px;
   padding: 2px 6px;
   font-size: 0.72rem;
+}
+.sg-module-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.sg-module-roots,
+.sg-module-list,
+.sg-module-diag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sg-module-root,
+.sg-module-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.72);
+}
+.sg-module-root {
+  display: grid;
+  gap: 4px;
+}
+.sg-module-card-top,
+.sg-module-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.sg-module-card-header {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.sg-module-card-header:hover strong {
+  color: var(--brand);
+}
+.sg-module-card-chevron {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  font-size: 0.65rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.sg-module-card-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.sg-module-action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sg-module-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sg-module-toggle-btn {
+  min-width: 72px;
+}
+.sg-module-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(15,23,42,0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.sg-module-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+/* Slider rows need a different layout: label on one line, track+value below */
+.sg-module-config-row--slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.sg-module-config-label {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sg-module-config-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.sg-module-config-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--brand);
+}
+.sg-module-config-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 40px;
+  text-align: right;
+}
+.sg-module-config-unit {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 2px;
+}
+.sg-module-config-input {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: rgba(255,255,255,0.9);
+}
+.sg-module-config-select {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: rgba(255,255,255,0.9);
+}
+/* carrier-select field */
+.sg-module-config-row--carrier {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.sg-carrier-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.sg-carrier-select-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 80ms;
+}
+.sg-carrier-select-item:hover {
+  background: rgba(99,102,241,0.07);
+}
+.sg-carrier-select-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--brand);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sg-carrier-select-name {
+  font-size: 0.82rem;
+  color: var(--text);
+}
+.sg-module-root-label,
+.sg-module-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.sg-module-root-path {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--ink);
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.sg-module-root-status,
+.sg-module-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.sg-module-root-status {
+  width: fit-content;
+  background: rgba(148, 163, 184, 0.16);
+  color: #64748b;
+}
+.sg-module-root-status.is-ok,
+.sg-module-status--ready {
+  background: rgba(34, 197, 94, 0.14);
+  color: #166534;
+}
+.sg-module-status--invalid {
+  background: rgba(239, 68, 68, 0.14);
+  color: #991b1b;
+}
+.sg-module-status--incompatible {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+}
+.sg-error-text {
+  margin: 0;
+  font-size: 12px;
+  color: #991b1b;
 }
 .sg-color-meta {
   min-width: 0;
@@ -2401,6 +2649,66 @@ path.leaflet-interactive:focus {
   color: var(--text);
 }
 .dashboard-section-body { padding: 0 4px 8px; }
+
+/* ── Plugin result cards ─────────────────────────────────────────────────── */
+.plugin-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.plugin-result-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.72);
+}
+.plugin-result-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.plugin-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.plugin-result-table tr + tr td {
+  border-top: 1px solid var(--border);
+}
+.plugin-result-label {
+  color: var(--muted);
+  padding: 5px 12px 5px 0;
+  white-space: nowrap;
+  width: 40%;
+}
+.plugin-result-value {
+  color: var(--text);
+  padding: 5px 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.plugin-result-unit {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+.plugin-result-subtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.plugin-result-subtable td {
+  padding: 2px 8px 2px 0;
+  color: var(--muted);
+}
+.plugin-result-subtable td:last-child {
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
+}
 
 /* Export buttons */
 .chart-export-btn {

@@ -27,6 +27,24 @@ export type ConstraintMetric =
   | 'carrier_max_share' | 'carrier_min_share'
   | 'carrier_max_cf' | 'carrier_min_cf';
 
+export type ModuleCapability =
+  | 'data-importer'
+  | 'data-manipulator'
+  | 'analytics-pack'
+  | 'constraint-pack';
+
+export type ModulePermission =
+  | 'filesystem.read'
+  | 'filesystem.write'
+  | 'network.access'
+  | 'workbook.read'
+  | 'workbook.write'
+  | 'results.read'
+  | 'ui.panel'
+  | 'ui.action'
+  | 'constraints.register'
+  | 'analytics.register';
+
 // ── Domain model ──────────────────────────────────────────────────────────────
 
 export interface WorkbookModel {
@@ -216,7 +234,24 @@ export interface ExpansionAsset {
   unit?: string;   // 'MW' (default), 'MWh' (Store), 'MVA' (Line)
 }
 
+// ── Plugin analytics ─────────────────────────────────────────────────────────
+
+export type PluginFieldFormat = 'number' | 'currency' | 'table' | 'text';
+
+export interface PluginFieldHint {
+  label?: string;
+  unit?: string;
+  format?: PluginFieldFormat;
+}
+
+export interface PluginAnalyticsEntry {
+  name: string;
+  ui: Record<string, PluginFieldHint>;
+  data: Record<string, unknown>;
+}
+
 export interface RunResults {
+  pluginAnalytics?: Record<string, PluginAnalyticsEntry>;
   summary: SummaryItem[];
   dispatchSeries: SeriesPoint[];
   generatorDispatchSeries: SeriesPoint[];
@@ -323,3 +358,67 @@ export interface ChartSectionConfig {
 
 export type TableSelKind = 'static' | 'ts';
 export interface TableSel { kind: TableSelKind; sheet: AnySheetName }
+
+// ── Module host types ────────────────────────────────────────────────────────
+
+export interface ModuleHostRoot {
+  label: string;
+  path: string;
+  configuredPath: string;
+  exists: boolean;
+  isDirectory: boolean;
+  managed: boolean;
+}
+
+export type ModuleConfigFieldType = 'number' | 'boolean' | 'string' | 'select' | 'carrier-select';
+
+export interface ModuleConfigField {
+  type: ModuleConfigFieldType;
+  label?: string;
+  description?: string;
+  default?: unknown;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: Array<{ value: unknown; label: string }>;
+}
+
+export type ModuleConfigSchema = Record<string, ModuleConfigField>;
+
+export interface ModuleDescriptor {
+  id: string;
+  name: string;
+  version: string;
+  sdkVersion: string;
+  entry: string;
+  entryPath: string;
+  entryExists: boolean;
+  description: string;
+  capabilities: ModuleCapability[];
+  permissions: ModulePermission[];
+  compatible: boolean;
+  valid: boolean;
+  status: 'ready' | 'invalid' | 'incompatible';
+  diagnostics: string[];
+  manifestPath: string;
+  modulePath: string;
+  isManaged: boolean;
+  config?: ModuleConfigSchema;
+}
+
+export interface ModuleHostInventory {
+  host: {
+    sdkVersion: string;
+    supportedCapabilities: ModuleCapability[];
+    supportedPermissions: ModulePermission[];
+    managedRoot: ModuleHostRoot;
+  };
+  modules: ModuleDescriptor[];
+  summary: {
+    discovered: number;
+    ready: number;
+    invalid: number;
+    incompatible: number;
+  };
+}
