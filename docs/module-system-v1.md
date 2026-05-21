@@ -327,8 +327,12 @@ field type — boolean, string, table, file, etc. The gate uses tolerant equalit
 
 **`action`** renders a button that runs the plugin's hook in isolation (no solver) and
 applies the returned model to the current Ragnarok workbook. Use for "Send model"
-or "Apply preview" buttons inside the plugin config panel. The plugin must declare
-`stage: "pre-build"` and a matching hook (currently always `transform`).
+or "Apply preview" buttons inside the plugin config panel. The plugin must
+define a `transform(model, scenario, options)` Python function in its entry
+file. The manifest's `stage` field is NOT consulted for action invocations —
+a plugin whose main pipeline stage is `in-solve` or `post-solve` can still
+expose a Send-model action via its `transform` hook. (Currently `hook` on an
+action field is always `"transform"`.)
 
 ```json
 "send_to_ragnarok": {

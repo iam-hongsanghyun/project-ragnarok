@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .lib.config import load_system_defaults
 from .lib.models import RunPayload
-from .lib.module_host import discover_modules, execute_plugins_at_stage, install_module_from_upload, uninstall_module
+from .lib.module_host import discover_modules, execute_module_action, execute_plugins_at_stage, install_module_from_upload, uninstall_module
 from .lib.network import validate_model
 from .lib.results import run_pypsa
 
@@ -143,30 +143,37 @@ def delete_module(module_id: str) -> dict[str, Any]:
 
 @app.post("/api/modules/{module_id}/preview")
 def preview_module(module_id: str, payload: RunPayload) -> dict[str, Any]:
-    """Run a single pre-build plugin in-process and return the resulting model.
+    """Run a single plugin's ``transform`` hook in isolation and return the model.
 
-    Powers the SDK 'action' field type: the plugin's transform hook is
+    Powers the SDK 'action' field type: the plugin's ``transform`` hook is
     invoked with the caller's current workbook as ``model``, and the
     returned dict replaces the workbook on the frontend. No solver runs.
 
-    The plugin must declare ``stage: "pre-build"`` and a ``transform`` hook.
+    The plugin must define a ``transform(model, scenario, options)`` Python
+    function in its entry file.  The manifest's ``stage`` field is NOT
+    consulted — a plugin whose main pipeline stage is ``in-solve`` or
+    ``post-solve`` can still expose a Send-model action via this endpoint.
     Module enablement is **not** required — the caller can preview an
     installed-but-disabled module so users can compare outcomes.
     """
-    outputs = execute_plugins_at_stage(
-        "pre-build",
-        [module_id],
-        model=payload.model,
-        scenario=payload.scenario,
-        options=payload.options or {},
-    )
-    result = outputs.get(module_id)
+    try:
+        result = execute_module_action(
+            module_id,
+            hook_name="transform",
+            stage_kwargs_for="pre-build",
+            model=payload.model,
+            scenario=payload.scenario,
+            options=payload.options or {},
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Module '{module_id}' transform failed: {exc}") from exc
+
     if result is None:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Module '{module_id}' did not return a model. Verify the manifest "
-                "declares stage='pre-build' and hook='transform'."
+                f"Module '{module_id}' did not return a model. Verify the entry "
+                "file defines a callable transform(model, scenario, options)."
             ),
         )
     if isinstance(result, dict) and "error" in result and len(result) == 1:

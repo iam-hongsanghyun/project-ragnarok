@@ -468,3 +468,50 @@ def execute_plugins_at_stage(
             outputs[module_id] = {"error": str(exc)}
 
     return outputs
+
+
+def execute_module_action(
+    module_id: str,
+    hook_name: str,
+    stage_kwargs_for: str = "pre-build",
+    **kwargs: Any,
+) -> Any:
+    """Invoke a named hook on a single module, bypassing the manifest stage filter.
+
+    Used by the action-button preview endpoint, which calls the hook
+    declared on an ``action`` config field (currently always ``transform``)
+    regardless of what stage the manifest declares for the plugin's
+    regular pipeline contribution.  This lets a plugin whose main stage
+    is e.g. ``in-solve`` still expose a "Send model" action that runs
+    its ``transform`` hook in isolation.
+
+    Args:
+        module_id:        Module to invoke.
+        hook_name:        Python function name to call on the module entry.
+        stage_kwargs_for: Stage whose kwarg contract to apply when calling
+                          the hook.  Defaults to ``"pre-build"`` because
+                          that is the only contract that returns a model.
+        **kwargs:         Stage context (``model``, ``scenario``, ``options``).
+
+    Returns:
+        Whatever the hook returns, or ``None`` if the module / hook cannot
+        be loaded.  Exceptions are NOT caught — the caller decides how to
+        surface them (typically as an HTTP error).
+    """
+    mod, manifest = _load_module_entry(module_id)
+    if mod is None or manifest is None:
+        return None
+    fn = getattr(mod, hook_name, None)
+    if fn is None or not callable(fn):
+        logger.debug("Module '%s' has no callable '%s' — action skipped.", module_id, hook_name)
+        return None
+
+    allowed = _STAGE_KWARGS.get(stage_kwargs_for, ())
+    call_kwargs = {k: kwargs[k] for k in allowed if k in kwargs}
+    if "options" in call_kwargs:
+        all_configs = (call_kwargs["options"] or {}).get("moduleConfigs", {})
+        call_kwargs["options"] = {
+            **call_kwargs["options"],
+            "moduleConfig": all_configs.get(module_id, {}),
+        }
+    return fn(**call_kwargs)
