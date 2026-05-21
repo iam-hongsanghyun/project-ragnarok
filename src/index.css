@@ -899,16 +899,20 @@ button {
   gap: 6px;
   width: 100%;
 }
+.sg-module-table-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 6px;
+}
 .sg-module-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid rgba(15, 23, 42, 0.12);
   background: var(--surface, #fff);
   font-size: 0.8rem;
 }
 .sg-module-table thead th {
-  background: rgba(15, 23, 42, 0.04);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
   padding: 4px 6px;
   text-align: left;
   font-weight: 600;
@@ -1069,14 +1073,17 @@ button {
   color: var(--text);
 }
 
-/* Polish: table editor — striped rows, sticky-feel header, focus state */
+/* Polish: table editor — striped rows, sticky header, focus state */
 .sg-module-table thead th {
   position: sticky;
   top: 0;
+  z-index: 1;
+  background: var(--surface, #fff);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.12);
 }
 .sg-module-table tbody tr:nth-child(odd) td {
   background: rgba(15, 23, 42, 0.015);
@@ -3187,7 +3194,7 @@ path.leaflet-interactive:focus {
 }
 
 /* Loading gradient legend */
-.loading-legend { bottom: 24px; right: 12px; }
+.loading-legend { bottom: 24px; left: 12px; right: auto; }
 .loading-gradient-bar {
   height: 10px;
   width: 120px;

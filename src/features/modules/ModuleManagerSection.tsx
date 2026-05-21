@@ -363,6 +363,7 @@ function TableEditor({ columns, rows, onChange }: TableEditorProps) {
 
   return (
     <div className="sg-module-table-editor">
+      <div className="sg-module-table-scroll">
       <table className="sg-module-table">
         <thead>
           <tr>
@@ -405,6 +406,7 @@ function TableEditor({ columns, rows, onChange }: TableEditorProps) {
           )}
         </tbody>
       </table>
+      </div>
       <button type="button" className="tb-btn sg-module-table-add" onClick={addRow}>
         + Add row
       </button>
