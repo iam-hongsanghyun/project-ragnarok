@@ -22,7 +22,7 @@ import {
   ModelSubTab,
   AnalyticsSubTab,
 } from './shared/types';
-import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
+import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW, SHEETS } from './constants';
 import { createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, parseProjectFile, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
@@ -584,13 +584,9 @@ function AppInner() {
           snapshotEnd,
           snapshotWeight,
           activeConstraints: constraints.filter((c) => c.enabled),
-          componentCounts: {
-            generators: model.generators.length,
-            buses: model.buses.length,
-            lines: model.lines.length,
-            links: model.links.length,
-            storageUnits: model.storage_units.length,
-          },
+          componentCounts: Object.fromEntries(
+            SHEETS.map((sheet) => [sheet, model[sheet]?.length ?? 0]).filter(([, n]) => n > 0),
+          ),
           pinned: false,
           inComparison: true,
           results: nextResults,

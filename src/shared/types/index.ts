@@ -317,13 +317,13 @@ export interface RunHistoryEntry {
   snapshotEnd: number;
   snapshotWeight: number;
   activeConstraints: CustomConstraint[];
-  componentCounts: {
-    generators: number;
-    buses: number;
-    lines: number;
-    links: number;
-    storageUnits: number;
-  };
+  /**
+   * Row count per workbook sheet at the time of this run. Keyed by the
+   * canonical sheet name from the PyPSA schema (e.g. `generators`, `buses`,
+   * `storage_units`). New PyPSA components flow in automatically when the
+   * schema is regenerated — no UI changes required.
+   */
+  componentCounts: Record<string, number>;
   pinned: boolean;
   inComparison: boolean;   // false = excluded from Comparison tab, still in history
   results: RunResults;

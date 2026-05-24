@@ -40,8 +40,8 @@ export function RunComparisonTable({ runHistory, activeResults, onToggleComparis
     { label: 'Carbon price',  fn: (e) => e.carbonPrice > 0 ? `${currencySymbol}${e.carbonPrice}/t` : '—' },
     { label: 'Window',        fn: (e) => `${e.snapshotStart} → ${e.snapshotEnd}` },
     { label: 'Resolution',    fn: (e) => `${e.snapshotWeight} h` },
-    { label: 'Generators',    fn: (e) => String(e.componentCounts.generators) },
-    { label: 'Storage units', fn: (e) => String(e.componentCounts.storageUnits) },
+    { label: 'Generators',    fn: (e) => String(e.componentCounts.generators ?? 0) },
+    { label: 'Storage units', fn: (e) => String(e.componentCounts.storage_units ?? 0) },
     { label: 'Constraints',   fn: (e) => e.activeConstraints.length > 0
         ? e.activeConstraints.map((c) => c.label).join(', ')
         : '—' },

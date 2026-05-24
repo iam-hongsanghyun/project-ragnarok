@@ -101,11 +101,15 @@ def build_network(
         kwargs = {col: df[col].tolist() for col in df.columns}
         network.add(cls, df.index.tolist(), **kwargs)
 
+    # Generic per-component row count (schema-driven — every populated
+    # component class shows up automatically, including new ones PyPSA adds).
+    counts = [
+        f"{len(network.components[list_name].static)} {list_name}"
+        for list_name in network.components.keys()
+        if len(network.components[list_name].static) > 0
+    ]
     notes.append(
-        f"Imported model: {len(network.buses)} buses, {len(network.generators)} generators, "
-        f"{len(network.loads)} loads, {len(network.lines)} lines, "
-        f"{len(network.links)} links, {len(network.storage_units)} storage units, "
-        f"{len(network.stores)} stores, {len(network.snapshots)} snapshots."
+        f"Imported model: {', '.join(counts)}; {len(network.snapshots)} snapshots."
     )
 
     # ── Time-series sheets ────────────────────────────────────────────────────
@@ -228,10 +232,12 @@ def build_network(
         currency=currency,
     )
 
-    notes.append(
-        f"Prepared PyPSA case with {len(network.buses)} buses, "
-        f"{len(network.generators)} generators, {len(network.loads)} loads."
+    final_counts = ", ".join(
+        f"{len(network.components[list_name].static)} {list_name}"
+        for list_name in network.components.keys()
+        if len(network.components[list_name].static) > 0
     )
+    notes.append(f"Prepared PyPSA case with {final_counts}.")
     return network, notes
 
 
