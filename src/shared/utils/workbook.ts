@@ -4,8 +4,9 @@ import {
   isInputTemporalSheet,
   normalizeSheetName,
   stripOutputStaticAttributes,
+  PYPSA_COMPONENT_BY_SHEET,
 } from '../../constants/pypsa_schema';
-import { GridRow, Primitive, WorkbookModel } from '../types';
+import { GridRow, Primitive, RunResults, WorkbookModel } from '../types';
 
 export function normalizeCell(value: unknown): Primitive {
   if (value === undefined || value === null) return null;
@@ -31,13 +32,6 @@ export function parseSheets(workbook: ReturnType<typeof XLSX.read>): WorkbookMod
     );
   });
   return model;
-}
-
-export async function loadSampleWorkbook(): Promise<WorkbookModel> {
-  const res = await fetch('/sample_model.xlsx');
-  if (!res.ok) throw new Error('Could not load sample_model.xlsx');
-  const arrayBuffer = await res.arrayBuffer();
-  return parseSheets(XLSX.read(arrayBuffer, { type: 'array' }));
 }
 
 export function parseWorkbook(file: File): Promise<WorkbookModel> {
@@ -127,5 +121,197 @@ export async function parseCsvToGridRows(file: File): Promise<GridRow[]> {
       return [k, Number.isFinite(n) ? n : null];
     });
     return Object.fromEntries(entries) as GridRow;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Project export / import — full input + output round-trip
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//  Export Project writes a PyPSA-native workbook that contains:
+//    • Every input static sheet, with each row enriched by the matching solved
+//      output static attributes (e.g. `p_nom_opt`) from `results.outputs.static`.
+//    • Every input time-series sheet from the model.
+//    • Every output time-series sheet from `results.outputs.series`
+//      (e.g. `generators-p`, `buses-marginal_price`).
+//
+//  Import Project reverses this: it splits each component sheet's columns by
+//  the schema's input/output classification, dropping the output static
+//  columns back into `results.outputs.static[<list>][<comp>][<attr>]` and
+//  feeding the input columns into the workbook model. Output time-series
+//  sheets (`<list>-<output_attr>`) flow into `results.outputs.series`.
+
+export type ProjectOutputs = NonNullable<RunResults['outputs']>;
+
+const EMPTY_OUTPUTS: ProjectOutputs = { static: {}, series: {} };
+
+/** Schema-driven set of output static attributes per component sheet. */
+function outputStaticAttrSet(sheet: string): Set<string> {
+  const comp = PYPSA_COMPONENT_BY_SHEET[sheet];
+  if (!comp) return new Set();
+  return new Set(
+    comp.attributes
+      .filter((a) => a.status === 'output' && a.storage === 'static')
+      .map((a) => a.attribute),
+  );
+}
+
+/** Schema-driven set of output series attributes per component sheet. */
+function outputSeriesAttrSet(sheet: string): Set<string> {
+  const comp = PYPSA_COMPONENT_BY_SHEET[sheet];
+  if (!comp) return new Set();
+  return new Set(
+    comp.attributes
+      .filter((a) => a.status === 'output' && a.storage !== 'static')
+      .map((a) => a.attribute),
+  );
+}
+
+export function buildProjectWorkbook(
+  model: WorkbookModel,
+  outputs: ProjectOutputs = EMPTY_OUTPUTS,
+): XLSX.WorkBook {
+  const workbook = XLSX.utils.book_new();
+
+  // ── Static component sheets: input columns + output columns merged ────
+  SHEETS.forEach((sheet) => {
+    const inputRows = (model[sheet] ?? []).map((r) => stripOutputStaticAttributes(sheet, r));
+    const outputStaticForSheet = outputs.static[sheet] ?? {};
+    const merged: GridRow[] = inputRows.map((row) => {
+      const name = typeof row.name === 'string' ? row.name : String(row.name ?? '');
+      const outAttrs = outputStaticForSheet[name];
+      return outAttrs ? { ...row, ...outAttrs } : row;
+    });
+    // Add rows that exist in outputs but not in the input model (rare, e.g.
+    // load-shedding generators auto-added by the backend).
+    const inputNames = new Set(inputRows.map((r) => String(r.name ?? '')));
+    Object.entries(outputStaticForSheet).forEach(([compName, attrs]) => {
+      if (!inputNames.has(compName)) {
+        merged.push({ name: compName, ...attrs });
+      }
+    });
+    const rows = nonEmptyRows(merged);
+    if (rows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, ws, sheet);
+  });
+
+  // ── Input time-series sheets ─────────────────────────────────────────
+  const inputTsKeys = [
+    ...TS_SHEETS,
+    ...Object.keys(model).filter((s) => isInputTemporalSheet(s) && !TS_SHEETS.includes(s)),
+  ];
+  inputTsKeys.forEach((sheet) => {
+    const rows = (model as any)[sheet] as GridRow[] | undefined;
+    if (!rows || rows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, ws, sheet);
+  });
+
+  // ── Output time-series sheets ────────────────────────────────────────
+  Object.entries(outputs.series).forEach(([sheet, rows]) => {
+    if (!rows || rows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, ws, sheet);
+  });
+
+  return workbook;
+}
+
+export function exportProjectWorkbook(
+  model: WorkbookModel,
+  outputs: ProjectOutputs | null | undefined,
+  filename = 'ragnarok_project.xlsx',
+): void {
+  XLSX.writeFile(buildProjectWorkbook(model, outputs ?? EMPTY_OUTPUTS), filename);
+}
+
+/**
+ * Parse a project workbook back into `{ model, outputs }`. Output static
+ * columns inside component sheets are split out into `outputs.static`;
+ * `<list>-<output_attr>` sheets are routed to `outputs.series`.
+ */
+export function parseProjectWorkbook(
+  arrayBuffer: ArrayBuffer,
+): { model: WorkbookModel; outputs: ProjectOutputs } {
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  const model = createEmptyWorkbook();
+  const outputs: ProjectOutputs = { static: {}, series: {} };
+
+  wb.SheetNames.forEach((sheetName) => {
+    const canonical = normalizeSheetName(sheetName);
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return;
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+
+    // Output time-series sheet (e.g. generators-p)? Route to outputs.series.
+    const dashIndex = canonical.indexOf('-');
+    if (dashIndex > 0) {
+      const componentSheet = canonical.slice(0, dashIndex);
+      const attr = canonical.slice(dashIndex + 1);
+      if (outputSeriesAttrSet(componentSheet).has(attr)) {
+        outputs.series[canonical] = rawRows.map((row) =>
+          Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [k, normalizeCell(v)]),
+          ),
+        ) as GridRow[];
+        return;
+      }
+    }
+
+    // Static component sheet: split input vs output columns.
+    const outStaticAttrs = outputStaticAttrSet(canonical);
+    const inputRows: GridRow[] = [];
+    const sheetOutputs: Record<string, Record<string, Primitive>> = {};
+
+    rawRows.forEach((rawRow) => {
+      const inputPart: GridRow = {};
+      const outputPart: Record<string, Primitive> = {};
+      let name = '';
+      Object.entries(rawRow).forEach(([k, v]) => {
+        const cell = normalizeCell(v);
+        if (k === 'name') {
+          inputPart[k] = cell;
+          name = typeof cell === 'string' ? cell : String(cell ?? '');
+        } else if (outStaticAttrs.has(k)) {
+          if (cell !== null && cell !== '') outputPart[k] = cell;
+        } else {
+          inputPart[k] = cell;
+        }
+      });
+      inputRows.push(inputPart);
+      if (name && Object.keys(outputPart).length > 0) {
+        sheetOutputs[name] = outputPart;
+      }
+    });
+
+    (model as any)[canonical] = inputRows;
+    if (Object.keys(sheetOutputs).length > 0) {
+      outputs.static[canonical] = sheetOutputs;
+    }
+  });
+
+  return { model, outputs };
+}
+
+export function parseProjectFile(
+  file: File,
+): Promise<{ model: WorkbookModel; outputs: ProjectOutputs }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const arrayBuffer = event.target?.result;
+        if (!(arrayBuffer instanceof ArrayBuffer)) {
+          reject(new Error('Could not read project workbook.'));
+          return;
+        }
+        resolve(parseProjectWorkbook(arrayBuffer));
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Project import failed.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Project import failed.'));
+    reader.readAsArrayBuffer(file);
   });
 }

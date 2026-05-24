@@ -23,10 +23,11 @@ import {
   AnalyticsSubTab,
 } from './shared/types';
 import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
-import { createEmptyWorkbook, exportWorkbook, loadSampleWorkbook, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
+import { createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, parseProjectFile, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
 import { buildRowsFromGeneratorDetails, buildSystemLoadRows, normalizeSeriesPoint } from './shared/utils/analytics';
+import { withDerivedAssetDetails } from './shared/utils/deriveAssetDetails';
 import { RunDialog } from './features/run/RunDialog';
 import { Sidebar } from './layout/Sidebar';
 import { MapPane } from './features/map/MapPane';
@@ -72,7 +73,7 @@ function AppInner() {
     snapshotCount: number;
     networkSummary: Record<string, number>;
   } | null>(null);
-  const [status, setStatus] = useState('Ready. Open a workbook or try the demo model.');
+  const [status, setStatus] = useState('Ready. Open a workbook to get started.');
   const [fileHandle, setFileHandle] = useState<BrowserFileHandle | null>(null);
   const [jumpTo, setJumpTo] = useState<{ sheet: string; rowIndex: number } | null>(null);
   const [runElapsed, setRunElapsed] = useState(0);
@@ -189,9 +190,10 @@ function AppInner() {
   }, [stopPolling, showToast]);
   const [filename, setFilename] = useState('ragnarok_case.xlsx');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const projectImportInputRef = useRef<HTMLInputElement | null>(null);
 
-  // No workbook is auto-loaded — the user must explicitly Open a file or click
-  // the Demo button. This avoids surprising the user with someone else's data
+  // No workbook is auto-loaded — the user must explicitly Open a file or
+  // Import Project. This avoids surprising the user with someone else's data
   // and keeps assumptions out of the empty starting state.
 
   useEffect(() => {
@@ -248,6 +250,55 @@ function AppInner() {
       showToast(msg, 'error');
     } finally {
       if (event.target) event.target.value = '';
+    }
+  };
+
+  const handleImportProject = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const { model: nextModel, outputs } = await parseProjectFile(file);
+      resetForNewModel(nextModel, file.name || 'ragnarok_project.xlsx');
+      setFileHandle(null);
+      const hasOutputs =
+        Object.keys(outputs.static).length > 0 || Object.keys(outputs.series).length > 0;
+      if (hasOutputs) {
+        // Re-attach imported outputs and rebuild assetDetails locally so the
+        // Result / Analytics tabs work immediately without re-running.
+        setResults((prev) => {
+          if (!prev) return prev;
+          const next: RunResults = { ...prev, outputs };
+          return withDerivedAssetDetails(nextModel, next, settings.currencySymbol);
+        });
+        setStatus(`Imported project: ${file.name}. Outputs restored — Analytics ready.`);
+      } else {
+        setStatus(`Imported project (inputs only): ${file.name}.`);
+      }
+      showToast(`Project imported (${file.name})`, 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Project import failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
+    } finally {
+      if (event.target) event.target.value = '';
+    }
+  };
+
+  const handleExportProject = () => {
+    const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_project';
+    const out = `${base}_project.xlsx`;
+    try {
+      exportProjectWorkbook(model, results?.outputs, out);
+      showToast(
+        results?.outputs
+          ? 'Project (inputs + solved outputs) exported'
+          : 'Project (inputs only) exported',
+        'success',
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Project export failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
     }
   };
 
@@ -508,9 +559,13 @@ function AppInner() {
     sessionStorage.setItem('activeJobId', jobId);
 
     // ── Step 2: Apply completed result ───────────────────────────────────────
-    const applyResult = (nextResults: RunResults) => {
+    const applyResult = (rawResults: RunResults) => {
       sessionStorage.removeItem('activeJobId');
       jobIdRef.current = null;
+      // Backend now sends only the schema-driven outputs cache; the frontend
+      // derives all per-asset detail records locally so plugins and analytics
+      // read from a single in-memory source.
+      const nextResults = withDerivedAssetDetails(model, rawResults, settings.currencySymbol);
       setResults(nextResults);
       setRunStatus('done');
       setAnalyticsFocus({ type: 'system' });
@@ -670,6 +725,7 @@ function AppInner() {
   return (
     <div className="studio-shell">
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
+      <input ref={projectImportInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportProject} />
 
       {/* ── Top bar ── */}
       <header className="topbar">
@@ -762,15 +818,12 @@ function AppInner() {
               onOpen={handleOpenWorkbook}
               onSave={saveWorkbook}
               onSaveAs={saveAsWorkbook}
-              onDemo={() => {
-                loadSampleWorkbook()
-                  .then((m) => resetForNewModel(m, 'sample_model.xlsx'))
-                  .catch(() => setStatus('Could not reload sample model.'));
-              }}
-              onExport={() => {
+              onImportProject={() => projectImportInputRef.current?.click()}
+              onExportProject={handleExportProject}
+              onExportResult={() => {
                 if (!results) return;
                 exportFullResults(model, results, filename.replace(/\.xlsx$/i, ''));
-                showToast('Full model exported to Excel', 'success');
+                showToast('Result workbook exported', 'success');
               }}
               runHistory={runHistory}
               onRestoreRun={handleRestoreRun}

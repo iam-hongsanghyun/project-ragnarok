@@ -286,6 +286,23 @@ export interface RunResults {
     stores: Record<string, StoreDetail>;
     branches: Record<string, BranchDetail>;
   };
+  /**
+   * Full PyPSA-native output dataset built directly from the solved network.
+   * Used by Export Project (and round-tripped by Import Project) so the
+   * full input + output workbook can be assembled entirely on the frontend
+   * — the backend keeps no xlsx artifact.
+   *
+   * - `static[list_name][component_name][attr]` — solved scalar output
+   *   attributes (e.g. `p_nom_opt`, `mu_*`).
+   * - `series[<list_name>-<attr>]` — solved time-series sheets keyed by
+   *   PyPSA's native `<list>-<attr>` convention (e.g. `generators-p`,
+   *   `buses-marginal_price`). Each row has a `name` column (ISO
+   *   timestamp) and one numeric column per component.
+   */
+  outputs?: {
+    static: Record<string, Record<string, Record<string, Primitive>>>;
+    series: Record<string, GridRow[]>;
+  };
 }
 
 // ── Run history ───────────────────────────────────────────────────────────────

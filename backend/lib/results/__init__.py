@@ -10,13 +10,6 @@ from fastapi import HTTPException
 from ..constants import carrier_color
 from ..network import build_network
 from ..utils.series import weighted_sum
-from .assets import (
-    build_branch_details,
-    build_bus_details,
-    build_generator_details,
-    build_storage_unit_details,
-    build_store_details,
-)
 from ..network.custom_constraints import apply_custom_constraints
 from ..module_host import execute_plugins_at_stage, get_module_metadata
 from .dispatch import (
@@ -27,6 +20,7 @@ from .dispatch import (
 )
 from .emissions import build_emissions_breakdown
 from .expansion import build_expansion_results
+from .full_outputs import build_full_outputs
 from .market import build_co2_shadow, build_merit_order
 
 
@@ -280,11 +274,9 @@ def run_pypsa(
             "modeledHours": snapshot_count * snapshot_weight,
             "storeWeight": float(store_weights.iloc[0]) if len(store_weights) else snapshot_weight,
         },
-        "assetDetails": {
-            "generators": build_generator_details(network, dispatch_frame, generator_weights, emissions_factors, currency),
-            "buses": build_bus_details(network, dispatch_frame, generator_weights, emissions_factors, currency),
-            "storageUnits": build_storage_unit_details(network),
-            "stores": build_store_details(network),
-            "branches": build_branch_details(network),
-        },
+        # Full PyPSA-native output dataset (every output attribute, every
+        # component, every snapshot). The frontend turns this into per-asset
+        # detail records (`assetDetails`) locally and uses the same cache for
+        # Export-Project, so the backend stays a stateless solver.
+        "outputs": build_full_outputs(network),
     }
