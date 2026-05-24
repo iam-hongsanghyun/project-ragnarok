@@ -27,6 +27,7 @@ import { createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, parseProjec
 import { exportFullResults } from './shared/utils/exportResults';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
 import { buildRowsFromGeneratorDetails, buildSystemLoadRows, normalizeSeriesPoint } from './shared/utils/analytics';
+import { withDerivedAssetDetails } from './shared/utils/deriveAssetDetails';
 import { RunDialog } from './features/run/RunDialog';
 import { Sidebar } from './layout/Sidebar';
 import { MapPane } from './features/map/MapPane';
@@ -262,10 +263,14 @@ function AppInner() {
       const hasOutputs =
         Object.keys(outputs.static).length > 0 || Object.keys(outputs.series).length > 0;
       if (hasOutputs) {
-        // Re-attach the imported outputs to the existing run history so the
-        // user can browse them, but flag that no fresh solve was performed.
-        setResults((prev) => (prev ? { ...prev, outputs } : prev));
-        setStatus(`Imported project: ${file.name}. Re-run to refresh analytics with these inputs.`);
+        // Re-attach imported outputs and rebuild assetDetails locally so the
+        // Result / Analytics tabs work immediately without re-running.
+        setResults((prev) => {
+          if (!prev) return prev;
+          const next: RunResults = { ...prev, outputs };
+          return withDerivedAssetDetails(nextModel, next, settings.currencySymbol);
+        });
+        setStatus(`Imported project: ${file.name}. Outputs restored — Analytics ready.`);
       } else {
         setStatus(`Imported project (inputs only): ${file.name}.`);
       }
@@ -554,9 +559,13 @@ function AppInner() {
     sessionStorage.setItem('activeJobId', jobId);
 
     // ── Step 2: Apply completed result ───────────────────────────────────────
-    const applyResult = (nextResults: RunResults) => {
+    const applyResult = (rawResults: RunResults) => {
       sessionStorage.removeItem('activeJobId');
       jobIdRef.current = null;
+      // Backend now sends only the schema-driven outputs cache; the frontend
+      // derives all per-asset detail records locally so plugins and analytics
+      // read from a single in-memory source.
+      const nextResults = withDerivedAssetDetails(model, rawResults, settings.currencySymbol);
       setResults(nextResults);
       setRunStatus('done');
       setAnalyticsFocus({ type: 'system' });
