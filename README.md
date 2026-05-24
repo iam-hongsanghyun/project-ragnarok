@@ -1,511 +1,233 @@
 # Ragnarok
 
-**Free, open-source energy system modelling — built to destroy the market for expensive closed-source tools.**
-
-Ragnarok is a browser-based power system optimisation tool built on [PyPSA](https://pypsa.org). It lets power system analysts and energy investors build, solve, and analyse single-year dispatch and capacity expansion models without writing a line of code — and without a six-figure software licence.
-
-This repository is a local React + FastAPI application for editing a PyPSA-style workbook, running a PyPSA optimisation, and exploring the solved results in a map- and chart-based analytics dashboard.
-
-This README is written as a handoff document for another AI or engineer. It explains the current structure, how data flows through the app, where the key logic lives, and which parts are still fragile.
-
-## Plugin System
-
-Ragnarok ships a fully operational v1 plugin system for `user-installed trusted local modules`.
-
-- host/runtime/SDK spec: [docs/module-system-v1.md](./docs/module-system-v1.md)
-- module authoring guide: [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
-
-### What is implemented
-
-**Backend**
-- Discovery of installed local modules from the managed directory (`~/.ragnarok/modules/` or project-local `.ragnarok/modules/`)
-- `module.json` manifest validation against SDK version, capabilities, and permissions
-- `GET /api/modules` — inventory endpoint
-- `POST /api/modules/install` — upload a `.zip` package and install it
-- `DELETE /api/modules/{id}` — uninstall a module by ID
-- **Full plugin execution pipeline** across four stages:
+Ragnarok is a local React + FastAPI application built on [PyPSA](https://pypsa.org) for:
 
-| Stage | Trigger | Hook function | Typical use |
-|---|---|---|---|
-| `pre-build` | before `build_network()` | `transform(model, scenario, options)` | data-importer, model rewriter |
-| `post-build` | after `build_network()`, before `optimize()` | `manipulate(network, scenario, options)` | topology patcher, validator |
-| `in-solve` | inside PyPSA's `extra_functionality` | `add_constraints(network, model, scenario, options)` | custom solver constraints |
-| `post-solve` | after `network.optimize()` | `analyse(network, results, scenario, options)` | KPI reporter, cost breakdown |
-
-- Per-plugin isolated error handling — a failing plugin logs an error and is reported in the frontend, but does not abort the solve pipeline (exception: `in-solve` failures are re-raised to prevent silently incorrect results)
-- Plugin analytics results (`pluginAnalytics` dict) returned inside the `RunResults` payload alongside model results
-
-**Frontend**
-- `ModuleManagerSection` in the sidebar: install, uninstall, enable/disable, and module status
-- `useModuleHost` hook: localStorage persistence for enabled IDs and module configs
-- `PluginPanel` workspace tab: shown when at least one plugin is enabled; renders per-plugin tabs with nested Description / Input / Output views
-- Config field types supported: `boolean`, `number` (bare input or slider when `min`/`max` are set), `select`, `carrier-select` (multi-checkbox populated from workbook carriers)
-- Result rendering: scalar values, formatted numbers/currencies, and nested sub-tables (keyed by `format` in `module.json`'s `ui` map)
-- Blue dot indicator on plugin tabs that have received post-solve results
-
-**Sample plugins** (in `sample-plugins/`, ready to install as `.zip`):
-
-| Plugin | Stage | Capability | Description |
-|---|---|---|---|
-| `ragnarok-cost-reporter` | post-solve | analytics-pack | Total system cost, LCOE, nodal price stats, carrier cost breakdown |
-| `ragnarok-renewable-floor` | in-solve | constraint-pack | Adds a minimum renewable energy share constraint via `extra_functionality` |
-| `ragnarok-network-patcher` | post-build | data-manipulator | Logs topology stats, clamps negative `p_nom_min`, warns zero-capacity generators |
-| `ragnarok-log-importer` | pre-build | data-importer | Logs model summary before build; baseline template for data-importer plugins |
-
-### What is not in v1
-
-- Remote module registry or marketplace
-- Sandboxed or worker-process isolation for untrusted code
-- Frontend UI injection from module entrypoints (charts/panels must use the generic `PluginPanel` result renderer)
-- `activate()` / `deactivate()` lifecycle hooks (plugins are stateless callables, not long-lived objects)
-
-## 1. High-Level Architecture
-
-- Frontend: React + TypeScript in `/Users/sanghyun/github/pypsa_gui/src`
-- Backend: FastAPI + PyPSA in `/Users/sanghyun/github/pypsa_gui/backend`
-- Dev launcher: `/Users/sanghyun/github/pypsa_gui/run.command`
-- Build output: `/Users/sanghyun/github/pypsa_gui/build`
-
-The app has three major user surfaces:
-
-- `Map`
-  - shows the network map and component locations
-- `Tables`
-  - lets the user edit workbook-like component tables directly
-- `Analytics`
-  - shows solved results after a run, with a map on top and user-defined chart sections below
-
-## 2. Main Files
-
-### Frontend
-
-- `/Users/sanghyun/github/pypsa_gui/src/App.tsx`
-  - almost the entire frontend application is in this file
-  - contains:
-    - workbook defaults
-    - workbook parsing/export
-    - map rendering
-    - run dialog
-    - analytics focus selection
-    - chart builder UI
-    - chart rendering logic
-    - result type definitions
-
-- `/Users/sanghyun/github/pypsa_gui/src/index.css`
-  - global styling
-  - chart builder layout
-  - map and pane styling
-  - legend and donut chart styling
-
-### Backend
-
-- `/Users/sanghyun/github/pypsa_gui/backend/main.py`
-  - FastAPI app
-  - payload parsing
-  - synthetic demo network/workbook conversion into a PyPSA network
-  - snapshot weighting logic
-  - PyPSA optimization call
-  - result extraction for system, bus, generator, storage, store, and branch outputs
-
-- `/Users/sanghyun/github/pypsa_gui/backend/requirements.txt`
-  - backend Python dependencies
-
-### Runtime helper
-
-- `/Users/sanghyun/github/pypsa_gui/run.command`
-  - creates `.venv-pypsa` if needed
-  - installs backend requirements
-  - starts uvicorn on `127.0.0.1:8000`
-  - waits for `/api/health`
-  - starts React dev server
-
-## 3. Frontend State Model
-
-Important state variables in `/Users/sanghyun/github/pypsa_gui/src/App.tsx`:
-
-- `model`
-  - in-memory workbook model across all sheets
-- `tab`
-  - `Map | Tables | Analytics`
-- `activeSheet`
-  - currently selected workbook sheet in table view
-- `selection`
-  - selected table row
-- `runSettings`
-  - currently supports:
-    - `snapshotCount`
-    - `snapshotWeight`
-- `results`
-  - backend run result payload
-- `analyticsFocus`
-  - currently selected focus in analytics map:
-    - `system`
-    - `generator`
-    - `bus`
-    - `storageUnit`
-    - `store`
-    - `branch`
-- `chartSections`
-  - user-defined analytics chart cards
-
-## 4. Workbook Model
-
-The workbook is represented as a TypeScript object keyed by sheet name.
-
-Important sheet names:
-
-- `network`
-- `snapshots`
-- `carriers`
-- `buses`
-- `generators`
-- `loads`
-- `links`
-- `lines`
-- `stores`
-- `storage_units`
-- `transformers`
-- `shunt_impedances`
-- `global_constraints`
-- `shapes`
-- `processes`
-
-`createDefaultWorkbook()` in `/Users/sanghyun/github/pypsa_gui/src/App.tsx` builds the demo case used by default.
-
-## 5. Backend Flow
-
-The backend entrypoint is:
-
-- `POST /api/run`
-
-Primary backend flow in `/Users/sanghyun/github/pypsa_gui/backend/main.py`:
-
-1. parse `RunPayload`
-2. read workbook tables from `payload.model`
-3. derive `snapshotCount` and `snapshotWeight`
-4. create a PyPSA network with `build_network()`
-5. apply snapshot weighting to:
-   - `network.snapshot_weightings.objective`
-   - `network.snapshot_weightings.stores`
-   - `network.snapshot_weightings.generators`
-6. scale period-sensitive attributes such as:
-   - `*_sum_min`
-   - `*_sum_max`
-7. run `network.optimize(solver_name="highs")`
-8. extract solved outputs into a frontend-friendly JSON payload
-
-Health endpoint:
-
-- `GET /api/health`
-
-## 6. Result Payload Structure
-
-Top-level result fields currently include:
-
-- `summary`
-- `dispatchSeries`
-- `generatorDispatchSeries`
-- `systemPriceSeries`
-- `systemEmissionsSeries`
-- `storageSeries`
-- `carrierMix`
-- `nodalBalance`
-- `lineLoading`
-- `narrative`
-- `runMeta`
-- `assetDetails`
-
-### `runMeta`
+- editing a PyPSA-style workbook
+- running a PyPSA optimization with HiGHS
+- reviewing results in a map, table, and analytics UI
+- exporting either:
+  - an input workbook
+  - a full project workbook with solved PyPSA outputs
+  - a result/report package for sharing
 
-Includes:
+The current schema is generated from PyPSA GitHub metadata and checked into the repo at [src/config/pypsa_schema.json](/Users/sanghyun/github/pypsa_gui/src/config/pypsa_schema.json). The authoritative PyPSA references for this README are:
 
-- `snapshotCount`
-- `snapshotWeight`
-- `modeledHours`
-- `storeWeight`
+- [PyPSA Components](https://docs.pypsa.org/latest/user-guide/components/)
+- [PyPSA Import and Export](https://docs.pypsa.org/latest/user-guide/import-export/)
+- [PyPSA Optimization Overview](https://docs.pypsa.org/v1.0.2/user-guide/optimization/overview/)
+- [PyPSA Pathway Planning / Multi-Investment Optimization](https://docs.pypsa.org/latest/examples/multi-investment-optimisation/)
+- [PyPSA Stochastic Optimization](https://docs.pypsa.org/latest/user-guide/optimization/stochastic/)
 
-### `assetDetails`
+## Scope
 
-Includes:
+Ragnarok is not a full UI wrapper around every PyPSA capability.
 
-- `generators`
-- `buses`
-- `storageUnits`
-- `stores`
-- `branches`
+The app has four different support layers, and they are not identical:
 
-These are lookup objects keyed by component name.
+- `Workbook I/O`: can the app open, edit, and save the sheet/attribute?
+- `Backend Run`: does the backend actually apply it when building/running `pypsa.Network`?
+- `Project Export/Import`: can it round-trip through `Export Project` and `Import Project`?
+- `Analytics UI`: does Ragnarok expose dedicated result views for it?
 
-## 7. Analytics Map Structure
-
-The Analytics tab is intentionally split into:
-
-- top: map section
-- bottom: chart section
-
-The map is interactive. Clicking a component changes `analyticsFocus`.
-
-Focus targets:
-
-- generator marker -> generator analytics
-- bus marker -> bus analytics
-- line/link/transformer -> branch analytics
-- storage unit marker -> storage unit analytics
-- store marker -> store analytics
-
-Reset focus returns to `system`.
-
-## 8. Chart Builder Structure
-
-The chart builder in `/Users/sanghyun/github/pypsa_gui/src/App.tsx` is user-defined rather than fixed.
-
-Each chart section is a `ChartSectionConfig` with:
-
-- `metricKey`
-- `chartType`
-- `timeframe`
-- `startIndex`
-- `endIndex`
-- `stacked`
-
-User controls currently include:
-
-- `Value`
-- `Timeframe`
-- `Chart`
-- `Stacking`
-- shared start/end time window for that card
-
-Users can:
-
-- add a new chart section with `Add Chart`
-- clear a section with `Clean`
-
-## 9. System-Level Metric Options
-
-When `analyticsFocus.type === 'system'`, the chart builder currently exposes:
-
-- `Dispatch by carrier`
-- `Dispatch by generator`
-- `Total load`
-- `System marginal price`
-- `System emissions`
-- `Storage power`
-- `Storage state of charge`
-
-These are built from:
-
-- top-level backend system payloads, or
-- fallback reconstruction from component-level outputs when needed
-
-## 10. Component-Level Metric Options
-
-### Generator focus
-
-- `Output`
-- `Available output`
-- `Curtailment`
-- `Emissions`
-
-### Bus focus
-
-- `Load`
-- `Generation`
-- `SMP`
-- `Emissions`
-- `Voltage magnitude` when available
-- `Voltage angle` when available
-
-### Storage unit focus
-
-- `Dispatch`
-- `Storage power`
-- `State of charge`
-
-### Store focus
-
-- `Energy`
-- `Power`
-
-### Branch focus
-
-- `Terminal flows`
-- `Loading`
-- `Losses`
-
-## 11. Chart Rendering Rules
-
-Important logic lives in `/Users/sanghyun/github/pypsa_gui/src/App.tsx`:
-
-- `aggregateMetricRows(...)`
-- `buildDonutFromMetric(...)`
-- `InteractiveTimeSeriesCard(...)`
-- `DonutChart(...)`
-- `UserDefinedChartCard(...)`
-
-Current chart types:
-
-- `line`
-- `area`
-- `bar`
-- `donut`
-
-Current behavior:
-
-- `line`, `area`, `bar`
-  - can be `stacked` or `normal`
-- `donut`
-  - is intended to represent a single aggregated value over the selected time window
-  - should only be used in aggregated mode
-
-## 12. Important Current Constraints
-
-These constraints were explicitly requested and should be preserved unless the user changes direction:
-
-- do not mix different units in one chart
-- one chart should represent one information family only
-- no fake annual or projected outputs
-- analytics should remain user-defined rather than hardcoded
-- map section must stay above chart section
-- timeline changes should affect the selected chart window
-
-## 13. Known Fragile Areas
-
-This is the most important section for another AI.
-
-### A. System dispatch payload shape is still fragile
-
-The frontend currently tries to support more than one payload shape for system series.
-
-Expected shape:
-
-```json
-{
-  "label": "00:00",
-  "timestamp": "2026-01-11T00:00:00",
-  "values": {
-    "Coal": 1000,
-    "LNG": 900
-  },
-  "total": 3200
-}
-```
-
-But some runtime behavior suggests stale or mismatched shapes can still appear in the browser.
-
-The frontend now defensively normalizes:
-
-- nested `values`
-- top-level numeric fields
-- fallback reconstruction from generator output series
-
-Even with that, the screenshots show `Dispatch by carrier` can still collapse into a single `dispatch` series, which means the live browser payload may still not match the current assumptions.
-
-### B. Chart visuals can still look strange
-
-The screenshots provided by the user are a valid concern.
-
-Examples:
-
-- `Dispatch by generator` stacked area can become visually dense because there are many series on a small hourly window
-- `Dispatch by carrier` showing only one legend item is a sign of a data-shape problem, not only a styling problem
-
-### C. Too much frontend logic is in one file
-
-`/Users/sanghyun/github/pypsa_gui/src/App.tsx` is doing too much:
-
-- data definitions
-- workbook editing
-- analytics logic
-- charting
-- map interaction
-- run orchestration
-
-This makes regression risk high.
-
-## 14. Recommended Refactor Direction
-
-If another AI is asked to continue this work, the cleanest next refactor is:
-
-1. split `/Users/sanghyun/github/pypsa_gui/src/App.tsx` into:
-   - `types.ts`
-   - `workbook.ts`
-   - `analytics.ts`
-   - `components/`
-2. define one stable result contract for:
-   - system metrics
-   - focus-level metrics
-3. stop using multiple fallback payload shapes once the contract is stable
-4. add explicit metric metadata from backend, instead of reconstructing chart series heuristically in the frontend
-
-## 15. Recommended Debugging Order For Analytics Bugs
-
-When a chart looks wrong, debug in this order:
-
-1. inspect backend `POST /api/run` response payload
-2. check whether the metric rows in frontend contain the expected numeric keys
-3. check whether `metric.series` matches those row keys
-4. only then inspect SVG rendering
-
-For this project, many visible chart bugs are really payload-shape bugs.
-
-## 16. Commands
-
-### Start app
+Support levels used below:
+
+- `Full`: implemented end-to-end in the relevant layer.
+- `Partial`: implemented with important caveats.
+- `Implicit`: preserved or consumed through generic schema/workbook plumbing, but without dedicated UI or richer handling.
+- `Not supported`: no active implementation path today.
+
+## Architecture
+
+Frontend:
+
+- [src/App.tsx](/Users/sanghyun/github/pypsa_gui/src/App.tsx): app shell, run flow, workbook open/save/import/export, run history
+- [src/constants/pypsa_schema.ts](/Users/sanghyun/github/pypsa_gui/src/constants/pypsa_schema.ts): generated PyPSA schema adapter for the frontend
+- [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts): workbook parse/save/project round-trip
+- [src/shared/utils/deriveRunResults.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/deriveRunResults.ts): rebuilds `RunResults` from imported workbook outputs
+
+Backend:
+
+- [backend/main.py](/Users/sanghyun/github/pypsa_gui/backend/main.py): FastAPI app and run lifecycle
+- [backend/lib/network/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/network/__init__.py): schema-driven network builder
+- [backend/lib/results/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/__init__.py): solve + analytics result assembly
+- [backend/lib/results/full_outputs.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/full_outputs.py): schema-driven solved output extraction
+- [backend/lib/pypsa_schema.py](/Users/sanghyun/github/pypsa_gui/backend/lib/pypsa_schema.py): backend schema helpers
+
+## Current User Flows
+
+`Open`
+
+- opens a workbook into the in-memory model
+- does not restore prior results
+
+`Save` / `Save As`
+
+- save input-only workbook content
+- strip output attributes from component sheets
+- keep input time-series sheets only
+
+`Export Project`
+
+- writes input workbook sheets
+- merges solved output columns/sheets from `results.outputs` if a run exists
+- does not currently include Ragnarok-specific metadata like settings, run history, plugin analytics, or backend solve state
+
+`Import Project`
+
+- parses workbook inputs
+- parses solved PyPSA output attributes/sheets
+- rebuilds a frontend `RunResults` object from workbook outputs
+- does not restore original settings, constraints, plugin analytics, or CO2 shadow values
+
+`Export Result`
+
+- writes a result-oriented workbook with `OUT_*` sheets for reporting
+
+`Export Report`
+
+- writes a self-contained HTML report of the current result
+
+## Support Matrix: Optimization Capabilities
+
+This section is separate from workbook/component support because PyPSA’s
+optimization envelope is broader than the workflow Ragnarok currently exposes.
+
+| PyPSA optimization capability | Ragnarok status | Notes |
+|---|---|---|
+| Single-period optimization | `Full` | Main optimization mode today. |
+| Economic dispatch with extendable assets | `Full` | Core solved workflow. |
+| Capacity expansion planning, single investment period | `Full` | Extendable generators, storage units, stores, lines, and links are supported. |
+| Storage operation with perfect foresight over the chosen horizon | `Full` | Supported within the currently modeled snapshot window. |
+| Carbon pricing in the optimization objective | `Full` | Implemented as a marginal-cost adder. |
+| Unit commitment / mixed-integer operation | `Partial` | Supported via generator attributes, but validation and analytics are still simpler than the full PyPSA capability set. |
+| Force-LP dispatch mode | `Full` | Explicit Ragnarok run option. |
+| Custom/global system-wide constraints | `Partial` | Useful subset implemented, but not the full optimization space. |
+| Multi-carrier optimization | `Partial` | The backend can ingest multi-carrier workbook structures, but the UX and analytics remain electricity-centric. |
+| Rolling-horizon optimization | `Not supported` | No backend orchestration or UI flow for rolling windows. |
+| Multi-investment / pathway planning | `Not supported` | No support for `investment_periods`, period weightings, multi-index snapshots, or pathway result handling. |
+| Stochastic optimization | `Not supported` | No scenario-tree, two-stage, or CVaR workflow. |
+| Security-constrained optimization / SCLOPF | `Not supported` | No branch-outage or contingency solve path. |
+| Scenario-based planning UX | `Not supported` | No first-class scenario manager or uncertainty workflow. |
+| Multi-period result analytics | `Not supported` | Current analytics assume a single modeled horizon. |
+
+## Support Matrix: PyPSA Features vs Ragnarok
+
+| PyPSA capability | Ragnarok status | Notes |
+|---|---|---|
+| Excel workbook import (`Network.import_from_excel` equivalent user workflow) | `Partial` | Ragnarok opens Excel workbooks, but it parses into its own in-memory model instead of delegating import to PyPSA directly. |
+| Excel workbook export (`Network.export_to_excel` equivalent) | `Partial` | `Save` exports inputs only. `Export Project` exports input + solved outputs, but not the full backend-solved network artifact or Ragnarok metadata. |
+| Generic component schema sync from PyPSA GitHub | `Full` | Build-time generator populates [src/config/pypsa_schema.json](/Users/sanghyun/github/pypsa_gui/src/config/pypsa_schema.json). |
+| Generic input table editing for documented components/attributes | `Full` | Input tables are schema-driven rather than hardcoded. |
+| Generic backend ingestion of documented input attributes | `Full` | Backend uses schema-derived input static/time-series attributes in [backend/lib/network/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/network/__init__.py). |
+| Generic solved-output extraction for documented PyPSA outputs | `Full` | Backend extracts schema-marked outputs in [backend/lib/results/full_outputs.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/full_outputs.py). |
+| Input-only save/load round-trip | `Full` | Known PyPSA input sheets round-trip through [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts). |
+| Full project workbook round-trip | `Partial` | Solved outputs round-trip, but settings/history/plugin analytics/backend solve state do not. |
+| Restore analytics from imported solved workbook | `Partial` | Frontend reconstructs most analytics locally, but not everything from a fresh solve. |
+| Result workbook export for reporting | `Full` | `Export Result` keeps a dedicated reporting workbook. |
+| HTML report export | `Full` | Implemented in [src/shared/utils/exportReport.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/exportReport.ts). |
+| Structural validation before solve | `Partial` | Validation is useful but still focused on common components and common failure modes. |
+| HiGHS optimization | `Full` | Uses `network.optimize()` with HiGHS. |
+| Carbon price adder | `Full` | Applied to generator marginal costs from carrier emission factors. |
+| Capacity expansion for extendable assets | `Full` | Annualized CAPEX applied for extendable generators, storage units, stores, lines, and links. |
+| Unit commitment / MIP | `Partial` | Supported through PyPSA/HiGHS generator attributes, but analytics and validation are still more dispatch-focused than UC-focused. |
+| Force-LP override | `Full` | Supported in backend run options. |
+| Custom constraints panel | `Partial` | Several custom constraints are implemented, but not the full PyPSA constraint space. |
+| Rolling-horizon optimization | `Not supported` | No rolling-window orchestration in the backend or UI. |
+| Multi-investment / pathway planning | `Not supported` | No support for `investment_periods`, period weightings, or pathway result handling. |
+| Stochastic optimization | `Not supported` | No scenario-tree workflow or stochastic solve mode. |
+| Security-constrained optimization | `Not supported` | No SCLOPF / branch outage workflow. |
+| Native `global_constraints` workbook usage | `Implicit` | Sheet is available and passed through the generic network builder, but Ragnarok adds only limited dedicated UI/analytics around it. |
+| Plugin execution pipeline | `Full` | `pre-build`, `post-build`, `in-solve`, `post-solve` stages are implemented. |
+| Plugin analytics round-trip through project import/export | `Not supported` | Project workbook currently stores only PyPSA-shaped inputs/outputs, not plugin-specific analytics payloads. |
+| CO2 shadow price restoration from imported project | `Not supported` | Fresh solve only; workbook outputs are insufficient for reconstruction in current code. |
+| Backend retention of solved network/workbook | `Not supported` | Backend returns result JSON and derived output caches, but does not keep a solved `pypsa.Network` artifact for later export. |
+| CSV-folder / netCDF / HDF5 workflows | `Not supported` | Ragnarok is currently Excel-first in the UI. |
+| Power flow-only studies / separate PF UX | `Not supported` | Current workflow is optimization-centric. |
+
+## Support Matrix: PyPSA Components
+
+| Component / sheet | Workbook I/O | Backend Run | Project Export / Import | Analytics UI | Notes |
+|---|---|---|---|---|---|
+| `network` | `Partial` | `Not supported` | `Partial` | `Not supported` | Editable/preserved in workbook, but not actively applied in backend network construction. |
+| `snapshots` | `Full` | `Full` | `Full` | `Partial` | Used to build the run horizon; no dedicated snapshots analytics surface. |
+| `buses` | `Full` | `Full` | `Full` | `Full` | Dedicated map and analytics support. |
+| `carriers` | `Full` | `Full` | `Full` | `Partial` | Used for colors, emissions, and aggregation; no dedicated carrier detail panel. |
+| `generators` | `Full` | `Full` | `Full` | `Full` | Best-supported component class end-to-end. |
+| `loads` | `Full` | `Full` | `Full` | `Partial` | Load drives system analytics, but there is no dedicated load drill-down UI. |
+| `links` | `Full` | `Full` | `Full` | `Full` | Visualized as branches in analytics. |
+| `lines` | `Full` | `Full` | `Full` | `Full` | Visualized as branches in analytics. |
+| `transformers` | `Full` | `Full` | `Full` | `Full` | Visualized as branches in analytics. |
+| `storage_units` | `Full` | `Full` | `Full` | `Full` | Dedicated detail and SoC analytics. |
+| `stores` | `Full` | `Full` | `Full` | `Full` | Dedicated detail analytics. |
+| `processes` | `Full` | `Full` | `Full` | `Not supported` | Generic workbook/backend support exists, but no dedicated result UX. |
+| `shunt_impedances` | `Full` | `Full` | `Full` | `Not supported` | Generic workbook/backend support only. |
+| `global_constraints` | `Full` | `Implicit` | `Full` | `Partial` | Workbook/backend support exists; result UX is limited. |
+| `line_types` | `Full` | `Implicit` | `Full` | `Not supported` | Preserved and passed through, but no dedicated UX. |
+| `transformer_types` | `Full` | `Implicit` | `Full` | `Not supported` | Preserved and passed through, but no dedicated UX. |
+| `shapes` | `Partial` | `Not supported` | `Partial` | `Not supported` | Exposed in tables and preserved in workbook, but not consumed by the backend. |
+| `sub_networks` | `Implicit` | `Not supported` | `Implicit` | `Not supported` | PyPSA computes this; Ragnarok currently preserves sheet data rather than managing it as a live computed object. |
+
+## Important Current Limitations
+
+1. `Export Project` is workbook-driven, not backend-solved-network-driven.
+   The app exports `results.outputs`, not a retained solved `pypsa.Network`.
+
+2. `Import Project` restores only what can be inferred from workbook inputs and outputs.
+   It does not restore:
+   - settings
+   - constraints configuration
+   - run history
+   - plugin analytics payloads
+   - CO2 shadow prices
+   - backend solve metadata
+
+3. `network`, `shapes`, and `sub_networks` are not aligned cleanly across UI and backend.
+   They are visible/preserved in the workbook layer, but they are not all active runtime inputs.
+
+4. Validation is still selective.
+   The schema is generic, but the validator remains focused on common electricity-model cases.
+
+5. Ragnarok does not yet cover PyPSA’s broader planning modes.
+   The largest optimization gaps today are:
+   - multi-investment / pathway planning
+   - rolling-horizon optimization
+   - stochastic optimization
+   - security-constrained optimization
+   - multi-period analytics and scenario UX
+
+## Development
+
+Run locally:
 
 ```bash
-/Users/sanghyun/github/pypsa_gui/run.command
+./run.command
 ```
 
-### Frontend only
+Key frontend commands:
 
 ```bash
-cd /Users/sanghyun/github/pypsa_gui
-npm start
-```
-
-### Backend only
-
-```bash
-cd /Users/sanghyun/github/pypsa_gui
-.venv-pypsa/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-### Build frontend
-
-```bash
-cd /Users/sanghyun/github/pypsa_gui
+npm run start:frontend
 npm run build
+npx tsc --noEmit
 ```
 
-### Verify backend syntax
+Key backend checks:
 
 ```bash
-cd /Users/sanghyun/github/pypsa_gui
-python3 -m py_compile backend/main.py
+python3 -m py_compile backend/main.py backend/lib/network/__init__.py backend/lib/results/__init__.py
 ```
 
-## 17. Immediate Open Issue
+Regenerate the PyPSA schema:
 
-Based on the latest screenshots, yes, the current behavior is still weird.
+```bash
+npm run generate:pypsa-schema
+```
 
-Most likely current issue:
+## Repository Notes
 
-- `Dispatch by carrier` is still being populated with the wrong row keys in the live UI, so the chart reduces to a single `dispatch` series instead of one series per carrier
-
-The next debugging step should be:
-
-1. run the app
-2. trigger a model run
-3. inspect the live `/api/run` JSON in the browser network tab
-4. compare:
-   - `dispatchSeries`
-   - `generatorDispatchSeries`
-   - `assetDetails.generators[*].outputSeries`
-
-That will reveal whether the bug is:
-
-- backend payload construction
-- stale dev bundle
-- frontend normalization
-- chart metric mapping
+- The frontend is intentionally Excel-first.
+- The schema is generated from PyPSA GitHub metadata, but support in Ragnarok still depends on whether a feature is:
+  - only preserved in workbook form
+  - actively consumed by the backend
+  - surfaced in analytics
+- The most accurate way to read current support is the matrix above, not the presence of a sheet name in the schema alone.

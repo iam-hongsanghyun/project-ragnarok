@@ -75,7 +75,7 @@ function AppInner() {
     snapshotCount: number;
     networkSummary: Record<string, number>;
   } | null>(null);
-  const [status, setStatus] = useState('Ready. Open a workbook to get started.');
+  const [status, setStatus] = useState('Ready. Open a workbook or import a project.');
   const [fileHandle, setFileHandle] = useState<BrowserFileHandle | null>(null);
   const [jumpTo, setJumpTo] = useState<{ sheet: string; rowIndex: number } | null>(null);
   const [runElapsed, setRunElapsed] = useState(0);

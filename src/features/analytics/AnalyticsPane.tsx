@@ -5,7 +5,7 @@ import {
   AnalyticsFocus, AnalyticsSubTab, ChartSectionConfig, GridRow, RunHistoryEntry, RunResults, TimeSeriesRow, TimeSeriesSeries, WorkbookModel,
 } from '../../shared/types';
 import { EMPTY_METRIC_KEY } from '../../constants';
-import { numberValue, stringValue, carrierColor, loadingColor, priceColor, resolvedColor } from '../../shared/utils/helpers';
+import { numberValue, stringValue, loadingColor, priceColor, resolvedColor } from '../../shared/utils/helpers';
 import { FitToBounds } from '../map/FitToBounds';
 import { MapLegend, SmpLegend } from '../map/MapLegend';
 import { SummaryCards } from '../../shared/components/SummaryCards';

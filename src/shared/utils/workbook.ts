@@ -17,7 +17,7 @@ export function normalizeCell(value: unknown): Primitive {
 export function createEmptyWorkbook(): WorkbookModel {
   const base = Object.fromEntries(SHEETS.map((s) => [s, []]));
   const ts = Object.fromEntries(TS_SHEETS.map((s) => [s, []]));
-  return { ...base, ...ts } as unknown as WorkbookModel;
+  return { ...base, ...ts } as WorkbookModel;
 }
 
 export function parseSheets(workbook: ReturnType<typeof XLSX.read>): WorkbookModel {
