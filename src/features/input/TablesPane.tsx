@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { GridRow, Primitive, SheetName, TableSel, TsSheetName, WorkbookModel } from '../../shared/types';
 import { ModelIssue } from '../validation/useModelIssues';
-import { TABLE_GROUPS } from '../../constants';
-import { AttrDef, PYPSA_OPTIONAL_ATTRS } from '../../constants/pypsa_attributes';
+import { getAddableAttributes, getProtectedColumns, TABLE_GROUPS } from '../../constants';
+import { PypsaAttribute, TableGroup } from '../../constants/pypsa_schema';
 import { getColumns, getTsFirstCol, stringValue } from '../../shared/utils/helpers';
 import { parseCsvToGridRows } from '../../shared/utils/workbook';
 import { InputAnalyser } from './InputAnalyser';
@@ -124,10 +124,10 @@ function FilterDropdown({
 // ── AddColumnDropdown ─────────────────────────────────────────────────────────
 
 interface AddColumnDropdownProps {
-  sheet: SheetName;
+  sheet: string;
   existingCols: string[];
   anchorRect: DOMRect;
-  onAdd: (attr: AttrDef) => void;
+  onAdd: (attr: PypsaAttribute) => void;
   onClose: () => void;
 }
 
@@ -143,11 +143,11 @@ function AddColumnDropdown({ sheet, existingCols, anchorRect, onAdd, onClose }: 
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  const allAttrs: AttrDef[] = PYPSA_OPTIONAL_ATTRS[sheet] ?? [];
+  const allAttrs: PypsaAttribute[] = getAddableAttributes(sheet);
   const available = allAttrs.filter(
     (a) =>
-      !existingCols.includes(a.col) &&
-      (!search || a.col.toLowerCase().includes(search.toLowerCase()) || a.label.toLowerCase().includes(search.toLowerCase())),
+      !existingCols.includes(a.attribute) &&
+      (!search || a.attribute.toLowerCase().includes(search.toLowerCase()) || a.description.toLowerCase().includes(search.toLowerCase())),
   );
 
   const top = Math.min(anchorRect.bottom + 4, window.innerHeight - 420);
@@ -180,16 +180,16 @@ function AddColumnDropdown({ sheet, existingCols, anchorRect, onAdd, onClose }: 
         )}
         {available.map((attr) => (
           <button
-            key={attr.col}
+            key={attr.attribute}
             className="add-col-item"
             onClick={() => { onAdd(attr); onClose(); }}
           >
             <div className="add-col-item-top">
-              <span className="add-col-name">{attr.col}</span>
-              {attr.unit && <span className="add-col-unit">{attr.unit}</span>}
+              <span className="add-col-name">{attr.attribute}</span>
+              {attr.unit && attr.unit !== 'n/a' && <span className="add-col-unit">{attr.unit}</span>}
               <span className={`add-col-type add-col-type--${attr.type}`}>{attr.type}</span>
             </div>
-            <div className="add-col-desc">{attr.desc}</div>
+            <div className="add-col-desc">{attr.description}</div>
           </button>
         ))}
       </div>
@@ -629,9 +629,13 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
   // The first data column is always frozen (sticky)
   const frozenCol = cols[0] ?? null;
 
-  const parentGroup = isTs
-    ? TABLE_GROUPS.find((g) => g.tsSheet === sel.sheet)
+  const parentGroup: TableGroup | undefined = isTs
+    ? TABLE_GROUPS.find((g) => g.temporalSheets.some((ts) => ts.sheet === sel.sheet))
     : TABLE_GROUPS.find((g) => g.sheet === sel.sheet);
+  const temporalMeta = isTs
+    ? parentGroup?.temporalSheets.find((ts) => ts.sheet === sel.sheet)
+    : null;
+  const protectedCols = isTs ? [] : getProtectedColumns(sel.sheet);
 
   return (
     <div className="tables-layout">
@@ -666,18 +670,17 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
           (g) =>
             !navSearch ||
             g.label.toLowerCase().includes(navSearch.toLowerCase()) ||
-            g.sheet.toLowerCase().includes(navSearch.toLowerCase()),
+            g.sheet.toLowerCase().includes(navSearch.toLowerCase()) ||
+            g.temporalSheets.some((ts) => ts.attribute.toLowerCase().includes(navSearch.toLowerCase())),
         ).map((g) => {
           const open = !collapsed.has(g.sheet);
-          const tsRows: GridRow[] = g.tsSheet ? ((model as any)[g.tsSheet] as GridRow[]) ?? [] : [];
           const staticActive = sel.kind === 'static' && sel.sheet === g.sheet;
-          const tsActive = sel.kind === 'ts' && sel.sheet === g.tsSheet;
           return (
             <div key={g.sheet} className="nav-group">
               <div className="nav-group-header" onClick={() => toggleGroup(g.sheet)}>
                 <span className={`nav-chevron${open ? ' open' : ''}`}>›</span>
                 <span className="nav-group-label">{g.label}</span>
-                <span className="nav-count">{model[g.sheet].length}</span>
+                <span className="nav-count">{(model[g.sheet] ?? []).length}</span>
               </div>
               {open && (
                 <div className="nav-items">
@@ -687,7 +690,7 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
                   >
                     <span className="nav-item-icon">≡</span>
                     <span className="nav-item-label">static</span>
-                    <span className="nav-count">{model[g.sheet].length}</span>
+                    <span className="nav-count">{(model[g.sheet] ?? []).length}</span>
                     {issueCounts[g.sheet]?.errors > 0 && (
                       <span className="nav-issue-badge nav-issue-badge--error">{issueCounts[g.sheet].errors}</span>
                     )}
@@ -695,18 +698,23 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
                       <span className="nav-issue-badge nav-issue-badge--warning">{issueCounts[g.sheet].warnings}</span>
                     )}
                   </button>
-                  {g.tsSheet && (
+                  {g.temporalSheets.map((ts) => {
+                    const tsRows: GridRow[] = ((model as any)[ts.sheet] as GridRow[]) ?? [];
+                    const tsActive = sel.kind === 'ts' && sel.sheet === ts.sheet;
+                    return (
                     <button
+                      key={ts.sheet}
                       className={`nav-item ts-item${tsActive ? ' active' : ''}`}
-                      onClick={() => setSel({ kind: 'ts', sheet: g.tsSheet! })}
+                      onClick={() => setSel({ kind: 'ts', sheet: ts.sheet })}
                     >
                       <span className="nav-item-icon">t</span>
-                      <span className="nav-item-label">temporal</span>
+                      <span className="nav-item-label">{ts.attribute}</span>
                       <span className={`nav-count${tsRows.length > 0 ? ' has-data' : ''}`}>
                         {tsRows.length > 0 ? `${tsRows.length}t` : '—'}
                       </span>
                     </button>
-                  )}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -719,7 +727,7 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
           <div>
             <p className="eyebrow">{isTs ? 'Temporal (_t)' : 'Static'}</p>
             <h2>
-              {parentGroup?.label ?? sel.sheet}{' '}
+              {parentGroup?.label ?? sel.sheet}{isTs && temporalMeta ? ` · ${temporalMeta.attribute}` : ''}{' '}
               <span className="sheet-name-chip">{sel.sheet}</span>
             </h2>
           </div>
@@ -802,7 +810,7 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
             sheet={sel.sheet as SheetName}
             existingCols={cols}
             anchorRect={addColAnchor}
-            onAdd={(attr) => onAddColumn(sel.sheet as SheetName, attr.col, attr.default)}
+            onAdd={(attr) => onAddColumn(sel.sheet as SheetName, attr.attribute, inferInputValue(String(attr.default ?? ''), '') ?? '')}
             onClose={() => setAddColOpen(false)}
           />
         )}
@@ -835,7 +843,7 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
               highlightRow={isTs ? null : jumpHighlight}
               onDeleteColumn={isTs ? undefined : (col) => onDeleteColumn(sel.sheet as SheetName, col)}
               onRenameColumn={isTs ? undefined : (old, next) => onRenameColumn(sel.sheet as SheetName, old, next)}
-              protectedCols={['name']}
+              protectedCols={protectedCols}
             />
           )}
         </div>

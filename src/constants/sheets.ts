@@ -1,13 +1,4 @@
-export const SHEETS = [
-  'network', 'snapshots', 'carriers', 'buses', 'generators', 'loads',
-  'links', 'lines', 'stores', 'storage_units', 'transformers',
-  'shunt_impedances', 'global_constraints', 'shapes', 'processes',
-] as const;
+import { SHEETS as INPUT_SHEETS, TS_SHEETS as INPUT_TS_SHEETS } from './pypsa_schema';
 
-export const TS_SHEETS = [
-  'generators-p_max_pu',
-  'generators-p_min_pu',
-  'loads-p_set',
-  'storage_units-inflow',
-  'links-p_max_pu',
-] as const;
+export const SHEETS = INPUT_SHEETS;
+export const TS_SHEETS = INPUT_TS_SHEETS;

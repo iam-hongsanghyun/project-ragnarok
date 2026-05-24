@@ -22,7 +22,7 @@ import {
   ModelSubTab,
   AnalyticsSubTab,
 } from './shared/types';
-import { API_BASE, DEFAULT_CONSTRAINTS, DEFAULT_SHEET_ROWS, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
+import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW } from './constants';
 import { createEmptyWorkbook, exportWorkbook, loadSampleWorkbook, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
@@ -286,7 +286,7 @@ function AppInner() {
 
   const addRow = (sheet: SheetName) => {
     setModel((current) => {
-      const nextRows = [...current[sheet], { ...DEFAULT_SHEET_ROWS[sheet] }];
+      const nextRows = [...(current[sheet] ?? []), { ...getDefaultRowForSheet(sheet) }];
       return { ...current, [sheet]: nextRows };
     });
     setStatus(`Added a new row to ${sheet}.`);

@@ -26,6 +26,7 @@ import pandas as pd
 import pypsa
 
 from ..config import load_system_defaults
+from ..pypsa_schema import input_static_attributes, input_temporal_attributes
 from ..utils.annuity import annuity_factor
 from ..utils.coerce import number
 from .load_shedding import add_load_shedding
@@ -84,6 +85,10 @@ def build_network(
             continue
         df = pd.DataFrame(rows).set_index("name")
         df = _strip_blank_columns(df)
+        allowed_static = input_static_attributes(sheet_name)
+        if allowed_static:
+            keep = [col for col in df.columns if col in allowed_static or col == "name"]
+            df = df.loc[:, keep]
         # Note: zero columns is fine — we still add the components using all
         # PyPSA defaults. Skip only if there are no rows at all.
         if len(df.index) == 0:
@@ -111,6 +116,9 @@ def build_network(
             continue
         list_name, _, attr = sheet_name.partition("-")
         if list_name not in network.components.keys():
+            continue
+        allowed_temporal = input_temporal_attributes(list_name)
+        if allowed_temporal and attr not in allowed_temporal:
             continue
         comp = network.components[list_name]
         if attr not in comp.defaults.index:

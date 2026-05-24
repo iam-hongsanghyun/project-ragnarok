@@ -21,6 +21,7 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
+    "generate:pypsa-schema": "node scripts/generate-pypsa-schema.mjs",
     "start": "react-scripts start",
     "start:frontend": "react-scripts start",
     "build": "react-scripts build",

@@ -1,6 +1,11 @@
 import * as XLSX from 'xlsx';
 import { SHEETS, TS_SHEETS } from '../../constants';
-import { AnySheetName, GridRow, Primitive, WorkbookModel } from '../types';
+import {
+  isInputTemporalSheet,
+  normalizeSheetName,
+  stripOutputStaticAttributes,
+} from '../../constants/pypsa_schema';
+import { GridRow, Primitive, WorkbookModel } from '../types';
 
 export function normalizeCell(value: unknown): Primitive {
   if (value === undefined || value === null) return null;
@@ -16,22 +21,12 @@ export function createEmptyWorkbook(): WorkbookModel {
 
 export function parseSheets(workbook: ReturnType<typeof XLSX.read>): WorkbookModel {
   const model = createEmptyWorkbook();
-  const allSheets: AnySheetName[] = [...SHEETS, ...TS_SHEETS];
-  // Workbooks exported by some PyPSA tooling use underscore-joined names
-  // (e.g. "loads_p_set") rather than the hyphen-joined canonical form
-  // ("loads-p_set"). Accept either by falling back to the underscore variant.
-  const resolveSheet = (canonical: string): string | undefined => {
-    if (workbook.Sheets[canonical]) return canonical;
-    const underscore = canonical.replace('-', '_');
-    if (underscore !== canonical && workbook.Sheets[underscore]) return underscore;
-    return undefined;
-  };
-  allSheets.forEach((sheet) => {
-    const sheetName = resolveSheet(sheet);
-    if (!sheetName) return;
+  workbook.SheetNames.forEach((sheetName) => {
+    const canonical = normalizeSheetName(sheetName);
     const ws = workbook.Sheets[sheetName];
+    if (!ws) return;
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
-    (model as any)[sheet] = rows.map((row) =>
+    (model as any)[canonical] = rows.map((row) =>
       Object.fromEntries(Object.entries(row).map(([key, value]) => [key, normalizeCell(value)])),
     );
   });
@@ -81,12 +76,13 @@ function nonEmptyRows(rows: GridRow[]): GridRow[] {
 export function buildWorkbook(model: WorkbookModel) {
   const workbook = XLSX.utils.book_new();
   SHEETS.forEach((sheet) => {
-    const rows = nonEmptyRows(model[sheet] ?? []);
+    const rows = nonEmptyRows((model[sheet] ?? []).map((row) => stripOutputStaticAttributes(sheet, row)));
     if (rows.length === 0) return;   // skip empty sheets entirely; PyPSA will treat them as absent
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(workbook, ws, sheet);
   });
-  TS_SHEETS.forEach((sheet) => {
+
+  [...TS_SHEETS, ...Object.keys(model).filter((sheet) => isInputTemporalSheet(sheet) && !TS_SHEETS.includes(sheet))].forEach((sheet) => {
     const rows = (model as any)[sheet] as GridRow[] | undefined;
     if (!rows || rows.length === 0) return;
     const ws = XLSX.utils.json_to_sheet(rows);

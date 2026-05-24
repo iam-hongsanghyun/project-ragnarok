@@ -1,5 +1,5 @@
 import { LatLngBoundsExpression } from 'leaflet';
-import { DEFAULT_SHEET_ROWS } from '../../constants';
+import { getDefaultRowForSheet } from '../../constants';
 import { GridRow, Primitive, SheetName, WorkbookModel } from '../types';
 
 const DEFAULT_CARRIER_PALETTE = [
@@ -90,7 +90,7 @@ export function inferInputValue(raw: string, current: Primitive): Primitive {
 }
 
 export function getColumns(rows: GridRow[], sheet: SheetName): string[] {
-  const ordered = new Set<string>(Object.keys(DEFAULT_SHEET_ROWS[sheet]));
+  const ordered = new Set<string>(Object.keys(getDefaultRowForSheet(sheet)));
   rows.forEach((row) => Object.keys(row).forEach((key) => ordered.add(key)));
   const cols = Array.from(ordered);
   // Pin 'name' as the first data column on every static sheet

@@ -1,30 +1,18 @@
-import { ConstraintMetric, CustomConstraint, GridRow, SheetName, TsSheetName } from '../shared/types';
+import { ConstraintMetric, CustomConstraint } from '../shared/types';
 export { API_BASE, MAX_UNPINNED_HISTORY, MODULES_CONFIG, RUN_POLLING, RUN_WINDOW, SETTINGS_CONFIG, SETTINGS_DEFAULTS, CURRENCIES } from './config';
 export { SHEETS, TS_SHEETS } from './sheets';
-
-// ── Default row templates ─────────────────────────────────────────────────────
-
-// Row templates used when the user clicks "Add row" on an empty sheet.
-// Only the `name` field is populated as a placeholder. All other fields are
-// blank — the user must fill them. We avoid any opinionated default
-// (no region-specific coordinates, no implicit carrier, no default voltage).
-export const DEFAULT_SHEET_ROWS: Record<SheetName, GridRow> = {
-  network: { name: '' },
-  snapshots: { snapshot: '' },
-  carriers: { name: '', color: '' },
-  buses: { name: '' },
-  generators: { name: '' },
-  loads: { name: '' },
-  links: { name: '' },
-  lines: { name: '' },
-  stores: { name: '' },
-  storage_units: { name: '' },
-  transformers: { name: '' },
-  shunt_impedances: { name: '' },
-  global_constraints: { name: '' },
-  shapes: { name: '' },
-  processes: { name: '' },
-};
+export {
+  PYPSA_SCHEMA,
+  PYPSA_SCHEMA_META,
+  PYPSA_COMPONENTS,
+  TABLE_GROUPS,
+  getAddableAttributes,
+  getComponentSchema,
+  getDefaultRowForSheet,
+  getOrderedInputAttributes,
+  getProtectedColumns,
+  normalizeSheetName,
+} from './pypsa_schema';
 
 // ── Carrier colors ────────────────────────────────────────────────────────────
 
@@ -51,22 +39,3 @@ export const METRIC_DEFS: Record<ConstraintMetric, { label: string; description:
 export const DEFAULT_CONSTRAINTS: CustomConstraint[] = [];
 
 export const EMPTY_METRIC_KEY = '__empty__';
-
-// ── Tables pane groups ────────────────────────────────────────────────────────
-
-export const TABLE_GROUPS: Array<{ label: string; sheet: SheetName; tsSheet?: TsSheetName }> = [
-  { label: 'Network',            sheet: 'network' },
-  { label: 'Snapshots',          sheet: 'snapshots' },
-  { label: 'Carriers',           sheet: 'carriers' },
-  { label: 'Buses',              sheet: 'buses' },
-  { label: 'Generators',         sheet: 'generators',    tsSheet: 'generators-p_max_pu' },
-  { label: 'Loads',              sheet: 'loads',         tsSheet: 'loads-p_set' },
-  { label: 'Lines',              sheet: 'lines' },
-  { label: 'Links',              sheet: 'links',         tsSheet: 'links-p_max_pu' },
-  { label: 'Stores',             sheet: 'stores' },
-  { label: 'Storage Units',      sheet: 'storage_units', tsSheet: 'storage_units-inflow' },
-  { label: 'Transformers',       sheet: 'transformers' },
-  { label: 'Shunt Impedances',   sheet: 'shunt_impedances' },
-  { label: 'Global Constraints', sheet: 'global_constraints' },
-  { label: 'Processes',          sheet: 'processes' },
-];

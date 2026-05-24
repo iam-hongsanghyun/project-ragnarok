@@ -2,8 +2,8 @@ import { SHEETS, TS_SHEETS } from '../../constants/sheets';
 
 // ── Sheet name types ──────────────────────────────────────────────────────────
 
-export type SheetName = (typeof SHEETS)[number];
-export type TsSheetName = (typeof TS_SHEETS)[number];
+export type SheetName = string;
+export type TsSheetName = string;
 export type AnySheetName = SheetName | TsSheetName;
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export type ModulePermission =
 
 // ── Domain model ──────────────────────────────────────────────────────────────
 
-export interface WorkbookModel {
+export interface WorkbookModel extends Record<string, GridRow[]> {
   network: GridRow[];
   snapshots: GridRow[];
   carriers: GridRow[];
@@ -68,6 +68,9 @@ export interface WorkbookModel {
   'loads-p_set': GridRow[];
   'storage_units-inflow': GridRow[];
   'links-p_max_pu': GridRow[];
+  line_types: GridRow[];
+  transformer_types: GridRow[];
+  sub_networks: GridRow[];
 }
 
 export interface CustomConstraint {
