@@ -27,8 +27,9 @@ export interface SidebarProps {
   onOpen: () => void;
   onSave: () => void;
   onSaveAs: () => void;
-  onDemo: () => void;
-  onExport: () => void;
+  onImportProject: () => void;
+  onExportProject: () => void;
+  onExportResult: () => void;
   runHistory: RunHistoryEntry[];
   onRestoreRun: (entry: RunHistoryEntry) => void;
   onRenameHistoryEntry: (id: string, label: string) => void;
@@ -73,8 +74,9 @@ export function Sidebar({
   onOpen,
   onSave,
   onSaveAs,
-  onDemo,
-  onExport,
+  onImportProject,
+  onExportProject,
+  onExportResult,
   runHistory,
   onRestoreRun,
   onRenameHistoryEntry,
@@ -132,14 +134,31 @@ export function Sidebar({
           <button className="tb-btn sg-full" onClick={onOpen}>Open</button>
           <button className="tb-btn sg-full" onClick={onSave}>Save</button>
           <button className="tb-btn sg-full" onClick={onSaveAs}>Save As</button>
-          <button className="tb-btn tb-btn--muted sg-full" onClick={onDemo}>Demo</button>
+          <button
+            className="tb-btn sg-full"
+            onClick={onImportProject}
+            title="Import a project workbook (input + solved outputs)"
+          >
+            Import Project
+          </button>
+          <button
+            className="tb-btn sg-full"
+            onClick={onExportProject}
+            title={
+              results
+                ? 'Export the full project: inputs + every solved output sheet'
+                : 'Export the project workbook (inputs only — no run yet)'
+            }
+          >
+            Export Project
+          </button>
           <button
             className="tb-btn sg-full"
             disabled={!results}
-            title={results ? 'Export all inputs and outputs to Excel' : 'Run the model first to export results'}
-            onClick={onExport}
+            title={results ? 'Export the solved result + analytics workbook' : 'Run the model first to export results'}
+            onClick={onExportResult}
           >
-            Export
+            Export Result
           </button>
         </div>
       </SidebarGroup>

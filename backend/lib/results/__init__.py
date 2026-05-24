@@ -27,6 +27,7 @@ from .dispatch import (
 )
 from .emissions import build_emissions_breakdown
 from .expansion import build_expansion_results
+from .full_outputs import build_full_outputs
 from .market import build_co2_shadow, build_merit_order
 
 
@@ -287,4 +288,9 @@ def run_pypsa(
             "stores": build_store_details(network),
             "branches": build_branch_details(network),
         },
+        # Full PyPSA-native output dataset (every output attribute, every
+        # component, every snapshot). The frontend uses this to assemble the
+        # Export-Project workbook locally — the backend no longer needs to
+        # round-trip an xlsx artifact.
+        "outputs": build_full_outputs(network),
     }
