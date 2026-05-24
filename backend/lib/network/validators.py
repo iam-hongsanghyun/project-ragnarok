@@ -104,8 +104,9 @@ def validate_model(payload: RunPayload) -> dict[str, Any]:
             if bus and bus not in bus_names:
                 errors.append(f"Link '{name}' {end} references non-existent bus '{bus}'.")
 
-    # Structural counts only — PyPSA validation happens at Run time, when the
-    # backend round-trips the workbook through `pypsa.Network.import_from_excel`.
+    # Structural counts only — the full PyPSA-side validation happens at Run
+    # time when `build_network()` constructs the network and `optimize()` is
+    # executed against the in-memory workbook payload.
     network_summary = {
         "buses": len(buses),
         "generators": len(generators),

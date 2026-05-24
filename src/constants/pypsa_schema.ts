@@ -43,8 +43,9 @@ interface PypsaSchemaFile {
     generator: string;
     note: string;
     /**
-     * Sheet names that are NOT user-editable component tables. Skipped by the
-     * component iteration loop in both the frontend and the Python backend.
+     * Sheet names that are not bulk-added as PyPSA components by the backend.
+     * Some of them are still exposed in the frontend table UI and preserved in
+     * workbook round-trips (`network`, `shapes`, `sub_networks`).
      */
     non_component_sheets?: string[];
   };
@@ -61,7 +62,7 @@ export interface TableGroup {
 
 export const PYPSA_SCHEMA = rawSchema as PypsaSchemaFile;
 export const PYPSA_SCHEMA_META = PYPSA_SCHEMA.meta;
-/** Sheets that aren't user-editable component tables (`network`, `snapshots`, `shapes`, `sub_networks`). */
+/** Sheets that the backend does not bulk-add as standard PyPSA components. */
 export const NON_COMPONENT_SHEETS: ReadonlySet<string> = new Set(PYPSA_SCHEMA_META.non_component_sheets ?? []);
 
 export const PYPSA_COMPONENTS = Object.values(PYPSA_SCHEMA.components)
