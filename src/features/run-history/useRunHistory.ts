@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SHEETS } from '../../constants';
 import { CustomConstraint, RunHistoryEntry, RunResults, WorkbookModel } from '../../shared/types';
 
 export const MAX_UNPINNED = 5;
@@ -63,13 +64,9 @@ export function useRunHistory() {
         snapshotEnd,
         snapshotWeight,
         activeConstraints: constraints.filter((c) => c.enabled),
-        componentCounts: {
-          generators: model.generators.length,
-          buses: model.buses.length,
-          lines: model.lines.length,
-          links: model.links.length,
-          storageUnits: model.storage_units.length,
-        },
+        componentCounts: Object.fromEntries(
+          SHEETS.map((sheet) => [sheet, model[sheet]?.length ?? 0]).filter(([, n]) => n > 0),
+        ),
         pinned: false,
         inComparison: true,
         results,
