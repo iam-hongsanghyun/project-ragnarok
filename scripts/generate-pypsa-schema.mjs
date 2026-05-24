@@ -218,6 +218,13 @@ async function main() {
       generated_at: new Date().toISOString(),
       generator: 'scripts/generate-pypsa-schema.mjs',
       note: 'Generated from PyPSA GitHub component metadata.',
+      // PyPSA "sheets" that are NOT user-editable component tables.
+      // `network` is the top-level Network attribute row (single record),
+      // `snapshots` is the time index, `shapes` is optional geo metadata
+      // and `sub_networks` is computed by PyPSA itself.
+      // Consumers (Python backend + TS frontend) skip these in the
+      // component iteration loop and handle them via dedicated codepaths.
+      non_component_sheets: ['network', 'snapshots', 'shapes', 'sub_networks'],
     },
     components,
   };

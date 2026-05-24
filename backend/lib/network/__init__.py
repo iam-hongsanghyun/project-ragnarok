@@ -26,17 +26,17 @@ import pandas as pd
 import pypsa
 
 from ..config import load_system_defaults
-from ..pypsa_schema import input_static_attributes, input_temporal_attributes
+from ..pypsa_schema import (
+    input_static_attributes,
+    input_temporal_attributes,
+    non_component_sheets,
+)
 from ..utils.annuity import annuity_factor
 from ..utils.coerce import number
 from .load_shedding import add_load_shedding
 from .validators import validate_model  # re-export for backend.main
 
 __all__ = ["build_network", "validate_model"]
-
-
-# Sheet names that are NOT component tables (handled separately).
-_NON_COMPONENT_SHEETS: set[str] = {"network", "snapshots", "shapes", "sub_networks"}
 
 
 def build_network(
@@ -260,9 +260,10 @@ def _ordered_component_sheets(network: pypsa.Network) -> list[tuple[str, str]]:
     """
     keys = list(network.components.keys())
     priority = {"carriers": 0, "buses": 1}
+    skip = non_component_sheets()
     sortable: list[tuple[int, int, str, str]] = []
     for i, list_name in enumerate(keys):
-        if list_name in _NON_COMPONENT_SHEETS:
+        if list_name in skip:
             continue
         comp = network.components[list_name]
         sortable.append((priority.get(list_name, 99), i, list_name, comp.name))

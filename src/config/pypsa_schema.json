@@ -5,7 +5,13 @@
     "commit_sha": "1e53ce65e7f538a7727bbecb28e01a254ceb64df",
     "generated_at": "2026-05-24T00:31:52.577Z",
     "generator": "scripts/generate-pypsa-schema.mjs",
-    "note": "Generated from PyPSA GitHub component metadata."
+    "note": "Generated from PyPSA GitHub component metadata.",
+    "non_component_sheets": [
+      "network",
+      "snapshots",
+      "shapes",
+      "sub_networks"
+    ]
   },
   "components": {
     "buses": {

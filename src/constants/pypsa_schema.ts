@@ -42,6 +42,11 @@ interface PypsaSchemaFile {
     generated_at: string;
     generator: string;
     note: string;
+    /**
+     * Sheet names that are NOT user-editable component tables. Skipped by the
+     * component iteration loop in both the frontend and the Python backend.
+     */
+    non_component_sheets?: string[];
   };
   components: Record<string, PypsaComponentSchema>;
 }
@@ -56,6 +61,8 @@ export interface TableGroup {
 
 export const PYPSA_SCHEMA = rawSchema as PypsaSchemaFile;
 export const PYPSA_SCHEMA_META = PYPSA_SCHEMA.meta;
+/** Sheets that aren't user-editable component tables (`network`, `snapshots`, `shapes`, `sub_networks`). */
+export const NON_COMPONENT_SHEETS: ReadonlySet<string> = new Set(PYPSA_SCHEMA_META.non_component_sheets ?? []);
 
 export const PYPSA_COMPONENTS = Object.values(PYPSA_SCHEMA.components)
   .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));

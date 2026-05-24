@@ -47,31 +47,18 @@ export type ModulePermission =
 
 // ── Domain model ──────────────────────────────────────────────────────────────
 
-export interface WorkbookModel extends Record<string, GridRow[]> {
-  network: GridRow[];
-  snapshots: GridRow[];
-  carriers: GridRow[];
-  buses: GridRow[];
-  generators: GridRow[];
-  loads: GridRow[];
-  links: GridRow[];
-  lines: GridRow[];
-  stores: GridRow[];
-  storage_units: GridRow[];
-  transformers: GridRow[];
-  shunt_impedances: GridRow[];
-  global_constraints: GridRow[];
-  shapes: GridRow[];
-  processes: GridRow[];
-  'generators-p_max_pu': GridRow[];
-  'generators-p_min_pu': GridRow[];
-  'loads-p_set': GridRow[];
-  'storage_units-inflow': GridRow[];
-  'links-p_max_pu': GridRow[];
-  line_types: GridRow[];
-  transformer_types: GridRow[];
-  sub_networks: GridRow[];
-}
+/**
+ * In-memory workbook: a map from sheet name → rows. The set of valid sheet
+ * names is driven by the generated PyPSA schema (`src/config/pypsa_schema.json`)
+ * — see `SHEETS` and `TS_SHEETS` in `constants/pypsa_schema.ts`. No named
+ * fields are baked into the type so the model stays in sync with the schema
+ * even when PyPSA adds new components.
+ *
+ * `createEmptyWorkbook()` in `shared/utils/workbook.ts` pre-populates every
+ * documented sheet with `[]`, so `model.generators` etc. are always defined
+ * at runtime for any component the schema knows about.
+ */
+export type WorkbookModel = Record<string, GridRow[]>;
 
 export interface CustomConstraint {
   id: string;

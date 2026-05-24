@@ -19,6 +19,18 @@ def component_schema(sheet_name: str) -> dict[str, Any] | None:
     return load_pypsa_schema().get("components", {}).get(sheet_name)
 
 
+def non_component_sheets() -> set[str]:
+    """Sheets in the schema that are NOT user-editable component tables.
+
+    `network` is the top-level Network attribute row, `snapshots` is the time
+    index (handled separately), `shapes` is optional geo metadata, and
+    `sub_networks` is computed by PyPSA itself. The network builder skips
+    these in the bulk-add loop.
+    """
+    meta = load_pypsa_schema().get("meta", {})
+    return set(meta.get("non_component_sheets", []))
+
+
 def input_static_attributes(sheet_name: str) -> set[str]:
     """Return attributes that may appear as a static column in the workbook.
 
