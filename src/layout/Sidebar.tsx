@@ -30,6 +30,7 @@ export interface SidebarProps {
   onImportProject: () => void;
   onExportProject: () => void;
   onExportResult: () => void;
+  onExportReport: () => void;
   runHistory: RunHistoryEntry[];
   onRestoreRun: (entry: RunHistoryEntry) => void;
   onRenameHistoryEntry: (id: string, label: string) => void;
@@ -77,6 +78,7 @@ export function Sidebar({
   onImportProject,
   onExportProject,
   onExportResult,
+  onExportReport,
   runHistory,
   onRestoreRun,
   onRenameHistoryEntry,
@@ -159,6 +161,14 @@ export function Sidebar({
             onClick={onExportResult}
           >
             Export Result
+          </button>
+          <button
+            className="tb-btn sg-full"
+            disabled={!results}
+            title={results ? 'Export an HTML report of the current result' : 'Run the model first to export a report'}
+            onClick={onExportReport}
+          >
+            Export Report
           </button>
         </div>
       </SidebarGroup>

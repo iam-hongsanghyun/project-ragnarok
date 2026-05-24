@@ -25,6 +25,7 @@ import {
 import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW, SHEETS } from './constants';
 import { createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, parseProjectFile, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
+import { exportReportHtml } from './shared/utils/exportReport';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
 import { buildRowsFromGeneratorDetails, buildSystemLoadRows, normalizeSeriesPoint } from './shared/utils/analytics';
 import { withDerivedAssetDetails } from './shared/utils/deriveAssetDetails';
@@ -851,6 +852,16 @@ function AppInner() {
                 if (!results) return;
                 exportFullResults(model, results, filename.replace(/\.xlsx$/i, ''));
                 showToast('Result workbook exported', 'success');
+              }}
+              onExportReport={() => {
+                if (!results) return;
+                const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_report';
+                exportReportHtml(results, {
+                  filename: `${base}_report`,
+                  projectName: base,
+                  currencySymbol: settings.currencySymbol,
+                });
+                showToast('HTML report exported', 'success');
               }}
               runHistory={runHistory}
               onRestoreRun={handleRestoreRun}
