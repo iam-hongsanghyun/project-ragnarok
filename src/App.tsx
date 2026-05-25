@@ -11,6 +11,7 @@ import {
   ModuleConfigField,
   ModuleDescriptor,
   PathwayConfig,
+  ProjectImportProvenance,
   RollingHorizonConfig,
   Primitive,
   RunHistoryEntry,
@@ -26,7 +27,7 @@ import {
   ModelSubTab,
   AnalyticsSubTab,
 } from './shared/types';
-import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, RUN_POLLING, RUN_WINDOW, SHEETS } from './constants';
+import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, PYPSA_SCHEMA_META, RUN_POLLING, RUN_WINDOW, SHEETS } from './constants';
 import { createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, parseProjectFile, parseWorkbook, workbookToArrayBuffer } from './shared/utils/workbook';
 import { exportFullResults } from './shared/utils/exportResults';
 import { exportReportHtml } from './shared/utils/exportReport';
@@ -86,6 +87,7 @@ function AppInner() {
   } | null>(null);
   const [status, setStatus] = useState('Ready. Open a workbook or import a project.');
   const [fileHandle, setFileHandle] = useState<BrowserFileHandle | null>(null);
+  const [projectProvenance, setProjectProvenance] = useState<ProjectImportProvenance | null>(null);
   const [jumpTo, setJumpTo] = useState<{ sheet: string; rowIndex: number } | null>(null);
   const [runElapsed, setRunElapsed] = useState(0);
   const jobIdRef = useRef<string | null>(null);
@@ -224,6 +226,7 @@ function AppInner() {
     setChartSections([]);
     setValidateResult(null);
     setAnalyticsFocus({ type: 'system' });
+    setProjectProvenance(null);
     const fallbackPathway = {
       ...nextPathway,
       selectedPeriod: getDefaultSelectedPeriod(nextPathway),
@@ -481,20 +484,49 @@ function AppInner() {
     try {
       const { model: nextModel, outputs, metadata } = await parseProjectFile(file);
       const importedPathway = readPathwayConfigFromModel(nextModel);
+      const importedScenarios = readScenarioCatalogFromModel(nextModel);
+      const importedRunState = metadata.runState;
+      const importedSettings = metadata.settings;
+      const importedSnapshotWeight = importedRunState?.snapshotWeight ?? snapshotWeight;
+      const importedCarbonPrice = importedRunState?.carbonPrice ?? carbonPrice;
+      const importedDiscountRate = importedSettings?.discountRate ?? settings.discountRate;
+      const importedCurrencySymbol = importedSettings?.currencySymbol ?? settings.currencySymbol;
       resetForNewModel(nextModel, file.name || 'ragnarok_project.xlsx');
       setFileHandle(null);
+      if (importedSettings) updateSettings(importedSettings);
+      if (metadata.constraints) setConstraints(metadata.constraints);
+      if (importedRunState) {
+        setSnapshotStart(importedRunState.snapshotStart);
+        setSnapshotEnd(importedRunState.snapshotEnd);
+        setSnapshotWeight(importedRunState.snapshotWeight);
+        setCarbonPrice(importedRunState.carbonPrice);
+        setForceLp(importedRunState.forceLp);
+        if (importedRunState.activeScenarioId) {
+          setScenarioCatalog((current) => ({
+            ...current,
+            activeScenarioId: current.scenarios.some((scenario) => scenario.id === importedRunState.activeScenarioId)
+              ? importedRunState.activeScenarioId
+              : current.activeScenarioId,
+          }));
+        }
+      }
+      if (metadata.runHistory) setRunHistory(metadata.runHistory);
+      setProjectProvenance({
+        exportedAt: metadata.provenance?.exportedAt ?? '',
+        exportedFilename: metadata.provenance?.exportedFilename ?? file.name,
+        schemaCommitSha: metadata.provenance?.schemaCommitSha ?? '',
+        schemaGeneratedAt: metadata.provenance?.schemaGeneratedAt ?? '',
+        importedFromFilename: file.name,
+        importedAt: new Date().toISOString(),
+      });
       const hasOutputs =
         Object.keys(outputs.static).length > 0 || Object.keys(outputs.series).length > 0;
       if (hasOutputs) {
-        // Build a full RunResults from (model, outputs) — same shape as a
-        // fresh backend run — so Result / Analytics tabs render immediately
-        // without re-solving. Also append a history entry so the user can
-        // bookmark / compare the imported case like any other run.
         const imported = deriveRunResults(nextModel, outputs, {
-          carbonPrice,
-          currencySymbol: settings.currencySymbol,
-          discountRate: settings.discountRate,
-          snapshotWeight,
+          carbonPrice: importedCarbonPrice,
+          currencySymbol: importedCurrencySymbol,
+          discountRate: importedDiscountRate,
+          snapshotWeight: importedSnapshotWeight,
           selectedPeriod: getDefaultSelectedPeriod(importedPathway),
           pathway: metadata.pathway ?? (importedPathway.enabled ? {
             enabled: true,
@@ -522,34 +554,30 @@ function AppInner() {
         }
         setResults(imported);
         setAnalyticsFocus({ type: 'system' });
-        setRunHistory((hist) => {
-          const next = hist.length + 1;
-          const entry: RunHistoryEntry = {
+        if (!metadata.runHistory || metadata.runHistory.length === 0) {
+          const scenarioLabel = importedScenarios.scenarios.find((scenario) => scenario.id === importedRunState?.activeScenarioId)?.label ?? null;
+          setRunHistory([{
             id: Date.now().toString(),
-            label: `Import ${next}`,
-            scenarioLabel: activeScenario?.label ?? null,
+            label: 'Imported project',
+            scenarioLabel,
             savedAt: new Date().toISOString(),
             filename: file.name,
-            carbonPrice,
-            snapshotStart,
-            snapshotEnd,
-            snapshotWeight,
-            activeConstraints: constraints.filter((c) => c.enabled),
+            carbonPrice: importedCarbonPrice,
+            snapshotStart: importedRunState?.snapshotStart ?? 0,
+            snapshotEnd: importedRunState?.snapshotEnd ?? snapshotMaxFromWorkbook(nextModel.snapshots),
+            snapshotWeight: importedSnapshotWeight,
+            activeConstraints: metadata.constraints ?? [],
             componentCounts: Object.fromEntries(
               SHEETS.map((sheet) => [sheet, nextModel[sheet]?.length ?? 0]).filter(([, n]) => n > 0),
             ),
             pinned: false,
             inComparison: true,
             results: imported,
-          };
-          const withNew = [entry, ...hist];
-          const pinned = withNew.filter((e) => e.pinned);
-          const unpinned = withNew.filter((e) => !e.pinned).slice(0, MAX_UNPINNED_HISTORY);
-          return [...pinned, ...unpinned];
-        });
-        setStatus(`Imported project: ${file.name}. Outputs restored — Result & Analytics ready.`);
+          }]);
+        }
+        setStatus(`Imported project: ${file.name}. Full project state restored.`);
       } else {
-        setStatus(`Imported project (inputs only): ${file.name}.`);
+        setStatus(`Imported project (inputs only): ${file.name}. Metadata restored.`);
       }
       showToast(`Project imported (${file.name})`, 'success');
     } catch (error) {
@@ -565,14 +593,33 @@ function AppInner() {
     const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_project';
     const out = `${base}_project.xlsx`;
     try {
-      exportProjectWorkbook(model, results?.outputs, results ? {
-        pluginAnalytics: results.pluginAnalytics,
-        co2Shadow: results.co2Shadow,
-        narrative: results.narrative,
-        runMeta: results.runMeta,
-        pathway: results.pathway,
-        rolling: results.rolling,
-      } : undefined, out);
+      exportProjectWorkbook(model, results?.outputs, {
+        pluginAnalytics: results?.pluginAnalytics,
+        co2Shadow: results?.co2Shadow,
+        narrative: results?.narrative,
+        runMeta: results?.runMeta,
+        pathway: results?.pathway,
+        rolling: results?.rolling,
+        settings,
+        constraints,
+        runState: {
+          snapshotStart,
+          snapshotEnd,
+          snapshotWeight,
+          carbonPrice,
+          forceLp,
+          activeScenarioId: scenarioCatalog.activeScenarioId,
+        },
+        runHistory,
+        provenance: {
+          exportedAt: new Date().toISOString(),
+          exportedFilename: filename,
+          schemaCommitSha: PYPSA_SCHEMA_META.commit_sha,
+          schemaGeneratedAt: PYPSA_SCHEMA_META.generated_at,
+          importedFromFilename: projectProvenance?.importedFromFilename ?? null,
+          importedAt: projectProvenance?.importedAt ?? null,
+        },
+      }, out);
       showToast(
         results?.outputs
           ? 'Project (inputs + solved outputs) exported'

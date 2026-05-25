@@ -1,18 +1,24 @@
 import * as XLSX from 'xlsx';
-import { SHEETS, TS_SHEETS } from '../../constants';
+import { PYPSA_SCHEMA_META, SHEETS, TS_SHEETS } from '../../constants';
 import {
   isInputTemporalSheet,
   normalizeSheetName,
   stripOutputStaticAttributes,
   PYPSA_COMPONENT_BY_SHEET,
 } from '../../constants/pypsa_schema';
-import { GridRow, Primitive, RunResults, WorkbookModel } from '../types';
+import type { AppSettings } from '../../features/settings/useSettings';
+import { CustomConstraint, GridRow, Primitive, ProjectImportProvenance, ProjectRunState, RunHistoryEntry, RunResults, WorkbookModel } from '../types';
 import { PATHWAY_CONFIG_SHEET, PATHWAY_PERIODS_SHEET } from './pathway';
 import { ROLLING_CONFIG_SHEET } from './rolling';
 import { SCENARIO_SHEET } from './scenarios';
 
 export const RESULT_META_SHEET = 'RAGNAROK_ResultMeta';
 export const PLUGIN_ANALYTICS_SHEET = 'RAGNAROK_PluginAnalytics';
+export const SETTINGS_SHEET = 'RAGNAROK_Settings';
+export const CONSTRAINTS_SHEET = 'RAGNAROK_Constraints';
+export const RUN_STATE_SHEET = 'RAGNAROK_RunState';
+export const RUN_HISTORY_SHEET = 'RAGNAROK_RunHistory';
+export const PROVENANCE_SHEET = 'RAGNAROK_Provenance';
 
 export function normalizeCell(value: unknown): Primitive {
   if (value === undefined || value === null) return null;
@@ -168,10 +174,43 @@ export interface ProjectMetadata {
   runMeta?: RunResults['runMeta'];
   pathway?: RunResults['pathway'];
   rolling?: RunResults['rolling'];
+  settings?: AppSettings;
+  constraints?: CustomConstraint[];
+  runState?: ProjectRunState;
+  runHistory?: RunHistoryEntry[];
+  provenance?: ProjectImportProvenance;
 }
 
 const EMPTY_OUTPUTS: ProjectOutputs = { static: {}, series: {} };
 const EMPTY_METADATA: ProjectMetadata = {};
+
+type RunHistoryExportEntry = Omit<RunHistoryEntry, 'results'> & {
+  results: Omit<RunResults, 'outputs'>;
+};
+
+function stripOutputsFromResults(results: RunResults): Omit<RunResults, 'outputs'> {
+  const { outputs: _outputs, ...rest } = results;
+  return rest;
+}
+
+function serializeRunHistoryEntry(entry: RunHistoryEntry): RunHistoryExportEntry {
+  return {
+    ...entry,
+    results: stripOutputsFromResults(entry.results),
+  };
+}
+
+function isProjectMetadataSheet(sheetName: string): boolean {
+  return [
+    RESULT_META_SHEET,
+    PLUGIN_ANALYTICS_SHEET,
+    SETTINGS_SHEET,
+    CONSTRAINTS_SHEET,
+    RUN_STATE_SHEET,
+    RUN_HISTORY_SHEET,
+    PROVENANCE_SHEET,
+  ].includes(sheetName);
+}
 
 /** Schema-driven set of output static attributes per component sheet. */
 function outputStaticAttrSet(sheet: string): Set<string> {
@@ -271,6 +310,36 @@ export function buildProjectWorkbook(
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(pluginRows), PLUGIN_ANALYTICS_SHEET);
   }
 
+  if (metadata.settings) {
+    const settingsRows: GridRow[] = Object.entries(metadata.settings).map(([key, value]) => ({ key, value }));
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(settingsRows), SETTINGS_SHEET);
+  }
+
+  if (metadata.constraints && metadata.constraints.length > 0) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(metadata.constraints), CONSTRAINTS_SHEET);
+  }
+
+  if (metadata.runState) {
+    const runStateRows: GridRow[] = Object.entries(metadata.runState).map(([key, value]) => ({ key, value }));
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(runStateRows), RUN_STATE_SHEET);
+  }
+
+  if (metadata.runHistory && metadata.runHistory.length > 0) {
+    const runHistoryRows: GridRow[] = metadata.runHistory.map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+      savedAt: entry.savedAt,
+      scenarioLabel: entry.scenarioLabel ?? null,
+      json: JSON.stringify(serializeRunHistoryEntry(entry)),
+    }));
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(runHistoryRows), RUN_HISTORY_SHEET);
+  }
+
+  if (metadata.provenance) {
+    const provenanceRows: GridRow[] = Object.entries(metadata.provenance).map(([key, value]) => ({ key, value }));
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(provenanceRows), PROVENANCE_SHEET);
+  }
+
   return workbook;
 }
 
@@ -321,6 +390,83 @@ export function parseProjectWorkbook(
       return;
     }
 
+    if (sheetName === SETTINGS_SHEET) {
+      const settings = Object.fromEntries(
+        rawRows
+          .map((row) => [String(row.key ?? '').trim(), normalizeCell(row.value)] as const)
+          .filter(([key]) => key),
+      ) as Partial<AppSettings>;
+      if (Object.keys(settings).length > 0) metadata.settings = settings as AppSettings;
+      return;
+    }
+
+    if (sheetName === CONSTRAINTS_SHEET) {
+      const constraints: CustomConstraint[] = rawRows.map((row) => ({
+        id: String(normalizeCell(row.id) ?? ''),
+        enabled: normalizeCell(row.enabled) === true || normalizeCell(row.enabled) === 'true' || normalizeCell(row.enabled) === 1,
+        label: String(normalizeCell(row.label) ?? ''),
+        metric: String(normalizeCell(row.metric) ?? 'co2_cap') as CustomConstraint['metric'],
+        carrier: String(normalizeCell(row.carrier) ?? ''),
+        value: Number(normalizeCell(row.value) ?? 0),
+        unit: String(normalizeCell(row.unit) ?? ''),
+      }));
+      if (constraints.length > 0) metadata.constraints = constraints;
+      return;
+    }
+
+    if (sheetName === RUN_STATE_SHEET) {
+      const rawState = Object.fromEntries(
+        rawRows
+          .map((row) => [String(row.key ?? '').trim(), normalizeCell(row.value)] as const)
+          .filter(([key]) => key),
+      ) as Record<string, Primitive>;
+      if (Object.keys(rawState).length > 0) {
+        metadata.runState = {
+          snapshotStart: Number(rawState.snapshotStart ?? 0),
+          snapshotEnd: Number(rawState.snapshotEnd ?? 0),
+          snapshotWeight: Number(rawState.snapshotWeight ?? 1),
+          carbonPrice: Number(rawState.carbonPrice ?? 0),
+          forceLp: rawState.forceLp === true || rawState.forceLp === 'true' || rawState.forceLp === 1,
+          activeScenarioId: typeof rawState.activeScenarioId === 'string' ? rawState.activeScenarioId : null,
+        };
+      }
+      return;
+    }
+
+    if (sheetName === RUN_HISTORY_SHEET) {
+      const runHistory = rawRows.flatMap((row) => {
+        const json = row.json;
+        if (typeof json !== 'string' || !json.trim()) return [];
+        try {
+          const parsed = JSON.parse(json) as RunHistoryExportEntry;
+          return [{ ...parsed, results: parsed.results as RunResults }];
+        } catch {
+          return [];
+        }
+      });
+      if (runHistory.length > 0) metadata.runHistory = runHistory;
+      return;
+    }
+
+    if (sheetName === PROVENANCE_SHEET) {
+      const rawProvenance = Object.fromEntries(
+        rawRows
+          .map((row) => [String(row.key ?? '').trim(), normalizeCell(row.value)] as const)
+          .filter(([key]) => key),
+      ) as Record<string, Primitive>;
+      if (Object.keys(rawProvenance).length > 0) {
+        metadata.provenance = {
+          exportedAt: String(rawProvenance.exportedAt ?? ''),
+          exportedFilename: String(rawProvenance.exportedFilename ?? ''),
+          schemaCommitSha: String(rawProvenance.schemaCommitSha ?? PYPSA_SCHEMA_META.commit_sha ?? ''),
+          schemaGeneratedAt: String(rawProvenance.schemaGeneratedAt ?? PYPSA_SCHEMA_META.generated_at ?? ''),
+          importedFromFilename: typeof rawProvenance.importedFromFilename === 'string' ? rawProvenance.importedFromFilename : null,
+          importedAt: typeof rawProvenance.importedAt === 'string' ? rawProvenance.importedAt : null,
+        };
+      }
+      return;
+    }
+
     if (sheetName === PLUGIN_ANALYTICS_SHEET) {
       const pluginAnalytics: NonNullable<ProjectMetadata['pluginAnalytics']> = {};
       rawRows.forEach((row) => {
@@ -343,6 +489,8 @@ export function parseProjectWorkbook(
       if (Object.keys(pluginAnalytics).length > 0) metadata.pluginAnalytics = pluginAnalytics;
       return;
     }
+
+    if (isProjectMetadataSheet(sheetName)) return;
 
     // Output time-series sheet (e.g. generators-p)? Route to outputs.series.
     const dashIndex = canonical.indexOf('-');

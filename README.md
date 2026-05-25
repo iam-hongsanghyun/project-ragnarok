@@ -58,7 +58,7 @@ Backend:
 `Open`
 
 - opens a workbook into the in-memory model
-- restores Ragnarok pathway metadata when present
+- restores Ragnarok pathway, rolling, and scenario metadata when present
 - does not restore prior results
 
 `Save` / `Save As`
@@ -66,29 +66,38 @@ Backend:
 - save input-only workbook content
 - strip output attributes from component sheets
 - keep input time-series sheets only
-- keep Ragnarok pathway metadata sheets
+- keep Ragnarok pathway, rolling, and scenario metadata sheets
 
 `Export Project`
 
 - writes input workbook sheets
 - merges solved output columns/sheets from `results.outputs` if a run exists
 - keeps Ragnarok pathway metadata sheets
+- keeps Ragnarok rolling and scenario metadata sheets
 - also writes Ragnarok result metadata sheets for:
   - `runMeta`
   - pathway summaries / selected period
   - solver narrative
   - `co2Shadow`
   - plugin analytics
-- does not currently include full project-state metadata like settings, constraints, run window, run history, import provenance, or a backend-solved network artifact
+- also writes dedicated project-state metadata sheets for:
+  - settings
+  - active constraints
+  - run window / force-LP / active scenario
+  - run history
+  - import provenance
+- still does not include a backend-solved network artifact
 
 `Import Project`
 
 - parses workbook inputs
 - parses solved PyPSA output attributes/sheets
 - restores Ragnarok pathway metadata
+- restores Ragnarok rolling and scenario metadata
 - rebuilds a frontend `RunResults` object from workbook outputs
 - restores `pluginAnalytics`, `co2Shadow`, solver narrative, `runMeta`, and pathway metadata from Ragnarok metadata sheets
-- does not restore original settings, constraints, run window, run history, or import provenance
+- restores settings, constraints, run window, run history, and import provenance
+- still does not restore a backend-solved network artifact
 
 `Export Result`
 
@@ -134,13 +143,13 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 | PyPSA capability | Ragnarok status | Notes |
 |---|---|---|
 | Excel workbook import (`Network.import_from_excel` equivalent user workflow) | `Partial` | Ragnarok opens Excel workbooks, but it parses into its own in-memory model instead of delegating import to PyPSA directly. |
-| Excel workbook export (`Network.export_to_excel` equivalent) | `Partial` | `Save` exports inputs only. `Export Project` exports input + solved outputs, but not the full backend-solved network artifact or Ragnarok metadata. |
+| Excel workbook export (`Network.export_to_excel` equivalent) | `Partial` | `Save` exports inputs only. `Export Project` exports input + solved outputs plus Ragnarok metadata sheets, but not the backend-solved network artifact itself. |
 | Generic component schema sync from PyPSA GitHub | `Full` | Build-time generator populates [src/config/pypsa_schema.json](/Users/sanghyun/github/pypsa_gui/src/config/pypsa_schema.json). |
 | Generic input table editing for documented components/attributes | `Full` | Input tables are schema-driven rather than hardcoded. |
 | Generic backend ingestion of documented input attributes | `Full` | Backend uses schema-derived input static/time-series attributes in [backend/lib/network/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/network/__init__.py). |
 | Generic solved-output extraction for documented PyPSA outputs | `Full` | Backend extracts schema-marked outputs in [backend/lib/results/full_outputs.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/full_outputs.py). |
 | Input-only save/load round-trip | `Full` | Known PyPSA input sheets round-trip through [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts). |
-| Full project workbook round-trip | `Partial` | Solved outputs plus Ragnarok result metadata round-trip, but full project state still excludes settings/history/provenance and the backend-solved network artifact. |
+| Full project workbook round-trip | `Partial` | Solved outputs and Ragnarok metadata now round-trip settings, constraints, run window, run history, provenance, scenarios, pathway, rolling, and plugin analytics. Remaining gap is the backend-solved network artifact. |
 | Restore analytics from imported solved workbook | `Full` | Frontend reconstructs analytics locally from `(model, outputs)` and restores plugin analytics / solve metadata from workbook metadata sheets. |
 | Result workbook export for reporting | `Full` | `Export Result` keeps a dedicated reporting workbook. |
 | HTML report export | `Full` | Implemented in [src/shared/utils/exportReport.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/exportReport.ts). |
@@ -151,13 +160,14 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 | Unit commitment / MIP | `Partial` | Supported through PyPSA/HiGHS generator attributes, but analytics and validation are still more dispatch-focused than UC-focused. |
 | Force-LP override | `Full` | Supported in backend run options. |
 | Custom constraints panel | `Partial` | Several custom constraints are implemented, but not the full PyPSA constraint space. |
-| Rolling-horizon optimization | `Not supported` | No rolling-window orchestration in the backend or UI. |
+| Rolling-horizon optimization | `Partial` | Backend rolling-window orchestration and frontend controls are implemented; analytics remain stitched-result-first. |
 | Multi-investment / pathway planning | `Partial` | Pathway mode is implemented through backend expansion from a flat workbook plus Ragnarok-owned pathway metadata sheets. |
 | Stochastic optimization | `Not supported` | No scenario-tree workflow or stochastic solve mode. |
 | Security-constrained optimization | `Not supported` | No SCLOPF / branch outage workflow. |
 | Native `global_constraints` workbook usage | `Implicit` | Sheet is available and passed through the generic network builder, but Ragnarok adds only limited dedicated UI/analytics around it. |
 | Plugin execution pipeline | `Full` | `pre-build`, `post-build`, `in-solve`, `post-solve` stages are implemented. |
 | Plugin analytics round-trip through project import/export | `Full` | Stored in `RAGNAROK_PluginAnalytics` and restored on import without plugin re-execution. |
+| Project settings / constraints / run-state metadata round-trip | `Full` | Stored in dedicated Ragnarok metadata sheets and restored on project import. |
 | CO2 shadow price restoration from imported project | `Full` | Stored in `RAGNAROK_ResultMeta` and restored on import. |
 | Backend retention of solved network/workbook | `Not supported` | Backend returns result JSON and derived output caches, but does not keep a solved `pypsa.Network` artifact for later export. |
 | CSV-folder / netCDF / HDF5 workflows | `Not supported` | Ragnarok is currently Excel-first in the UI. |
@@ -199,14 +209,8 @@ Ragnarok does not maintain a separate backend skip policy for schema-defined she
 1. `Export Project` is workbook-driven, not backend-solved-network-driven.
    The app exports `results.outputs`, not a retained solved `pypsa.Network`.
 
-2. `Import Project` still does not restore the full project state.
-   It restores result metadata such as plugin analytics, `co2Shadow`, pathway summaries, and solver narrative, but it still does not restore:
-   - settings
-   - constraints configuration
-   - run window
-   - run history
-   - import provenance
-   - backend-solved network artifact
+2. `Import Project` still does not restore a backend-solved network artifact.
+   It restores frontend project state and result metadata, but the imported project is still rebuilt from workbook inputs/outputs rather than reopening a retained `pypsa.Network`.
 
 3. Pathway planning is still v1-level.
    It supports flat-workbook authoring, backend multi-investment expansion, and selected-period analytics, but it does not yet provide a native frontend MultiIndex editing workflow.
@@ -216,10 +220,10 @@ Ragnarok does not maintain a separate backend skip policy for schema-defined she
 
 5. Ragnarok does not yet cover all of PyPSA’s broader planning modes.
    The largest optimization gaps today are:
-   - rolling-horizon optimization
    - stochastic optimization
    - security-constrained optimization
-   - scenario UX and scenario-aware analytics
+   - stochastic / uncertainty workflow beyond frontend scenario presets
+   - richer scenario-aware analytics
 
 ## Development
 
