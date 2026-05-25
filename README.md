@@ -73,7 +73,13 @@ Backend:
 - writes input workbook sheets
 - merges solved output columns/sheets from `results.outputs` if a run exists
 - keeps Ragnarok pathway metadata sheets
-- does not currently include Ragnarok-specific metadata like settings, run history, plugin analytics, or backend solve state
+- also writes Ragnarok result metadata sheets for:
+  - `runMeta`
+  - pathway summaries / selected period
+  - solver narrative
+  - `co2Shadow`
+  - plugin analytics
+- does not currently include full project-state metadata like settings, constraints, run window, run history, import provenance, or a backend-solved network artifact
 
 `Import Project`
 
@@ -81,7 +87,8 @@ Backend:
 - parses solved PyPSA output attributes/sheets
 - restores Ragnarok pathway metadata
 - rebuilds a frontend `RunResults` object from workbook outputs
-- does not restore original settings, constraints, plugin analytics, or CO2 shadow values
+- restores `pluginAnalytics`, `co2Shadow`, solver narrative, `runMeta`, and pathway metadata from Ragnarok metadata sheets
+- does not restore original settings, constraints, run window, run history, or import provenance
 
 `Export Result`
 
@@ -133,8 +140,8 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 | Generic backend ingestion of documented input attributes | `Full` | Backend uses schema-derived input static/time-series attributes in [backend/lib/network/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/network/__init__.py). |
 | Generic solved-output extraction for documented PyPSA outputs | `Full` | Backend extracts schema-marked outputs in [backend/lib/results/full_outputs.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/full_outputs.py). |
 | Input-only save/load round-trip | `Full` | Known PyPSA input sheets round-trip through [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts). |
-| Full project workbook round-trip | `Partial` | Solved outputs and pathway metadata round-trip, but settings/history/plugin analytics/backend solve state do not. |
-| Restore analytics from imported solved workbook | `Partial` | Frontend reconstructs most analytics locally, but not everything from a fresh solve. |
+| Full project workbook round-trip | `Partial` | Solved outputs plus Ragnarok result metadata round-trip, but full project state still excludes settings/history/provenance and the backend-solved network artifact. |
+| Restore analytics from imported solved workbook | `Full` | Frontend reconstructs analytics locally from `(model, outputs)` and restores plugin analytics / solve metadata from workbook metadata sheets. |
 | Result workbook export for reporting | `Full` | `Export Result` keeps a dedicated reporting workbook. |
 | HTML report export | `Full` | Implemented in [src/shared/utils/exportReport.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/exportReport.ts). |
 | Structural validation before solve | `Partial` | Validation is useful but still focused on common components and common failure modes. |
@@ -150,8 +157,8 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 | Security-constrained optimization | `Not supported` | No SCLOPF / branch outage workflow. |
 | Native `global_constraints` workbook usage | `Implicit` | Sheet is available and passed through the generic network builder, but Ragnarok adds only limited dedicated UI/analytics around it. |
 | Plugin execution pipeline | `Full` | `pre-build`, `post-build`, `in-solve`, `post-solve` stages are implemented. |
-| Plugin analytics round-trip through project import/export | `Not supported` | Project workbook currently stores only PyPSA-shaped inputs/outputs, not plugin-specific analytics payloads. |
-| CO2 shadow price restoration from imported project | `Not supported` | Fresh solve only; workbook outputs are insufficient for reconstruction in current code. |
+| Plugin analytics round-trip through project import/export | `Full` | Stored in `RAGNAROK_PluginAnalytics` and restored on import without plugin re-execution. |
+| CO2 shadow price restoration from imported project | `Full` | Stored in `RAGNAROK_ResultMeta` and restored on import. |
 | Backend retention of solved network/workbook | `Not supported` | Backend returns result JSON and derived output caches, but does not keep a solved `pypsa.Network` artifact for later export. |
 | CSV-folder / netCDF / HDF5 workflows | `Not supported` | Ragnarok is currently Excel-first in the UI. |
 | Power flow-only studies / separate PF UX | `Not supported` | Current workflow is optimization-centric. |
@@ -184,14 +191,14 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 1. `Export Project` is workbook-driven, not backend-solved-network-driven.
    The app exports `results.outputs`, not a retained solved `pypsa.Network`.
 
-2. `Import Project` restores only what can be inferred from workbook inputs and outputs.
-   It does not restore:
+2. `Import Project` still does not restore the full project state.
+   It restores result metadata such as plugin analytics, `co2Shadow`, pathway summaries, and solver narrative, but it still does not restore:
    - settings
    - constraints configuration
+   - run window
    - run history
-   - plugin analytics payloads
-   - CO2 shadow prices
-   - backend solve metadata
+   - import provenance
+   - backend-solved network artifact
 
 3. Pathway planning is still v1-level.
    It supports flat-workbook authoring, backend multi-investment expansion, and selected-period analytics, but it does not yet provide a native frontend MultiIndex editing workflow.
@@ -201,11 +208,10 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 
 5. Ragnarok does not yet cover all of PyPSA’s broader planning modes.
    The largest optimization gaps today are:
-   - multi-investment / pathway planning
    - rolling-horizon optimization
    - stochastic optimization
    - security-constrained optimization
-   - multi-period analytics and scenario UX
+   - scenario UX and scenario-aware analytics
 
 ## Development
 

@@ -37,6 +37,9 @@ export function RunComparisonTable({ runHistory, activeResults, onToggleComparis
   const summaryLabels = sorted[0].results.summary.map((s) => s.label);
 
   const settingRows: Array<{ label: string; fn: (e: RunHistoryEntry) => string }> = [
+    { label: 'Planning mode', fn: (e) => e.results.pathway?.enabled ? 'Pathway' : 'Single period' },
+    { label: 'Periods',       fn: (e) => e.results.pathway?.enabled ? e.results.pathway.periods.join(', ') : '—' },
+    { label: 'Active period', fn: (e) => e.results.pathway?.selectedPeriod != null ? String(e.results.pathway.selectedPeriod) : '—' },
     { label: 'Carbon price',  fn: (e) => e.carbonPrice > 0 ? `${currencySymbol}${e.carbonPrice}/t` : '—' },
     { label: 'Window',        fn: (e) => `${e.snapshotStart} → ${e.snapshotEnd}` },
     { label: 'Resolution',    fn: (e) => `${e.snapshotWeight} h` },

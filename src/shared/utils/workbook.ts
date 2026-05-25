@@ -9,6 +9,9 @@ import {
 import { GridRow, Primitive, RunResults, WorkbookModel } from '../types';
 import { PATHWAY_CONFIG_SHEET, PATHWAY_PERIODS_SHEET } from './pathway';
 
+export const RESULT_META_SHEET = 'RAGNAROK_ResultMeta';
+export const PLUGIN_ANALYTICS_SHEET = 'RAGNAROK_PluginAnalytics';
+
 export function normalizeCell(value: unknown): Primitive {
   if (value === undefined || value === null) return null;
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') return value;
@@ -154,8 +157,16 @@ export async function parseCsvToGridRows(file: File): Promise<GridRow[]> {
 //  sheets (`<list>-<output_attr>`) flow into `results.outputs.series`.
 
 export type ProjectOutputs = NonNullable<RunResults['outputs']>;
+export interface ProjectMetadata {
+  narrative?: RunResults['narrative'];
+  co2Shadow?: RunResults['co2Shadow'];
+  pluginAnalytics?: RunResults['pluginAnalytics'];
+  runMeta?: RunResults['runMeta'];
+  pathway?: RunResults['pathway'];
+}
 
 const EMPTY_OUTPUTS: ProjectOutputs = { static: {}, series: {} };
+const EMPTY_METADATA: ProjectMetadata = {};
 
 /** Schema-driven set of output static attributes per component sheet. */
 function outputStaticAttrSet(sheet: string): Set<string> {
@@ -182,6 +193,7 @@ function outputSeriesAttrSet(sheet: string): Set<string> {
 export function buildProjectWorkbook(
   model: WorkbookModel,
   outputs: ProjectOutputs = EMPTY_OUTPUTS,
+  metadata: ProjectMetadata = EMPTY_METADATA,
 ): XLSX.WorkBook {
   const workbook = XLSX.utils.book_new();
 
@@ -234,15 +246,35 @@ export function buildProjectWorkbook(
     XLSX.utils.book_append_sheet(workbook, ws, sheet);
   });
 
+  const resultMetaRows: GridRow[] = [];
+  if (metadata.runMeta) resultMetaRows.push({ key: 'runMeta', json: JSON.stringify(metadata.runMeta) });
+  if (metadata.pathway) resultMetaRows.push({ key: 'pathway', json: JSON.stringify(metadata.pathway) });
+  if (metadata.co2Shadow) resultMetaRows.push({ key: 'co2Shadow', json: JSON.stringify(metadata.co2Shadow) });
+  if (metadata.narrative) resultMetaRows.push({ key: 'narrative', json: JSON.stringify(metadata.narrative) });
+  if (resultMetaRows.length > 0) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(resultMetaRows), RESULT_META_SHEET);
+  }
+
+  const pluginRows = Object.entries(metadata.pluginAnalytics ?? {}).map(([moduleId, entry]) => ({
+    moduleId,
+    name: entry.name,
+    ui: JSON.stringify(entry.ui ?? {}),
+    data: JSON.stringify(entry.data ?? {}),
+  }));
+  if (pluginRows.length > 0) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(pluginRows), PLUGIN_ANALYTICS_SHEET);
+  }
+
   return workbook;
 }
 
 export function exportProjectWorkbook(
   model: WorkbookModel,
   outputs: ProjectOutputs | null | undefined,
+  metadata: ProjectMetadata | null | undefined,
   filename = 'ragnarok_project.xlsx',
 ): void {
-  XLSX.writeFile(buildProjectWorkbook(model, outputs ?? EMPTY_OUTPUTS), filename);
+  XLSX.writeFile(buildProjectWorkbook(model, outputs ?? EMPTY_OUTPUTS, metadata ?? EMPTY_METADATA), filename);
 }
 
 /**
@@ -252,16 +284,58 @@ export function exportProjectWorkbook(
  */
 export function parseProjectWorkbook(
   arrayBuffer: ArrayBuffer,
-): { model: WorkbookModel; outputs: ProjectOutputs } {
+): { model: WorkbookModel; outputs: ProjectOutputs; metadata: ProjectMetadata } {
   const wb = XLSX.read(arrayBuffer, { type: 'array' });
   const model = createEmptyWorkbook();
   const outputs: ProjectOutputs = { static: {}, series: {} };
+  const metadata: ProjectMetadata = {};
 
   wb.SheetNames.forEach((sheetName) => {
     const canonical = normalizeSheetName(sheetName);
     const ws = wb.Sheets[sheetName];
     if (!ws) return;
     const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+
+    if (sheetName === RESULT_META_SHEET) {
+      rawRows.forEach((row) => {
+        const key = String(row.key ?? '').trim();
+        const json = row.json;
+        if (!key || typeof json !== 'string' || !json.trim()) return;
+        try {
+          const parsed = JSON.parse(json);
+          if (key === 'runMeta') metadata.runMeta = parsed;
+          else if (key === 'pathway') metadata.pathway = parsed;
+          else if (key === 'co2Shadow') metadata.co2Shadow = parsed;
+          else if (key === 'narrative') metadata.narrative = parsed;
+        } catch {
+          // ignore malformed metadata rows
+        }
+      });
+      return;
+    }
+
+    if (sheetName === PLUGIN_ANALYTICS_SHEET) {
+      const pluginAnalytics: NonNullable<ProjectMetadata['pluginAnalytics']> = {};
+      rawRows.forEach((row) => {
+        const moduleId = String(row.moduleId ?? '').trim();
+        if (!moduleId) return;
+        try {
+          pluginAnalytics[moduleId] = {
+            name: String(row.name ?? moduleId),
+            ui: typeof row.ui === 'string' && row.ui.trim() ? JSON.parse(row.ui) : {},
+            data: typeof row.data === 'string' && row.data.trim() ? JSON.parse(row.data) : {},
+          };
+        } catch {
+          pluginAnalytics[moduleId] = {
+            name: String(row.name ?? moduleId),
+            ui: {},
+            data: {},
+          };
+        }
+      });
+      if (Object.keys(pluginAnalytics).length > 0) metadata.pluginAnalytics = pluginAnalytics;
+      return;
+    }
 
     // Output time-series sheet (e.g. generators-p)? Route to outputs.series.
     const dashIndex = canonical.indexOf('-');
@@ -310,12 +384,12 @@ export function parseProjectWorkbook(
     }
   });
 
-  return { model, outputs };
+  return { model, outputs, metadata };
 }
 
 export function parseProjectFile(
   file: File,
-): Promise<{ model: WorkbookModel; outputs: ProjectOutputs }> {
+): Promise<{ model: WorkbookModel; outputs: ProjectOutputs; metadata: ProjectMetadata }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {

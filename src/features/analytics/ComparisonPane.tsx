@@ -88,6 +88,8 @@ export function ComparisonPane({ runHistory, activeResults, onToggleComparison, 
   }));
 
   const showKpiCharts = included.some((e) => e.results.carrierMix.length > 0);
+  const pathwayRuns = included.filter((e) => e.results.pathway?.enabled && (e.results.pathway.summaries?.length ?? 0) > 0);
+  const hasPathwayComparison = pathwayRuns.length > 0;
 
   return (
     <div className="results-dashboard">
@@ -108,6 +110,39 @@ export function ComparisonPane({ runHistory, activeResults, onToggleComparison, 
         onToggleComparison={onToggleComparison}
         currencySymbol={currencySymbol}
       />
+
+      {hasPathwayComparison && (
+        <div className="cmp-table-wrap" style={{ marginTop: 20 }}>
+          <table className="cmp-table">
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Period</th>
+                <th>Hours</th>
+                <th>Dispatch</th>
+                <th>Peak load</th>
+                <th>Avg price</th>
+                <th>Emissions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pathwayRuns.flatMap((entry) =>
+                (entry.results.pathway?.summaries ?? []).map((row) => (
+                  <tr key={`${entry.id}-${row.period}`}>
+                    <td className={entry.results === activeResults ? 'cmp-col--active' : ''}>{entry.label}</td>
+                    <td>{row.period}</td>
+                    <td>{row.modeledHours.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                    <td>{(row.totalDispatch / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} GWh</td>
+                    <td>{row.peakLoad.toLocaleString(undefined, { maximumFractionDigits: 0 })} MW</td>
+                    <td>{row.averagePrice.toLocaleString(undefined, { maximumFractionDigits: 1 })} {currencySymbol}/MWh</td>
+                    <td>{row.totalEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} t</td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

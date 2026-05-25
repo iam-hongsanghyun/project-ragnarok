@@ -316,7 +316,7 @@ function AppInner() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const { model: nextModel, outputs } = await parseProjectFile(file);
+      const { model: nextModel, outputs, metadata } = await parseProjectFile(file);
       const importedPathway = readPathwayConfigFromModel(nextModel);
       resetForNewModel(nextModel, file.name || 'ragnarok_project.xlsx');
       setFileHandle(null);
@@ -333,15 +333,19 @@ function AppInner() {
           discountRate: settings.discountRate,
           snapshotWeight,
           selectedPeriod: getDefaultSelectedPeriod(importedPathway),
-          pathway: importedPathway.enabled ? {
+          pathway: metadata.pathway ?? (importedPathway.enabled ? {
             enabled: true,
             periods: importedPathway.periods.map((row) => row.period),
             selectedPeriod: getDefaultSelectedPeriod(importedPathway),
             snapshotMappingMode: importedPathway.snapshotMappingMode,
             summaries: [],
-          } : null,
-          narrative: [`Imported project from ${file.name}. Outputs restored from workbook.`],
+          } : null),
+          narrative: metadata.narrative ?? [`Imported project from ${file.name}. Outputs restored from workbook.`],
         });
+        imported.pluginAnalytics = metadata.pluginAnalytics;
+        imported.co2Shadow = metadata.co2Shadow ?? imported.co2Shadow;
+        imported.runMeta = metadata.runMeta ?? imported.runMeta;
+        imported.pathway = metadata.pathway ?? imported.pathway;
         setResults(imported);
         setAnalyticsFocus({ type: 'system' });
         setRunHistory((hist) => {
@@ -386,7 +390,13 @@ function AppInner() {
     const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_project';
     const out = `${base}_project.xlsx`;
     try {
-      exportProjectWorkbook(model, results?.outputs, out);
+      exportProjectWorkbook(model, results?.outputs, results ? {
+        pluginAnalytics: results.pluginAnalytics,
+        co2Shadow: results.co2Shadow,
+        narrative: results.narrative,
+        runMeta: results.runMeta,
+        pathway: results.pathway,
+      } : undefined, out);
       showToast(
         results?.outputs
           ? 'Project (inputs + solved outputs) exported'
