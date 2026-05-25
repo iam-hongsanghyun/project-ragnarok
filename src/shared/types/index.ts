@@ -132,6 +132,24 @@ export interface ScenarioCatalog {
   scenarios: ScenarioPreset[];
 }
 
+export interface ProjectRunState {
+  snapshotStart: number;
+  snapshotEnd: number;
+  snapshotWeight: number;
+  carbonPrice: number;
+  forceLp: boolean;
+  activeScenarioId: string | null;
+}
+
+export interface ProjectImportProvenance {
+  exportedAt: string;
+  exportedFilename: string;
+  schemaCommitSha: string;
+  schemaGeneratedAt: string;
+  importedFromFilename: string | null;
+  importedAt: string | null;
+}
+
 export interface PathwayPeriodSummary {
   period: number;
   snapshotCount: number;
