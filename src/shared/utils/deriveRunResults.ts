@@ -63,10 +63,10 @@ function isoToLabel(iso: string): string {
 function pickSnapshots(series: SeriesMap): string[] {
   for (const key of ['generators-p', 'buses-marginal_price', 'storage_units-p', 'stores-p']) {
     const rows = series[key];
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map((r) => stringValue(r.snapshot));
   }
   for (const rows of Object.values(series)) {
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map((r) => stringValue(r.snapshot));
   }
   return [];
 }

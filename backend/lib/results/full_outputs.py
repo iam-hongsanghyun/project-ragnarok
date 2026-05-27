@@ -11,7 +11,7 @@ The dict shape mirrors what the frontend already understands:
     {
         "static":  { "<list_name>": { "<component_name>": { "<attr>": value, ... }, ... }, ... },
         "series":  { "<list_name>-<attr>": [
-                       { "name": "<timestamp>", "<component_name>": value, ... },
+                       { "snapshot": "<timestamp>", "<component_name>": value, ... },
                        ...
                      ], ... },
     }
@@ -79,6 +79,15 @@ def _component_output_attrs(sheet_name: str) -> tuple[list[str], list[str]]:
 
 
 def _series_snapshot_row(snapshot: Any) -> dict[str, Any]:
+    """Build the index cell(s) for one output time-series row.
+
+    Uses a single PyPSA-standard ``snapshot`` column to match the input
+    temporal sheets (``snapshots``, ``loads-p_set`` …) and PyPSA's own
+    ``*_t`` frame index. Multi-investment results additionally carry the
+    ``period`` level. (Earlier versions emitted redundant ``name`` and
+    ``timestamp`` columns holding the same value; the frontend readers keep
+    a fallback so those legacy workbooks still import.)
+    """
     if isinstance(snapshot, tuple) and len(snapshot) == 2:
         period = int(snapshot[0])
         timestep = snapshot[1]
@@ -86,12 +95,12 @@ def _series_snapshot_row(snapshot: Any) -> dict[str, Any]:
             stamp = pd.Timestamp(timestep).isoformat()
         except Exception:
             stamp = str(timestep)
-        return {"period": period, "name": stamp, "timestamp": stamp}
+        return {"period": period, "snapshot": stamp}
     try:
         stamp = pd.Timestamp(snapshot).isoformat()
     except Exception:
         stamp = str(snapshot)
-    return {"name": stamp, "timestamp": stamp}
+    return {"snapshot": stamp}
 
 
 def build_full_outputs(network: pypsa.Network) -> dict[str, Any]:

@@ -59,16 +59,17 @@ function isoToLabel(iso: string): string {
   return iso.slice(t + 1, t + 6);
 }
 
-/** Read the snapshot timestamps from any output series sheet. */
+/** Read the snapshot timestamps from any output series sheet (PyPSA-standard
+ * `snapshot` index column). */
 function pickSnapshots(series: SeriesMap, preferred: string[]): string[] {
   for (const key of preferred) {
     const rows = series[key];
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map((r) => stringValue(r.snapshot));
   }
   // Fallback: any non-empty series
   for (const key of Object.keys(series)) {
     const rows = series[key];
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map((r) => stringValue(r.snapshot));
   }
   return [];
 }
