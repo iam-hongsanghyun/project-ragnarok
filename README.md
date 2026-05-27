@@ -44,6 +44,15 @@ Frontend:
 - [src/constants/pypsa_schema.ts](/Users/sanghyun/github/pypsa_gui/src/constants/pypsa_schema.ts): generated PyPSA schema adapter for the frontend
 - [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts): workbook parse/save/project round-trip
 - [src/shared/utils/deriveRunResults.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/deriveRunResults.ts): rebuilds `RunResults` from imported workbook outputs
+- [src/shared/utils/helpers.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/helpers.ts): `normalizeDateToIso` (input date parser), `isoDate`/`isoTime` (canonical display helpers), `formatTimestamp`
+
+### Date handling
+
+The **Date format** setting (`auto` / `dmy` / `mdy` / `ymd`) declares only the format of the **input** data — it tells the parser how to interpret ambiguous date strings from user workbooks (e.g. `01-08-2024` → August 1st in `dmy`, January 8th in `mdy`). It does **not** control how dates are displayed anywhere in the UI.
+
+The single canonical target format used for display, storage, and backend communication is **ISO 8601: `YYYY-MM-DD`** (with `HH:MM` or `THH:MM:SS` when time is present). Normalization happens at the import boundary via `normalizeInputDatesToIso` in `workbook.ts`, which is called at all three open/import entry points in `App.tsx`. The backend therefore always receives ISO date strings and parses them without any locale or `dayfirst` override.
+
+Time-series chart x-axis labels adapt to the visible span: `HH:MM` (≤ 24 h), `YYYY-MM-DD HH:MM` (1–7 days), `YYYY-MM-DD` (7–90 days), `YYYY-MM` (> 90 days). Tick density scales with the span as well.
 
 Backend:
 
@@ -81,22 +90,23 @@ Backend:
   - `co2Shadow`
   - plugin analytics
 - also writes dedicated project-state metadata sheets for:
-  - settings
+  - settings (including date format, currency, solver config)
   - active constraints
   - run window / force-LP / active scenario
-  - run history
   - import provenance
+- does **not** include per-entry run history (the current run is reconstructed from output sheets on import; prior history entries are not preserved)
 - still does not include a backend-solved network artifact
 
 `Import Project`
 
-- parses workbook inputs
+- parses workbook inputs; all date strings are normalized to ISO (YYYY-MM-DD) using the date format declared in the imported settings
 - parses solved PyPSA output attributes/sheets
 - restores Ragnarok pathway metadata
 - restores Ragnarok rolling and scenario metadata
 - rebuilds a frontend `RunResults` object from workbook outputs
 - restores `pluginAnalytics`, `co2Shadow`, solver narrative, `runMeta`, and pathway metadata from Ragnarok metadata sheets
-- restores settings, constraints, run window, run history, and import provenance
+- restores settings (date format, currency, solver config), constraints, run window, and import provenance
+- synthesizes a single `Import N` run-history entry for the imported run (prior history entries from before the export are not preserved)
 - still does not restore a backend-solved network artifact
 
 `Export Result`
@@ -149,7 +159,7 @@ optimization envelope is broader than the workflow Ragnarok currently exposes.
 | Generic backend ingestion of documented input attributes | `Full` | Backend uses schema-derived input static/time-series attributes in [backend/lib/network/__init__.py](/Users/sanghyun/github/pypsa_gui/backend/lib/network/__init__.py). |
 | Generic solved-output extraction for documented PyPSA outputs | `Full` | Backend extracts schema-marked outputs in [backend/lib/results/full_outputs.py](/Users/sanghyun/github/pypsa_gui/backend/lib/results/full_outputs.py). |
 | Input-only save/load round-trip | `Full` | Known PyPSA input sheets round-trip through [src/shared/utils/workbook.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/workbook.ts). |
-| Full project workbook round-trip | `Partial` | Solved outputs and Ragnarok metadata now round-trip settings, constraints, run window, run history, provenance, scenarios, pathway, rolling, and plugin analytics. Remaining gap is the backend-solved network artifact. |
+| Full project workbook round-trip | `Partial` | Solved outputs and Ragnarok metadata now round-trip settings (including date format), constraints, run window, provenance, scenarios, pathway, rolling, and plugin analytics. Prior run-history entries are not preserved (only the current run is reconstructed on import). Remaining gap is the backend-solved network artifact. |
 | Restore analytics from imported solved workbook | `Full` | Frontend reconstructs analytics locally from `(model, outputs)` and restores plugin analytics / solve metadata from workbook metadata sheets. |
 | Result workbook export for reporting | `Full` | `Export Result` keeps a dedicated reporting workbook. |
 | HTML report export | `Full` | Implemented in [src/shared/utils/exportReport.ts](/Users/sanghyun/github/pypsa_gui/src/shared/utils/exportReport.ts). |
