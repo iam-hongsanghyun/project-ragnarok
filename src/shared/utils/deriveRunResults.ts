@@ -456,11 +456,16 @@ export function deriveRunResults(
   const lineLoading: Array<{ label: string; value: number }> = [];
   function pushBranchLoading(
     rows: Record<string, GridRow>, capAttr: 's_nom' | 'p_nom', p0Sheet: string,
+    staticSheet: string,
   ) {
     const p0 = outputs.series[p0Sheet];
     if (!p0) return;
     for (const name of Object.keys(rows)) {
-      const cap = Math.max(numberValue(rows[name][capAttr]), 1);
+      // Use optimised capacity when available (extendable lines after solve),
+      // otherwise fall back to the input nominal rating.
+      const inputCap = numberValue(rows[name][capAttr]);
+      const cap = staticOutValue(outputs.static, staticSheet, name, `${capAttr}_opt`, inputCap);
+      if (cap <= 0) continue;   // skip lines with no capacity (avoids ÷0 noise)
       let peak = 0;
       for (let i = 0; i < snapshots.length; i++) {
         peak = Math.max(peak, (Math.abs(seriesValueAt(p0, i, name)) / cap) * 100);
@@ -468,9 +473,9 @@ export function deriveRunResults(
       lineLoading.push({ label: name, value: peak });
     }
   }
-  pushBranchLoading(linesStatic, 's_nom', 'lines-p0');
-  pushBranchLoading(linksStatic, 'p_nom', 'links-p0');
-  pushBranchLoading(transformersStatic, 's_nom', 'transformers-p0');
+  pushBranchLoading(linesStatic, 's_nom', 'lines-p0', 'lines');
+  pushBranchLoading(linksStatic, 'p_nom', 'links-p0', 'links');
+  pushBranchLoading(transformersStatic, 's_nom', 'transformers-p0', 'transformers');
 
   // ── Merit order ───────────────────────────────────────────────────────────
   const SYSTEM_PREFIXES = ['load_shedding_', 'system_bess'];
