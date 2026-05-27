@@ -1,6 +1,7 @@
 import { LatLngBoundsExpression } from 'leaflet';
 import { getDefaultRowForSheet } from '../../constants';
 import { GridRow, Primitive, SheetName, WorkbookModel } from '../types';
+import type { DateFormat } from '../../features/settings/useSettings';
 
 const DEFAULT_CARRIER_PALETTE = [
   '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
@@ -196,11 +197,29 @@ export function getBusIndex(model: WorkbookModel): Record<string, GridRow> {
   return index;
 }
 
-export function formatTimestamp(raw?: string) {
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Format the date portion of a timestamp according to the user's Date format setting. */
+export function formatDatePart(date: Date, fmt: DateFormat = 'auto'): string {
+  const y = date.getFullYear();
+  const m = pad2(date.getMonth() + 1);
+  const d = pad2(date.getDate());
+  switch (fmt) {
+    case 'ymd': return `${y}-${m}-${d}`;
+    case 'dmy': return `${d}-${m}-${y}`;
+    case 'mdy': return `${m}-${d}-${y}`;
+    default:    return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+}
+
+export function formatTimestamp(raw?: string, fmt: DateFormat = 'auto') {
   if (!raw) return '';
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${formatDatePart(date, fmt)} ${time}`;
 }
 
 export function snapshotMaxFromWorkbook(rows: GridRow[]): number {

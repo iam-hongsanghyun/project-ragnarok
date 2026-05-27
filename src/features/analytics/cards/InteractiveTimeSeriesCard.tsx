@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { ChartMode, TimeSeriesRow, TimeSeriesSeries } from '../../../shared/types';
-import { numberValue } from '../../../shared/utils/helpers';
+import { numberValue, formatDatePart } from '../../../shared/utils/helpers';
+import { useDateFormat } from '../../settings/dateFormatContext';
+import type { DateFormat } from '../../settings/useSettings';
+
+const H24 = 86_400_000;
+const H7D = 7 * H24;
+
+function formatXLabel(ts: string | undefined, spanMs: number, fmt: DateFormat): string {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (spanMs <= H24) return time;
+  if (spanMs <= H7D) return `${formatDatePart(d, fmt)} ${time}`;
+  return formatDatePart(d, fmt);
+}
 
 export function InteractiveTimeSeriesCard({
   title,
@@ -18,6 +33,7 @@ export function InteractiveTimeSeriesCard({
   stacked: boolean;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const dateFormat = useDateFormat();
 
   if (!series.length) {
     return (
@@ -63,6 +79,18 @@ export function InteractiveTimeSeriesCard({
   const xForIndex = (i: number) => padding + (i / Math.max(visible.length - 1, 1)) * innerWidth;
   const yForValue = (v: number) => padding + innerHeight - ((v - minValue) / range) * innerHeight;
   const zeroY = yForValue(0);
+
+  // Compute time span from first/last timestamp to drive label format + tick density
+  const firstTs = visible[0]?.timestamp;
+  const lastTs  = visible[visible.length - 1]?.timestamp;
+  const spanMs  = firstTs && lastTs
+    ? new Date(lastTs).getTime() - new Date(firstTs).getTime()
+    : 0;
+  const targetTicks =
+    spanMs <= H24 ? Math.min(visible.length, 12) :
+    spanMs <= H7D ? 7 :
+    8;
+  const stride = Math.max(1, Math.ceil(visible.length / targetTicks));
 
   return (
     <section className="chart-card chart-card-wide">
@@ -154,7 +182,9 @@ export function InteractiveTimeSeriesCard({
 
             {visible.map((row, index) => (
               <text key={`${row.label}-${index}`} x={xForIndex(index)} y={height - 8} className="chart-axis chart-axis-x">
-                {index % Math.max(1, Math.ceil(visible.length / 8)) === 0 ? row.label : ''}
+                {index % stride === 0
+                  ? (row.timestamp ? formatXLabel(row.timestamp, spanMs, dateFormat) : row.label)
+                  : ''}
               </text>
             ))}
 

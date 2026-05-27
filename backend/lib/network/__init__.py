@@ -76,7 +76,7 @@ def build_network(
     _apply_network_sheet(network, model, notes)
 
     # ── Snapshots ─────────────────────────────────────────────────────────────
-    snaps_idx = _snapshots_index(model, pathway)
+    snaps_idx = _snapshots_index(model, pathway, str(options.get("dateFormat", "auto")))
     if len(snaps_idx) > 0:
         network.set_snapshots(snaps_idx)
     _apply_pathway_config(network, pathway, notes)
@@ -360,8 +360,17 @@ def _override_network_crs(network: pypsa.Network, crs: CRS) -> None:
 def _snapshots_index(
     model: dict[str, list[dict[str, Any]]],
     pathway: PathwayConfig,
+    date_format: str = "auto",
 ) -> pd.Index:
-    """Build the snapshot index from the `snapshots` sheet, if present."""
+    """Build the snapshot index from the `snapshots` sheet, if present.
+
+    Args:
+        date_format: User's Date format setting ("dmy", "mdy", "ymd", "auto").
+            "dmy" parses ambiguous DD-MM-YYYY strings day-first; all other
+            values fall back to pandas' month-first default. ISO strings are
+            unambiguous and unaffected.
+    """
+    day_first = date_format == "dmy"
     rows = model.get("snapshots") or []
     labels: list[str] = []
     periods: list[int] = []
@@ -381,7 +390,7 @@ def _snapshots_index(
         return pd.Index([], dtype="object")
     if pathway.enabled and pathway.snapshot_mapping_mode == "explicit_period_column":
         try:
-            timesteps = pd.to_datetime(labels)
+            timesteps = pd.to_datetime(labels, dayfirst=day_first)
         except Exception:
             timesteps = pd.Index(labels, dtype="object")
         snapshots = pd.MultiIndex.from_arrays([periods, timesteps], names=["period", "timestep"])
@@ -399,7 +408,7 @@ def _snapshots_index(
         seen.add(label)
         unique_labels.append(label)
     try:
-        return pd.to_datetime(unique_labels)
+        return pd.to_datetime(unique_labels, dayfirst=day_first)
     except Exception:
         return pd.Index(unique_labels, dtype="object")
 

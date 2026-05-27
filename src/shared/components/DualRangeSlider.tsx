@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatTimestamp } from '../../shared/utils/helpers';
+import { useDateFormat } from '../../features/settings/dateFormatContext';
 
 export function DualRangeSlider({
   min, max, low, high, step = 1,
@@ -52,6 +53,7 @@ export function TimelineSlider({
   endIndex: number;
   onChange: (start: number, end: number) => void;
 }) {
+  const dateFormat = useDateFormat();
   if (!data.length) return null;
   const maxIdx = Math.max(data.length - 1, 0);
   return (
@@ -60,14 +62,14 @@ export function TimelineSlider({
         <DualRangeSlider
           min={0} max={maxIdx}
           low={startIndex} high={endIndex}
-          formatLabel={(v) => formatTimestamp(data[v]?.timestamp) ?? String(v)}
+          formatLabel={(v) => formatTimestamp(data[v]?.timestamp, dateFormat) ?? String(v)}
           onChange={(lo, hi) => onChange(lo, hi)}
         />
       </div>
       <div className="chart-window">
         <strong>{endIndex - startIndex + 1}</strong>
         <span>
-          {formatTimestamp(data[startIndex]?.timestamp)} to {formatTimestamp(data[endIndex]?.timestamp)}
+          {formatTimestamp(data[startIndex]?.timestamp, dateFormat)} to {formatTimestamp(data[endIndex]?.timestamp, dateFormat)}
         </span>
       </div>
     </div>
