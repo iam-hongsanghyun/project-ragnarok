@@ -70,9 +70,10 @@ describe('workbook project round-trip', () => {
         },
       },
       series: {
+        // PyPSA-standard single `snapshot` index column (matches input sheets).
         'generators-p': [
-          { name: '2024-01-01 00:00', gen_coal: 200, gen_wind: 120 },
-          { name: '2024-01-01 01:00', gen_coal: 180, gen_wind: 140 },
+          { snapshot: '2024-01-01 00:00', gen_coal: 200, gen_wind: 120 },
+          { snapshot: '2024-01-01 01:00', gen_coal: 180, gen_wind: 140 },
         ],
       },
     };
@@ -94,6 +95,10 @@ describe('workbook project round-trip', () => {
     expect(series).toHaveLength(2);
     expect(series?.[0]?.gen_coal).toBe(200);
     expect(series?.[1]?.gen_wind).toBe(140);
+    // Single PyPSA-standard `snapshot` index column survives the round-trip
+    // (no redundant `name`/`timestamp` duplicate columns).
+    expect(series?.[0]?.snapshot).toBe('2024-01-01 00:00');
+    expect('timestamp' in (series?.[0] ?? {})).toBe(false);
   });
 
   test('settings round-trip preserves field types', () => {

@@ -59,16 +59,25 @@ function isoToLabel(iso: string): string {
   return iso.slice(t + 1, t + 6);
 }
 
+/**
+ * Snapshot index cell of an output series row. Prefers the PyPSA-standard
+ * `snapshot` column, falling back to the legacy `name`/`timestamp` columns so
+ * workbooks exported before that change still import.
+ */
+function seriesStamp(r: GridRow): string {
+  return stringValue(r.snapshot) || stringValue(r.name) || stringValue(r.timestamp);
+}
+
 /** Read the snapshot timestamps from any output series sheet. */
 function pickSnapshots(series: SeriesMap, preferred: string[]): string[] {
   for (const key of preferred) {
     const rows = series[key];
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map(seriesStamp);
   }
   // Fallback: any non-empty series
   for (const key of Object.keys(series)) {
     const rows = series[key];
-    if (rows && rows.length) return rows.map((r) => stringValue(r.name));
+    if (rows && rows.length) return rows.map(seriesStamp);
   }
   return [];
 }
