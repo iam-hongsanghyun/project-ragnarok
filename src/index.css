@@ -6071,8 +6071,9 @@ code, kbd, samp, tt,
 .dashboard-cell-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  padding: 8px;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
 }
 .dashboard-cell-missing {
   color: var(--muted);
@@ -6165,5 +6166,112 @@ code, kbd, samp, tt,
   font-size: 0.74rem;
   color: var(--muted);
   line-height: 1.4;
+}
+
+
+/* ── Bloomberg-style chart card: compact mode ───────────────────────── */
+
+.chart-builder-compact {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.chart-builder-compact .chart-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-builder-compact .chart-card {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  height: 100%;
+}
+
+.chart-builder-compact .chart-card-wide {
+  height: 100%;
+}
+
+.chart-builder-compact .chart-shell {
+  height: 100%;
+}
+
+/* Hide the inner chart card header in compact mode — the dashboard
+ * cell header already shows the card title. */
+.chart-builder-compact .chart-card-header { display: none; }
+
+/* Hide chrome that doesn't belong inside a dense dashboard cell. */
+.chart-builder-compact .chart-card { box-shadow: none; }
+
+/* Gear button — top right overlay on every compact chart cell */
+.chart-builder-gear {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 8;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.chart-builder-compact:hover .chart-builder-gear,
+.chart-builder-compact.is-settings-open .chart-builder-gear {
+  opacity: 1;
+}
+.chart-builder-gear:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+/* Settings overlay: drops down from the top of the cell */
+.chart-builder-settings-pop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 7;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  max-height: 70%;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+.chart-builder-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.chart-builder-settings-head strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.chart-builder-settings-pop .chart-builder-controls {
+  margin-bottom: 8px;
+}
+
+/* Width-responsive: hide the side legend when the cell is narrow */
+@container (max-width: 360px) {
+  .chart-builder-compact .chart-legend-side {
+    display: none;
+  }
 }
 
