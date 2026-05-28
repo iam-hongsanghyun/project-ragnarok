@@ -216,7 +216,7 @@ export function InteractiveTimeSeriesCard({
                     {tooltipItems.map((item, i) => (
                       <g key={item.label} transform={`translate(10,${18 + i * 18})`}>
                         <rect x="0" y="-8" width="8" height="8" rx="2" fill={item.color} />
-                        <text x="12" y="0" fill="white" fontSize="11" fontFamily="IBM Plex Sans, sans-serif">
+                        <text x="12" y="0" className="chart-tip-line">
                           {item.label}: <tspan fontWeight="700">{Math.round(item.value).toLocaleString()}</tspan>
                         </text>
                       </g>

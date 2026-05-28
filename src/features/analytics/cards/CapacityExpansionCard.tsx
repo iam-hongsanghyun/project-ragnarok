@@ -31,7 +31,7 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
       {/* Y-axis labels */}
       {rows.map((row, i) => (
         <g key={row.name} transform={`translate(0,${i * 44 + 10})`}>
-          <text x={0} y={14} fontSize={11} fill="var(--muted)" fontFamily="IBM Plex Sans, sans-serif">
+          <text x={0} y={14} className="chart-axis-title">
             {row.name.length > 20 ? row.name.slice(0, 18) + '…' : row.name}
           </text>
           {/* installed capacity bar (grey, dimmed) */}
@@ -55,10 +55,7 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
           <text
             x={(row.optimised / maxMW) * barWidth + 6}
             y={36}
-            fontSize={10}
-            fill="var(--fg)"
-            fontFamily="IBM Plex Sans, sans-serif"
-            fontWeight={700}
+            className="chart-bar-value"
           >
             {Math.round(row.optimised).toLocaleString()} MW
           </text>
@@ -67,9 +64,9 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
       {/* Legend */}
       <g transform={`translate(0,${rows.length * 44 + 12})`}>
         <rect x={0} y={0} width={12} height={8} fill="#cbd5e1" rx={2} />
-        <text x={16} y={8} fontSize={9} fill="var(--muted)" fontFamily="IBM Plex Sans, sans-serif">Installed</text>
+        <text x={16} y={8} className="chart-tick">Installed</text>
         <rect x={68} y={0} width={12} height={8} fill="#6366f1" fillOpacity={0.85} rx={2} />
-        <text x={84} y={8} fontSize={9} fill="var(--muted)" fontFamily="IBM Plex Sans, sans-serif">Optimised</text>
+        <text x={84} y={8} className="chart-tick">Optimised</text>
       </g>
     </svg>
   );

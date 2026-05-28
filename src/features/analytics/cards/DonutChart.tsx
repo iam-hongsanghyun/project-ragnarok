@@ -62,8 +62,8 @@ export function DonutChart({ data }: { data: MixItem[] }) {
           return (
             <g transform={`translate(${tx},${ty})`} style={{ pointerEvents: 'none' }}>
               <rect rx="7" ry="7" width="160" height="48" fill="rgba(15,23,42,0.88)" />
-              <text y="18" x="10" fill="rgba(255,255,255,0.75)" fontSize="11" fontFamily="IBM Plex Sans, sans-serif">{tooltip.label}</text>
-              <text y="36" x="10" fill="white" fontSize="13" fontWeight="700" fontFamily="IBM Plex Sans, sans-serif">
+              <text y="18" x="10" className="chart-tip-label">{tooltip.label}</text>
+              <text y="36" x="10" className="chart-tip-value">
                 {Math.round(tooltip.value).toLocaleString()}
               </text>
             </g>

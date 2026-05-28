@@ -67,7 +67,7 @@ export function StochasticScenariosCard({ stochastic, currencySymbol }: Props) {
               <td>
                 {s.name}
                 {s.name === representativeScenario && (
-                  <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: 6 }}>(shown above)</span>
+                  <span className="chart-unit-note">(shown above)</span>
                 )}
               </td>
               <td>{s.weight.toFixed(2)}</td>

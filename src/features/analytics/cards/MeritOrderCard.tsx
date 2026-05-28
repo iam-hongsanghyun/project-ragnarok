@@ -63,11 +63,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
                 x1={0} y1={tick.y} x2={innerW} y2={tick.y}
                 stroke="rgba(15,23,42,0.07)" strokeWidth={1}
               />
-              <text
-                x={-6} y={tick.y + 4}
-                fontSize={10} fill="#64748b" textAnchor="end"
-                fontFamily="IBM Plex Sans, sans-serif"
-              >
+              <text x={-6} y={tick.y + 4} textAnchor="end" className="chart-tick">
                 {tick.value}
               </text>
             </g>
@@ -102,11 +98,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
                 x1={demandX} y1={0} x2={demandX} y2={innerH}
                 stroke="#dc2626" strokeWidth={2} strokeDasharray="6 3"
               />
-              <text
-                x={demandX + 4} y={12}
-                fontSize={10} fill="#dc2626"
-                fontFamily="IBM Plex Sans, sans-serif" fontWeight={600}
-              >
+              <text x={demandX + 4} y={12} className="chart-peak-label">
                 Peak load
               </text>
             </g>
@@ -117,20 +109,16 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
           <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="#cbd5e1" strokeWidth={1} />
 
           {/* X-axis label */}
-          <text
-            x={innerW / 2} y={innerH + 32}
-            fontSize={11} fill="#64748b" textAnchor="middle"
-            fontFamily="IBM Plex Sans, sans-serif"
-          >
+          <text x={innerW / 2} y={innerH + 32} textAnchor="middle" className="chart-axis-title">
             Cumulative capacity (MW)
           </text>
 
           {/* Y-axis label */}
           <text
             x={-(innerH / 2)} y={-42}
-            fontSize={11} fill="#64748b" textAnchor="middle"
+            textAnchor="middle"
             transform="rotate(-90)"
-            fontFamily="IBM Plex Sans, sans-serif"
+            className="chart-axis-title"
           >
             Marginal cost ({currencySymbol}/MWh)
           </text>
@@ -142,11 +130,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
             return (
               <g key={t}>
                 <line x1={x} y1={innerH} x2={x} y2={innerH + 4} stroke="#cbd5e1" strokeWidth={1} />
-                <text
-                  x={x} y={innerH + 14}
-                  fontSize={9} fill="#64748b" textAnchor="middle"
-                  fontFamily="IBM Plex Sans, sans-serif"
-                >
+                <text x={x} y={innerH + 14} textAnchor="middle" className="chart-tick">
                   {mw.toLocaleString()}
                 </text>
               </g>
@@ -163,20 +147,16 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
             return (
               <g transform={`translate(${tx},${ty})`} style={{ pointerEvents: 'none' }}>
                 <rect rx={6} width={160} height={68} fill="rgba(15,23,42,0.9)" />
-                <text x={10} y={18} fontSize={11} fill="white" fontWeight={600}
-                  fontFamily="IBM Plex Sans, sans-serif">
+                <text x={10} y={18} className="chart-tip-name">
                   {hovered.name.length > 18 ? hovered.name.slice(0, 16) + '…' : hovered.name}
                 </text>
-                <text x={10} y={34} fontSize={10} fill="#94a3b8"
-                  fontFamily="IBM Plex Sans, sans-serif">
+                <text x={10} y={34} className="chart-tip-sub">
                   {hovered.carrier} · {hovered.bus}
                 </text>
-                <text x={10} y={50} fontSize={10} fill="white"
-                  fontFamily="IBM Plex Sans, sans-serif">
+                <text x={10} y={50} className="chart-tip-line">
                   Cost: <tspan fontWeight={700}>{currencySymbol}{hovered.marginal_cost.toLocaleString()}/MWh</tspan>
                 </text>
-                <text x={10} y={64} fontSize={10} fill="white"
-                  fontFamily="IBM Plex Sans, sans-serif">
+                <text x={10} y={64} className="chart-tip-line">
                   Capacity: <tspan fontWeight={700}>{hovered.p_nom.toLocaleString()} MW</tspan>
                 </text>
               </g>

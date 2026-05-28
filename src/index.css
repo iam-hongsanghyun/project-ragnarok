@@ -1958,6 +1958,33 @@ button {
   text-anchor: middle;
 }
 
+/* SVG chart text — sizes are in SVG user units (px), centralised here so
+   every card's labels stay consistent. font-family pulls from the sans
+   token instead of each <text> hardcoding "IBM Plex Sans, sans-serif". */
+.chart-tick,
+.chart-axis-title,
+.chart-bar-value,
+.chart-peak-label,
+.chart-tip-label,
+.chart-tip-sub,
+.chart-tip-name,
+.chart-tip-line,
+.chart-tip-value { font-family: var(--font-sans); }
+
+.chart-tick       { fill: var(--muted); font-size: 10px; }
+.chart-axis-title { fill: var(--muted); font-size: 11px; }
+.chart-bar-value  { fill: var(--text); font-size: 10px; font-weight: 700; }
+.chart-peak-label { fill: var(--danger); font-size: 10px; font-weight: 600; }
+/* Tooltip text sits on a dark (rgba(15,23,42,0.88)) surface. */
+.chart-tip-label  { fill: rgba(255, 255, 255, 0.72); font-size: 11px; }
+.chart-tip-sub    { fill: #94a3b8; font-size: 10px; }
+.chart-tip-name   { fill: #fff; font-size: 11px; font-weight: 600; }
+.chart-tip-line   { fill: #fff; font-size: 11px; }
+.chart-tip-value  { fill: #fff; font-size: 12px; font-weight: 700; }
+
+/* Inline unit/secondary annotation next to a value in HTML chart tables. */
+.chart-unit-note { color: var(--muted); font-size: 0.78rem; margin-left: 4px; }
+
 .donut-layout {
   display: flex;
   gap: 24px;

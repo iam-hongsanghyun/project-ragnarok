@@ -123,7 +123,7 @@ export function ScenarioPivotCard({ runs, activeResults, currencySymbol }: Props
         <tbody>
           {metricRows.map((row) => (
             <tr key={row.label}>
-              <td>{row.label}{row.unit && <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: 4 }}>({row.unit})</span>}</td>
+              <td>{row.label}{row.unit && <span className="chart-unit-note">({row.unit})</span>}</td>
               {row.values.map((v, i) => (
                 <td
                   key={`${row.label}-${v.scenarioLabel}`}
@@ -139,7 +139,7 @@ export function ScenarioPivotCard({ runs, activeResults, currencySymbol }: Props
                   <td key={`delta-${row.label}-${v.scenarioLabel}`}>
                     {delta > 0 ? '+' : ''}{delta.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     {pct !== null && (
-                      <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: 4 }}>
+                      <span className="chart-unit-note">
                         ({pct > 0 ? '+' : ''}{pct.toFixed(1)}%)
                       </span>
                     )}
