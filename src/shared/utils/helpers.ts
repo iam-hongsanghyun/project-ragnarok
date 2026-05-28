@@ -139,12 +139,12 @@ export function orderByCarrierRows(carrierRows: GridRow[], keys: string[]): stri
  * Map a line loading percentage (0–100+) to a colour on a
  * green → yellow → red traffic-light scale.
  */
-/** Diverging blue → light-grey → red scale for nodal price maps. */
+/** Diverging teal → light-grey → red scale for nodal price maps. */
 export function priceColor(value: number, min: number, max: number): string {
-  if (min >= max) return '#2563eb';
+  if (min >= max) return '#0f766e';
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const lerp = (a: number, b: number, s: number) => Math.round(a + (b - a) * s);
-  const [r1, g1, b1] = [37,  99,  235]; // #2563eb  (low price)
+  const [r1, g1, b1] = [15, 118, 110]; // #0f766e (low price)
   const [rm, gm, bm] = [241, 245, 249]; // #f1f5f9  (mid / average)
   const [r2, g2, b2] = [220, 38,  38];  // #dc2626  (high price)
   if (t <= 0.5) {

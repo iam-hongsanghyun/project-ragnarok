@@ -104,22 +104,23 @@ export function MapPane({ model, bounds, busIndex }: Props) {
       <div className="map-frame" style={{ position: 'relative' }}>
         <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom>
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            subdomains="abcd"
           />
           <FitToBounds bounds={bounds} />
           {visibleLayers.lines && lineGeometries.map((line) => (
-            <Polyline key={line.name} positions={line.positions} pathOptions={{ color: '#2563eb', weight: 3, opacity: 0.72 }}>
+            <Polyline key={line.name} positions={line.positions} pathOptions={{ color: '#0f766e', weight: 2, opacity: 0.72 }}>
               <Tooltip>{line.name} · {Math.round(line.sNom)} MVA</Tooltip>
             </Polyline>
           ))}
           {visibleLayers.links && linkGeometries.map((link) => (
-            <Polyline key={link.name} positions={link.positions} pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.84, dashArray: '10 8' }}>
+            <Polyline key={link.name} positions={link.positions} pathOptions={{ color: '#0f766e', weight: 2, opacity: 0.84, dashArray: '10 8' }}>
               <Tooltip>{link.name} · {Math.round(link.pNom)} MW link</Tooltip>
             </Polyline>
           ))}
           {visibleLayers.transformers && transformerGeometries.map((transformer) => (
-            <Polyline key={transformer.name} positions={transformer.positions} pathOptions={{ color: '#f97316', weight: 4, opacity: 0.78, dashArray: '8 6' }}>
+            <Polyline key={transformer.name} positions={transformer.positions} pathOptions={{ color: '#f97316', weight: 2, opacity: 0.78, dashArray: '8 6' }}>
               <Tooltip>{transformer.name} · Transformer</Tooltip>
             </Polyline>
           ))}
@@ -131,7 +132,7 @@ export function MapPane({ model, bounds, busIndex }: Props) {
                 key={`${stringValue(bus.name)}-${index}`}
                 center={coords}
                 radius={8}
-                pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#2563eb', fillOpacity: 0.95 }}
+                pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#0f766e', fillOpacity: 0.95 }}
               >
                 <Tooltip sticky>
                   <strong>{stringValue(bus.name)}</strong><br />

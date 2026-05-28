@@ -23,6 +23,7 @@ import { FileToolbar, FileToolbarProps } from './ModelView.features/FileToolbar'
 import { SheetTree } from './ModelView.features/SheetTree';
 import { MapPane } from '../features/map/MapPane';
 import { TablesPane } from '../features/input/TablesPane';
+import { ResizablePanels } from '../layout/ResizablePanels';
 
 export interface ModelViewProps extends FileToolbarProps {
   model: WorkbookModel;
@@ -39,6 +40,11 @@ export interface ModelViewProps extends FileToolbarProps {
   onDeleteColumn: (sheet: SheetName, col: string) => void;
   onRenameColumn: (sheet: SheetName, oldCol: string, newCol: string) => void;
   onImportTsSheet: (sheet: TsSheetName, rows: GridRow[]) => void;
+  onBulkPaste: (
+    sheet: SheetName,
+    edits: { rowIndex: number; col: string; val: Primitive }[],
+    extraRows: number,
+  ) => void;
   modelIssues: ModelIssue[];
   jumpTo: { sheet: string; rowIndex: number } | null;
   currencySymbol: string;
@@ -51,7 +57,7 @@ export function ModelView(props: ModelViewProps) {
   return (
     <div className="model-view">
       <FileToolbar {...props} />
-      <div className="model-columns">
+      <ResizablePanels id="model" direction="horizontal" className="model-columns" initialSizes={[20, 40, 40]} minSize={160}>
         <section className="model-column model-column-tree">
           <SheetTree
             model={props.model}
@@ -72,6 +78,7 @@ export function ModelView(props: ModelViewProps) {
             onDeleteColumn={props.onDeleteColumn}
             onRenameColumn={props.onRenameColumn}
             onImportTsSheet={props.onImportTsSheet}
+            onBulkPaste={props.onBulkPaste}
             issues={props.modelIssues}
             jumpTo={props.jumpTo}
             currencySymbol={props.currencySymbol}
@@ -81,7 +88,7 @@ export function ModelView(props: ModelViewProps) {
         <section className="model-column model-column-map">
           <MapPane model={props.model} bounds={props.bounds} busIndex={props.busIndex} />
         </section>
-      </div>
+      </ResizablePanels>
     </div>
   );
 }

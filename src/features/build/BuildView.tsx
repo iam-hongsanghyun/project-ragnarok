@@ -1,0 +1,307 @@
+/**
+ * Build view — guided wizard for constructing a PyPSA model from scratch.
+ *
+ * Walks the user through the schema in dependency order
+ * (Network → Carriers → Buses → ... → Review). Each step focuses one or two
+ * schema sheets and writes directly into the shared `WorkbookModel`, so
+ * switching to the Model tab at any time shows the same data.
+ *
+ * Layout: a horizontal step strip at the top, a TablesPane scoped to the
+ * step's primary sheet on the left, and a schema/issue detail pane on the
+ * right.
+ */
+import React, { useMemo, useState } from 'react';
+import {
+  GridRow,
+  Primitive,
+  SheetName,
+  TableSel,
+  TsSheetName,
+  WorkbookModel,
+} from '../../shared/types';
+import { TablesPane } from '../input/TablesPane';
+import { ModelIssue } from '../validation/useModelIssues';
+import { DateFormat } from '../settings/useSettings';
+import { BUILD_STEPS, BuildStep, getStepIssues } from './steps';
+import { BuildDetailPane } from './BuildDetailPane';
+import { ResizablePanels } from '../../layout/ResizablePanels';
+
+export interface BuildViewProps {
+  model: WorkbookModel;
+  onUpdateRow: (sheet: SheetName, rowIndex: number, col: string, val: Primitive) => void;
+  onAddRow: (sheet: SheetName) => void;
+  onDeleteRow: (sheet: SheetName, rowIndex: number) => void;
+  onAddColumn: (sheet: SheetName, col: string, defaultValue: string | number | boolean) => void;
+  onDeleteColumn: (sheet: SheetName, col: string) => void;
+  onRenameColumn: (sheet: SheetName, oldCol: string, newCol: string) => void;
+  onImportTsSheet: (sheet: TsSheetName, rows: GridRow[]) => void;
+  onBulkPaste: (
+    sheet: SheetName,
+    edits: { rowIndex: number; col: string; val: Primitive }[],
+    extraRows: number,
+  ) => void;
+  modelIssues: ModelIssue[];
+  currencySymbol: string;
+  dateFormat: DateFormat;
+  onOpenConstraintsWorkspace?: () => void;
+  onOpenRunSetup?: () => void;
+}
+
+export function BuildView(props: BuildViewProps) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+  const step: BuildStep = BUILD_STEPS[stepIndex];
+
+  const tableSel: TableSel = useMemo(
+    () => ({ kind: 'static', sheet: step.primarySheet as SheetName }),
+    [step.primarySheet],
+  );
+
+  const completionByIndex = useMemo(
+    () => BUILD_STEPS.map((s) => s.isComplete(props.model)),
+    [props.model],
+  );
+
+  const errorCountByIndex = useMemo(
+    () =>
+      BUILD_STEPS.map(
+        (s) => getStepIssues(s, props.modelIssues).filter((i) => i.severity === 'error').length,
+      ),
+    [props.modelIssues],
+  );
+
+  const warningCountByIndex = useMemo(
+    () =>
+      BUILD_STEPS.map(
+        (s) => getStepIssues(s, props.modelIssues).filter((i) => i.severity === 'warning').length,
+      ),
+    [props.modelIssues],
+  );
+
+  const goStep = (i: number) => {
+    setStepIndex(i);
+    setFocusedRowIndex(null);
+  };
+
+  return (
+    <div className="build-view">
+      <nav className="subnav build-step-strip" aria-label="Build steps">
+        {BUILD_STEPS.map((s, i) => {
+          const complete = completionByIndex[i];
+          const errorCount = errorCountByIndex[i];
+          const warningCount = warningCountByIndex[i];
+          const active = i === stepIndex;
+          const cls = [
+            'subnav-btn',
+            'build-step-btn',
+            active ? 'subnav-btn--active' : '',
+            errorCount > 0 ? 'subnav-btn--error' : '',
+            errorCount === 0 && warningCount > 0 ? 'subnav-btn--warn' : '',
+            errorCount === 0 && warningCount === 0 && complete ? 'subnav-btn--ok' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <button key={s.id} className={cls} onClick={() => goStep(i)} type="button">
+              <span className="build-step-num">{complete && errorCount === 0 ? '✓' : i + 1}</span>
+              <span className="build-step-label">{s.label}</span>
+              {errorCount > 0 && <span className="tab-badge tab-badge--error">{errorCount}</span>}
+              {errorCount === 0 && warningCount > 0 && (
+                <span className="tab-badge tab-badge--warn">{warningCount}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="build-step-header">
+        <div>
+          <p className="eyebrow">Step {stepIndex + 1} of {BUILD_STEPS.length}</p>
+          <h2>{step.label}</h2>
+          <p className="build-step-description">{step.description}</p>
+        </div>
+        <div className="build-step-nav">
+          <button
+            className="ghost-button sm"
+            onClick={() => goStep(Math.max(0, stepIndex - 1))}
+            disabled={stepIndex === 0}
+            type="button"
+          >
+            ← Back
+          </button>
+          <button
+            className="ghost-button sm"
+            onClick={() => goStep(Math.min(BUILD_STEPS.length - 1, stepIndex + 1))}
+            disabled={stepIndex === BUILD_STEPS.length - 1}
+            type="button"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
+      <ResizablePanels id="build" direction="horizontal" className="build-body" initialSizes={[72, 28]} minSize={220}>
+        <section className="build-body-main">
+          {step.id === 'constraints' ? (
+            <ConstraintsStepPanel
+              model={props.model}
+              onOpenConstraintsWorkspace={props.onOpenConstraintsWorkspace}
+            />
+          ) : step.id === 'review' ? (
+            <ReviewStepPanel
+              model={props.model}
+              issues={props.modelIssues}
+              onJumpToStep={goStep}
+              onOpenRunSetup={props.onOpenRunSetup}
+            />
+          ) : (
+            <TablesPane
+              model={props.model}
+              sel={tableSel}
+              onSelChange={() => {/* fixed per step */}}
+              onUpdate={props.onUpdateRow}
+              onAddRow={props.onAddRow}
+              onDeleteRow={props.onDeleteRow}
+              onAddColumn={props.onAddColumn}
+              onDeleteColumn={props.onDeleteColumn}
+              onRenameColumn={props.onRenameColumn}
+              onImportTsSheet={props.onImportTsSheet}
+              onBulkPaste={props.onBulkPaste}
+              issues={props.modelIssues}
+              jumpTo={null}
+              currencySymbol={props.currencySymbol}
+              dateFormat={props.dateFormat}
+              onFocusRow={setFocusedRowIndex}
+            />
+          )}
+        </section>
+        <BuildDetailPane
+          step={step}
+          model={props.model}
+          issues={props.modelIssues}
+          focusedRowIndex={focusedRowIndex}
+        />
+      </ResizablePanels>
+    </div>
+  );
+}
+
+interface ConstraintsStepPanelProps {
+  model: WorkbookModel;
+  onOpenConstraintsWorkspace?: () => void;
+}
+
+function ConstraintsStepPanel({ model, onOpenConstraintsWorkspace }: ConstraintsStepPanelProps) {
+  const globalRows: GridRow[] = model.global_constraints ?? [];
+  return (
+    <div className="build-constraints-panel">
+      <p>
+        Global constraints (CO₂ caps, expansion limits, primary-energy budgets) are edited
+        in the dedicated Constraints workspace. This step is a summary.
+      </p>
+      <div className="build-constraints-summary">
+        <span className="build-constraints-count">
+          {globalRows.length} global constraint{globalRows.length === 1 ? '' : 's'} defined
+        </span>
+        {onOpenConstraintsWorkspace && (
+          <button className="ghost-button sm" onClick={onOpenConstraintsWorkspace} type="button">
+            Open Constraints workspace →
+          </button>
+        )}
+      </div>
+      {globalRows.length > 0 && (
+        <ul className="build-constraints-list">
+          {globalRows.map((row, idx) => (
+            <li key={idx}>
+              <strong>{String(row.name ?? `constraint ${idx + 1}`)}</strong>
+              {row.type ? <span> · {String(row.type)}</span> : null}
+              {row.sense ? <span> {String(row.sense)}</span> : null}
+              {row.constant != null ? <span> {String(row.constant)}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface ReviewStepPanelProps {
+  model: WorkbookModel;
+  issues: ModelIssue[];
+  onJumpToStep: (i: number) => void;
+  onOpenRunSetup?: () => void;
+}
+
+function ReviewStepPanel({ model, issues, onJumpToStep, onOpenRunSetup }: ReviewStepPanelProps) {
+  const errorCount = issues.filter((i) => i.severity === 'error').length;
+  const warningCount = issues.filter((i) => i.severity === 'warning').length;
+  return (
+    <div className="build-review-panel">
+      <div className="build-review-headline">
+        <div className={`build-review-status build-review-status--${errorCount > 0 ? 'error' : warningCount > 0 ? 'warn' : 'ok'}`}>
+          <span className="build-review-status-glyph">{errorCount > 0 ? '!' : warningCount > 0 ? '?' : '✓'}</span>
+          <div>
+            <p className="eyebrow">{errorCount > 0 ? 'Not ready to run' : warningCount > 0 ? 'Review warnings' : 'Ready to run'}</p>
+            <h3>
+              {errorCount} error{errorCount === 1 ? '' : 's'} · {warningCount} warning{warningCount === 1 ? '' : 's'}
+            </h3>
+          </div>
+        </div>
+        {errorCount === 0 && onOpenRunSetup && (
+          <button className="primary-button" onClick={onOpenRunSetup} type="button">
+            Open Run setup →
+          </button>
+        )}
+      </div>
+
+      <table className="build-review-counts">
+        <thead>
+          <tr>
+            <th>Step</th>
+            <th>Sheet</th>
+            <th>Rows</th>
+            <th>Errors</th>
+          </tr>
+        </thead>
+        <tbody>
+          {BUILD_STEPS.slice(0, -1).map((s, i) => {
+            const rowCount = Array.isArray(model[s.primarySheet]) ? model[s.primarySheet].length : 0;
+            const stepErrors = getStepIssues(s, issues).filter((iss) => iss.severity === 'error').length;
+            return (
+              <tr key={s.id}>
+                <td>
+                  <button className="build-review-step-link" onClick={() => onJumpToStep(i)} type="button">
+                    {s.label}
+                  </button>
+                </td>
+                <td><code>{s.primarySheet}</code></td>
+                <td>{rowCount}</td>
+                <td className={stepErrors > 0 ? 'build-review-error-cell' : ''}>{stepErrors}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {issues.length > 0 && (
+        <div className="build-review-issues">
+          <h4>Top issues</h4>
+          <ul>
+            {issues.slice(0, 10).map((iss, idx) => (
+              <li key={idx} className={`build-issue build-issue--${iss.severity}`}>
+                <span className="build-issue-badge">{iss.severity === 'error' ? '!' : '?'}</span>
+                <span>
+                  <code>{iss.sheet}</code> · row {iss.rowIndex + 1}
+                  {iss.col ? ` · ${iss.col}` : ''} — {iss.message}
+                </span>
+              </li>
+            ))}
+            {issues.length > 10 && (
+              <li className="build-issue build-issue--more">+ {issues.length - 10} more</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -50,7 +50,7 @@ export function Co2ShadowCard({ shadow, currencySymbol = '$' }: Props) {
 
         <div className="co2-kpi">
           <div className="co2-kpi-label">Explicit carbon price</div>
-          <div className="co2-kpi-value" style={{ color: '#2563eb' }}>
+          <div className="co2-kpi-value" style={{ color: '#0f766e' }}>
             {shadow.explicit_price > 0 ? `${currencySymbol}${shadow.explicit_price.toLocaleString()}` : '—'}
           </div>
           <div className="co2-kpi-unit">/tCO₂</div>

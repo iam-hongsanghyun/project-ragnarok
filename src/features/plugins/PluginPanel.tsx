@@ -381,7 +381,7 @@ export function PluginPanel({
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: 'var(--brand, #2563eb)',
+                    background: 'var(--brand, #0f766e)',
                     marginLeft: 6,
                     verticalAlign: 'middle',
                   }}

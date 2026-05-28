@@ -11,7 +11,7 @@ interface MapLegendProps {
 }
 
 const LINE_TYPES = [
-  { label: 'Line', color: '#2563eb', dash: false },
+  { label: 'Line', color: '#0f766e', dash: false },
   { label: 'Link', color: '#0f766e', dash: true },
   { label: 'Transformer', color: '#f97316', dash: true },
 ];

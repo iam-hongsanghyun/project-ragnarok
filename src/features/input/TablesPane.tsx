@@ -10,6 +10,7 @@ import { normalizeDateToIso } from '../../shared/utils/helpers';
 import type { DateFormat } from '../settings/useSettings';
 import { PYPSA_STANDARD_LINE_TYPES, PYPSA_STANDARD_TRANSFORMER_TYPES } from '../../constants/pypsa_standard_types';
 import { InputAnalyser } from './InputAnalyser';
+import { DataGrid } from './grid/DataGrid';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,103 +41,6 @@ function inferInputValue(raw: string, current: Primitive): Primitive {
   const parsed = Number(raw);
   if (Number.isFinite(parsed) && /^-?\d+(\.\d+)?$/.test(raw.trim())) return parsed;
   return raw;
-}
-
-function isColorColumn(col: string): boolean {
-  return col.toLowerCase() === 'color' || col.toLowerCase().endsWith('_color');
-}
-
-// ── Column filter dropdown (rendered as a portal so overflow never clips it) ──
-
-interface FilterDropdownProps {
-  col: string;
-  allValues: string[];
-  selected: Set<string>;
-  anchorRect: DOMRect;
-  onToggle: (val: string) => void;
-  onSelectAll: () => void;      // re-include every value (reset / no filter)
-  onUncheckAll: () => void;     // empty allowed set (Excel-style hide-all)
-  onClose: () => void;
-}
-
-function FilterDropdown({
-  col, allValues, selected, anchorRect,
-  onToggle, onSelectAll, onUncheckAll, onClose,
-}: FilterDropdownProps) {
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
-  const visible = search
-    ? allValues.filter((v) => v.toLowerCase().includes(search.toLowerCase()))
-    : allValues;
-
-  const allChecked = allValues.every((v) => selected.has(v));
-
-  const top = Math.min(anchorRect.bottom + 2, window.innerHeight - 320);
-  const left = Math.min(anchorRect.left, window.innerWidth - 220);
-
-  return ReactDOM.createPortal(
-    <div
-      ref={ref}
-      className="col-filter-dropdown"
-      style={{ top, left }}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-    >
-      {/* Search */}
-      <div className="cfd-search-wrap">
-        <input
-          className="cfd-search"
-          autoFocus
-          placeholder="Search values…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Select all row */}
-      <label className="cfd-option cfd-select-all">
-        <input
-          type="checkbox"
-          checked={allChecked}
-          onChange={allChecked ? onUncheckAll : onSelectAll}
-        />
-        <span>(Select All)</span>
-      </label>
-
-      <div className="cfd-divider" />
-
-      {/* Value list */}
-      <div className="cfd-list">
-        {visible.length === 0 && <div className="cfd-empty">No matches</div>}
-        {visible.map((val) => (
-          <label key={val} className="cfd-option">
-            <input
-              type="checkbox"
-              checked={selected.has(val)}
-              onChange={() => onToggle(val)}
-            />
-            <span className="cfd-val">{val === '' ? <em style={{ color: '#94a3b8' }}>(blank)</em> : val}</span>
-          </label>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="cfd-footer">
-        <button className="cfd-btn" onClick={() => { onSelectAll(); onClose(); }}>Reset</button>
-        <button className="cfd-btn cfd-btn--primary" onClick={onClose}>OK</button>
-      </div>
-    </div>,
-    document.body,
-  );
 }
 
 // ── AddColumnDropdown ─────────────────────────────────────────────────────────
@@ -216,432 +120,6 @@ function AddColumnDropdown({ sheet, existingCols, anchorRect, onAdd, onClose }: 
   );
 }
 
-// ── SpreadsheetGrid ───────────────────────────────────────────────────────────
-
-interface SpreadsheetGridProps {
-  rows: GridRow[];
-  cols: string[];
-  frozenCol?: string | null;
-  readOnly?: boolean;
-  onUpdate?: (rowIndex: number, col: string, val: Primitive) => void;
-  rowIssues?: Map<number, 'error' | 'warning'>;
-  highlightRow?: number | null;
-  onDeleteColumn?: (col: string) => void;
-  onRenameColumn?: (oldCol: string, newCol: string) => void;
-  /** Columns that cannot be deleted or renamed (e.g. 'name') */
-  protectedCols?: string[];
-  formatDisplayValue?: (col: string, val: Primitive) => string;
-  coerceEditedValue?: (col: string, raw: string, current: Primitive) => Primitive;
-  /** Optional autocomplete suggestions for a column. Return null/empty to fall
-   *  back to a free-text input. Used to surface PyPSA standard line/transformer
-   *  type names in `lines.type` / `transformers.type` cells. */
-  getCellSuggestions?: (col: string) => string[] | null;
-}
-
-function SpreadsheetGrid({
-  rows,
-  cols,
-  frozenCol,
-  readOnly = false,
-  onUpdate,
-  rowIssues,
-  highlightRow,
-  onDeleteColumn,
-  onRenameColumn,
-  protectedCols,
-  formatDisplayValue,
-  coerceEditedValue,
-  getCellSuggestions,
-}: SpreadsheetGridProps) {
-  const [editCell, setEditCell] = useState<{ row: number; col: string; val: string } | null>(null);
-  const [renamingCol, setRenamingCol] = useState<string | null>(null);
-  const [renameVal, setRenameVal] = useState('');
-  const tbodyRef = useRef<HTMLTableSectionElement>(null);
-
-  // Scroll highlighted row into view when jumpTo fires
-  useEffect(() => {
-    if (highlightRow == null || !tbodyRef.current) return;
-    // Find the <tr> corresponding to the original row index
-    const rows = tbodyRef.current.querySelectorAll('tr');
-    for (const tr of Array.from(rows)) {
-      if ((tr as HTMLElement).dataset.origIdx === String(highlightRow)) {
-        (tr as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
-        break;
-      }
-    }
-  }, [highlightRow]);
-  // col → Set of values TO SHOW. Missing key = show all.
-  const [colFilters, setColFilters] = useState<Record<string, Set<string>>>({});
-  const [openCol, setOpenCol] = useState<string | null>(null);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-  // Refs to <th> elements so we can read getBoundingClientRect() on click
-  const thRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
-
-  // Reset filters whenever the sheet changes (cols change)
-  useEffect(() => {
-    setColFilters({});
-    setOpenCol(null);
-  }, [cols.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Progressive rendering: rendering all 8784 rows × 217 cols ≈ 1.9 M DOM
-  // nodes will crash the tab. We start with PAGE_SIZE rows and grow by
-  // PAGE_SIZE each time a sentinel <tr> below the last row scrolls into view.
-  // This keeps the table editable without a virtualisation library.
-  const PAGE_SIZE = 500;
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
-  // Reset the window whenever the sheet, column set, or filter changes.
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [cols.join('|'), JSON.stringify(colFilters)]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Unique values per column (computed from ALL rows, not filtered)
-  const uniqueValues = (col: string): string[] => {
-    const s = new Set(rows.map((r) => stringValue(r[col])));
-    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  };
-
-  // Resolved "selected" set — if no filter entry, all values are selected
-  const selectedFor = (col: string): Set<string> =>
-    colFilters[col] ?? new Set(uniqueValues(col));
-
-  // Is the column actively filtered (a proper subset of all values)?
-  const isActive = (col: string): boolean => {
-    const f = colFilters[col];
-    if (!f) return false;
-    const all = uniqueValues(col);
-    return f.size < all.length;
-  };
-
-  const hasAnyFilter = cols.some(isActive);
-
-  // Apply filters
-  const filteredRows = rows.filter((row) =>
-    cols.every((col) => {
-      const f = colFilters[col];
-      return !f || f.has(stringValue(row[col]));
-    }),
-  );
-  const visibleRows = filteredRows.slice(0, visibleCount);
-  const hasMore = visibleRows.length < filteredRows.length;
-
-  // Observe the sentinel <tr> and bump visibleCount when it scrolls into view.
-  useEffect(() => {
-    if (!hasMore) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setVisibleCount((n) => n + PAGE_SIZE);
-          }
-        }
-      },
-      { rootMargin: '400px' },   // start loading before user reaches the bottom
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, visibleCount]);
-
-  const openDropdown = (col: string) => {
-    if (openCol === col) { setOpenCol(null); return; }
-    const thEl = thRefs.current[col];
-    if (thEl) setAnchorRect(thEl.getBoundingClientRect());
-    setOpenCol(col);
-  };
-
-  const toggleValue = (col: string, val: string) => {
-    const all = uniqueValues(col);
-    const cur = selectedFor(col);
-    const next = new Set(cur);
-    next.has(val) ? next.delete(val) : next.add(val);
-    if (next.size >= all.length) {
-      setColFilters((p) => { const n = { ...p }; delete n[col]; return n; });
-    } else {
-      setColFilters((p) => ({ ...p, [col]: next }));
-    }
-  };
-
-  // Select-All re-includes every unique value (drops the filter entirely).
-  const selectAll = (col: string) =>
-    setColFilters((p) => { const n = { ...p }; delete n[col]; return n; });
-
-  // Clear (uncheck Select-All) leaves an empty allowed-set, so the column
-  // hides every row until the user picks one or more values. This matches the
-  // Excel-style filter behaviour the user expects.
-  const clearFilter = (col: string) =>
-    setColFilters((p) => ({ ...p, [col]: new Set<string>() }));
-
-  const clearAll = () => setColFilters({});
-
-  if (rows.length === 0) return <div className="grid-empty">No data</div>;
-
-  return (
-    <div className="spreadsheet-scroll">
-      {hasAnyFilter && (
-        <div className="filter-status-bar">
-          <span>
-            Showing <strong>{filteredRows.length}</strong> of {rows.length} rows
-          </span>
-          <button className="ghost-button sm" onClick={clearAll}>Clear all filters</button>
-        </div>
-      )}
-      {filteredRows.length > PAGE_SIZE && (
-        <div className="filter-status-bar">
-          <span>
-            Showing <strong>{visibleRows.length}</strong> of {filteredRows.length} rows{hasMore ? ' (scroll for more)' : ''}
-          </span>
-        </div>
-      )}
-      <table className="spreadsheet-table">
-        <thead>
-          <tr>
-            <th className="rn-col">#</th>
-            {cols.map((c) => {
-              const active = isActive(c);
-              const frozen = c === frozenCol;
-              const cls = [
-                frozen ? 'col-frozen' : '',
-                active ? 'col-filtered' : '',
-              ].filter(Boolean).join(' ') || undefined;
-              return (
-                <th
-                  key={c}
-                  title={c}
-                  className={cls}
-                  ref={(el) => { thRefs.current[c] = el; }}
-                >
-                  <div className="col-header-inner">
-                    {renamingCol === c ? (
-                      <input
-                        className="col-rename-input"
-                        autoFocus
-                        value={renameVal}
-                        onChange={(e) => setRenameVal(e.target.value)}
-                        onBlur={() => {
-                          const trimmed = renameVal.trim();
-                          if (trimmed && trimmed !== c && onRenameColumn) onRenameColumn(c, trimmed);
-                          setRenamingCol(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur();
-                          }
-                          if (e.key === 'Escape') {
-                            setRenamingCol(null);
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span
-                        className="col-header-label"
-                        title={`${c}  (double-click to rename)`}
-                        onDoubleClick={(e) => {
-                          if (!onRenameColumn || protectedCols?.includes(c)) return;
-                          e.stopPropagation();
-                          setRenamingCol(c);
-                          setRenameVal(c);
-                        }}
-                      >
-                        {c}
-                      </span>
-                    )}
-                    <button
-                      className={`col-filter-btn${active ? ' col-filter-btn--active' : ''}`}
-                      title={active ? 'Filter active' : 'Filter'}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDropdown(c);
-                      }}
-                    >
-                      v
-                    </button>
-                    {onDeleteColumn && !protectedCols?.includes(c) && (
-                      <button
-                        className="col-delete-btn"
-                        title={`Remove column "${c}"`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Remove column "${c}" from all rows? This cannot be undone.`)) {
-                            onDeleteColumn(c);
-                          }
-                        }}
-                      >
-                        x
-                      </button>
-                    )}
-                  </div>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody ref={tbodyRef}>
-          {visibleRows.map((row) => {
-            const origIdx = rows.indexOf(row);
-            const issueSeverity = rowIssues?.get(origIdx);
-            const isHighlighted = highlightRow === origIdx;
-            const rowCls = [
-              issueSeverity === 'error' ? 'row-issue--error' : '',
-              issueSeverity === 'warning' ? 'row-issue--warning' : '',
-              isHighlighted ? 'row-jump-highlight' : '',
-            ].filter(Boolean).join(' ') || undefined;
-            return (
-              <tr key={origIdx} className={rowCls} data-orig-idx={origIdx}>
-                <td className="rn-col">{origIdx + 1}</td>
-                {cols.map((c) => {
-                  const isEditing = !readOnly && editCell?.row === origIdx && editCell?.col === c;
-                  const frozen = c === frozenCol;
-                  const baseClass = isEditing ? 'cell-editing' : readOnly ? 'cell-readonly' : 'cell-editable';
-                  return (
-                    <td
-                      key={c}
-                      className={frozen ? `${baseClass} col-frozen` : baseClass}
-                      onDoubleClick={() => {
-                        if (!readOnly) {
-                          const display = formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c]);
-                          setEditCell({ row: origIdx, col: c, val: display });
-                        }
-                      }}
-                    >
-                      {isEditing ? (
-                        isColorColumn(c) ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                              autoFocus
-                              type="color"
-                              className="cell-input"
-                              style={{ width: 36, padding: 2 }}
-                              value={(editCell!.val || '#94a3b8').match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/) ? editCell!.val : '#94a3b8'}
-                              onChange={(e) =>
-                                setEditCell((prev) => (prev ? { ...prev, val: e.target.value } : null))
-                              }
-                            />
-                            <input
-                              className="cell-input"
-                              value={editCell!.val}
-                              onChange={(e) =>
-                                setEditCell((prev) => (prev ? { ...prev, val: e.target.value } : null))
-                              }
-                              onBlur={() => {
-                                if (editCell && onUpdate)
-                                  onUpdate(
-                                    origIdx,
-                                    editCell.col,
-                                    coerceEditedValue
-                                      ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
-                                      : inferInputValue(editCell.val, row[editCell.col]),
-                                  );
-                                setEditCell(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === 'Tab') {
-                                  if (editCell && onUpdate)
-                                    onUpdate(
-                                      origIdx,
-                                      editCell.col,
-                                      coerceEditedValue
-                                        ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
-                                        : inferInputValue(editCell.val, row[editCell.col]),
-                                    );
-                                  setEditCell(null);
-                                }
-                                if (e.key === 'Escape') setEditCell(null);
-                              }}
-                            />
-                          </div>
-                        ) : (() => {
-                          const suggestions = getCellSuggestions?.(c) ?? null;
-                          const listId = suggestions && suggestions.length > 0 ? `cell-suggest-${c}` : undefined;
-                          return (
-                            <>
-                              <input
-                                autoFocus
-                                className="cell-input"
-                                list={listId}
-                                value={editCell!.val}
-                                onChange={(e) =>
-                                  setEditCell((prev) => (prev ? { ...prev, val: e.target.value } : null))
-                                }
-                                onBlur={() => {
-                                  if (editCell && onUpdate)
-                                    onUpdate(
-                                      origIdx,
-                                      editCell.col,
-                                      coerceEditedValue
-                                        ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
-                                        : inferInputValue(editCell.val, row[editCell.col]),
-                                    );
-                                  setEditCell(null);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === 'Tab') {
-                                    if (editCell && onUpdate)
-                                      onUpdate(
-                                        origIdx,
-                                        editCell.col,
-                                        coerceEditedValue
-                                          ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
-                                          : inferInputValue(editCell.val, row[editCell.col]),
-                                      );
-                                    setEditCell(null);
-                                  }
-                                  if (e.key === 'Escape') setEditCell(null);
-                                }}
-                              />
-                              {listId && (
-                                <datalist id={listId}>
-                                  {suggestions!.map((s) => (<option key={s} value={s} />))}
-                                </datalist>
-                              )}
-                            </>
-                          );
-                        })()
-                      ) : (
-                        isColorColumn(c) && stringValue(row[c]) ? (
-                          <span className="cell-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 12, height: 12, borderRadius: 999, background: stringValue(row[c]), border: '1px solid rgba(15,23,42,0.18)', flexShrink: 0 }} />
-                            <span>{formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c])}</span>
-                          </span>
-                        ) : (
-                          <span className="cell-value">{formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c])}</span>
-                        )
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-          {hasMore && (
-            <tr ref={sentinelRef} aria-hidden="true">
-              <td className="rn-col" colSpan={cols.length + 1} style={{ textAlign: 'center', padding: 12, color: 'var(--text-muted, #888)' }}>
-                Loading more rows…
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Portal dropdown */}
-      {openCol && anchorRect && (
-        <FilterDropdown
-          col={openCol}
-          allValues={uniqueValues(openCol)}
-          selected={selectedFor(openCol)}
-          anchorRect={anchorRect}
-          onToggle={(val) => toggleValue(openCol, val)}
-          onSelectAll={() => selectAll(openCol)}
-          onUncheckAll={() => clearFilter(openCol)}
-          onClose={() => setOpenCol(null)}
-        />
-      )}
-    </div>
-  );
-}
-
 // ── TablesPane ────────────────────────────────────────────────────────────────
 
 interface TablesPaneProps {
@@ -659,6 +137,14 @@ interface TablesPaneProps {
   jumpTo?: { sheet: string; rowIndex: number } | null;
   currencySymbol?: string;
   dateFormat?: DateFormat;
+  /** Forwarded to the grid — fires when the user clicks a row. */
+  onFocusRow?: (rowIndex: number) => void;
+  /** Atomic paste: apply many cell edits and grow the sheet by `extraRows`. */
+  onBulkPaste?: (
+    sheet: SheetName,
+    edits: { rowIndex: number; col: string; val: Primitive }[],
+    extraRows: number,
+  ) => void;
 }
 
 export function TablesPane({
@@ -676,6 +162,8 @@ export function TablesPane({
   jumpTo,
   currencySymbol = '$',
   dateFormat = 'auto',
+  onFocusRow,
+  onBulkPaste,
 }: TablesPaneProps) {
   const [jumpHighlight, setJumpHighlight] = useState<number | null>(null);
 
@@ -897,13 +385,16 @@ export function TablesPane({
               {isTs ? 'No temporal data — use "Import CSV" above to load a profile.' : 'No rows yet — use "+ Row" to add one.'}
             </div>
           ) : (
-            <SpreadsheetGrid
+            <DataGrid
               rows={rows}
               cols={cols}
               frozenCol={frozenCol}
               readOnly={isTs}
               onUpdate={
                 isTs ? undefined : (ri, col, val) => onUpdate(sel.sheet as SheetName, ri, col, val)
+              }
+              onPasteEdits={
+                isTs || !onBulkPaste ? undefined : (edits, extraRows) => onBulkPaste(sel.sheet as SheetName, edits, extraRows)
               }
               rowIssues={isTs ? undefined : rowIssueMap}
               highlightRow={isTs ? null : jumpHighlight}
@@ -913,15 +404,25 @@ export function TablesPane({
               formatDisplayValue={formatDisplayValue}
               coerceEditedValue={coerceEditedValue}
               getCellSuggestions={(col) => {
-                if (col !== 'type') return null;
-                if (sel.sheet === 'lines') {
-                  return mergeTypeNames(model.line_types, PYPSA_STANDARD_LINE_TYPES);
+                if (col === 'type') {
+                  if (sel.sheet === 'lines') {
+                    return mergeTypeNames(model.line_types, PYPSA_STANDARD_LINE_TYPES);
+                  }
+                  if (sel.sheet === 'transformers') {
+                    return mergeTypeNames(model.transformer_types, PYPSA_STANDARD_TRANSFORMER_TYPES);
+                  }
                 }
-                if (sel.sheet === 'transformers') {
-                  return mergeTypeNames(model.transformer_types, PYPSA_STANDARD_TRANSFORMER_TYPES);
+                // bus references → list of bus names defined in the workbook.
+                if (col === 'bus' || col === 'bus0' || col === 'bus1' || col === 'bus2') {
+                  return (model.buses ?? []).map((r) => stringValue(r.name)).filter(Boolean);
+                }
+                // carrier references → defined carriers.
+                if (col === 'carrier') {
+                  return (model.carriers ?? []).map((r) => stringValue(r.name)).filter(Boolean);
                 }
                 return null;
               }}
+              onFocusRow={onFocusRow}
             />
           )}
         </div>

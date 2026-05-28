@@ -80,7 +80,7 @@ function svgAxisFrame(yMin: number, yMax: number, xLabels: string[], yUnit: stri
   return ticks.join('') + xTicks.join('') + yLabel;
 }
 
-function svgLineChart(title: string, points: ValuePoint[], unit: string, color = '#2563eb'): string {
+function svgLineChart(title: string, points: ValuePoint[], unit: string, color = '#0f766e'): string {
   if (!points.length) return '';
   const values = points.map((p) => p.value);
   const yMin = Math.min(0, ...values);

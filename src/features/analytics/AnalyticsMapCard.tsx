@@ -130,7 +130,7 @@ export function AnalyticsMapCard({
         {lineGeometries.map((line) => {
           const sel = analyticsFocus.type === 'branch' && analyticsFocus.key === line.name;
           const pct = loadingMap[line.name] ?? 0;
-          const col = sel ? '#f59e0b' : (hasLineLoading ? loadingColor(pct) : '#2563eb');
+          const col = sel ? '#f59e0b' : (hasLineLoading ? loadingColor(pct) : '#0f766e');
           return (
             <Polyline
               key={line.name}
@@ -181,7 +181,7 @@ export function AnalyticsMapCard({
           const avgSmp = busAvgSmp[busName];
           const fill = hasSmp && avgSmp !== undefined
             ? priceColor(avgSmp, smpMin, smpMax)
-            : '#2563eb';
+            : '#0f766e';
           return (
             <CircleMarker
               key={`${busName}-am-${index}`}

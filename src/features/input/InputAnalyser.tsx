@@ -28,7 +28,7 @@ function extractHour(label: string): number | null {
 }
 
 const PALETTE = [
-  '#2563eb','#f97316','#16a34a','#dc2626','#7c3aed',
+  '#0f766e','#f97316','#16a34a','#dc2626','#7c3aed',
   '#0891b2','#d97706','#be185d','#065f46','#1e40af',
   '#84cc16','#ec4899','#6366f1','#14b8a6','#f59e0b',
 ];
@@ -54,7 +54,7 @@ function HBar({ labels, values, colors, unit }: {
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
       {labels.map((label, i) => {
         const y = padY + i * (barH + 4);
-        const fill = colors?.[i] ?? '#2563eb';
+        const fill = colors?.[i] ?? '#0f766e';
         const w = max > 0 ? (values[i] / max) * barW : 0;
         const fmt = values[i] === 0 ? '—' : values[i] < 1 ? values[i].toFixed(3) : values[i].toLocaleString(undefined, { maximumFractionDigits: 1 });
         return (
@@ -175,7 +175,7 @@ function Scatter({ xVals, yVals, labels, xCol, yCol }: {
       {xVals.map((x, i) => (
         <g key={i} onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}>
           <circle cx={xPos(x)} cy={yPos(yVals[i])} r={hov === i ? 7 : 5}
-            fill="#2563eb" opacity={hov !== null && hov !== i ? 0.3 : 0.8}
+            fill="#0f766e" opacity={hov !== null && hov !== i ? 0.3 : 0.8}
             style={{ cursor: 'pointer', transition: 'r 0.1s, opacity 0.1s' }} />
           {hov === i && (
             <text x={xPos(x) + 8} y={yPos(yVals[i]) - 6} fontSize={10} fill="#142033">
@@ -330,7 +330,7 @@ function DailyProfile({ xLabels, series }: {
   const cW = W - pL - pR; const cH = H - pT - pB;
   const barW = (cW / 24) - 2;
   const yPos = (v: number) => pT + cH - (v / (maxV || 1)) * cH;
-  const color = series[0]?.color ?? '#2563eb';
+  const color = series[0]?.color ?? '#0f766e';
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
       {[0, 0.5, 1].map((t) => {

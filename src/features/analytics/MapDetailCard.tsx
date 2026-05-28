@@ -11,7 +11,7 @@ function downsample(values: number[], maxPts = 260): number[] {
   return Array.from({ length: maxPts }, (_, i) => values[Math.round(i * step)]);
 }
 
-function MiniSparkline({ values, color = '#2563eb' }: { values: number[]; color?: string }) {
+function MiniSparkline({ values, color = '#0f766e' }: { values: number[]; color?: string }) {
   const pts = downsample(values);
   if (pts.length < 2) return null;
 
@@ -71,7 +71,7 @@ export function MapDetailCard({ focus, results, onClose, currencySymbol = '$' }:
   let subtitle = '';
   let dotColor: string | null = null;
   let sparkValues: number[] = [];
-  let sparkColor = '#2563eb';
+  let sparkColor = '#0f766e';
   let sparkLabel = '';
   let kpis: Array<{ label: string; value: string }> = [];
 

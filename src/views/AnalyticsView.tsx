@@ -27,6 +27,7 @@ import { AnalyticsPane, EmptyAnalytics } from '../features/analytics/AnalyticsPa
 import { ComparisonPane } from '../features/analytics/ComparisonPane';
 import { RunHistoryList } from '../features/run-history/RunHistoryList';
 import { AnalyticsSubnav } from './AnalyticsView.features/AnalyticsSubnav';
+import { ResizablePanels } from '../layout/ResizablePanels';
 
 interface ValidationResult {
   valid: boolean;
@@ -84,6 +85,7 @@ export function AnalyticsView(props: AnalyticsViewProps) {
 
   return (
     <div className="analytics-view">
+      <ResizablePanels id="analytics" direction="horizontal" initialSizes={[76, 24]} minSize={220}>
       <div className="analytics-view-main">
       <div className="pane-header analytics-outer-header">
         <AnalyticsSubnav
@@ -166,6 +168,7 @@ export function AnalyticsView(props: AnalyticsViewProps) {
           </div>
         </aside>
       )}
+      </ResizablePanels>
     </div>
   );
 }

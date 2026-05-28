@@ -168,7 +168,7 @@ function buildSingleAssetOptions(
     if (!b) return [];
     return [
       { key: 'load',       label: 'Load',             unit: 'MW',     rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, load: p.load })),             series: [{ key: 'load',       label: 'Load MW',         color: '#f97316' }],  reducer: 'mean', allowDonut: false },
-      { key: 'generation', label: 'Generation',        unit: 'MW',     rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, generation: p.generation })), series: [{ key: 'generation', label: 'Generation MW',    color: '#2563eb' }],  reducer: 'mean', allowDonut: false },
+      { key: 'generation', label: 'Generation',        unit: 'MW',     rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, generation: p.generation })), series: [{ key: 'generation', label: 'Generation MW',    color: '#0f766e' }],  reducer: 'mean', allowDonut: false },
       { key: 'smp',        label: 'SMP',               unit: `${currencySymbol}/MWh`,  rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, smp: p.smp })),               series: [{ key: 'smp',        label: `SMP ${currencySymbol}/MWh`,       color: '#111827' }],  reducer: 'mean', allowDonut: false },
       { key: 'emissions',  label: 'Emissions',          unit: 'tCO2e', rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, emissions: p.emissions })),   series: [{ key: 'emissions',  label: 'Emissions tCO2e', color: '#16a34a' }],  reducer: 'sum',  allowDonut: false },
       ...(b.hasVoltageMagnitude ? [{ key: 'v_mag_pu', label: 'Voltage magnitude', unit: 'p.u.',     rows: b.netSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, v_mag_pu: p.v_mag_pu })), series: [{ key: 'v_mag_pu', label: 'Voltage p.u.',    color: '#7c3aed' }], reducer: 'mean' as const, allowDonut: false }] : []),
@@ -179,7 +179,7 @@ function buildSingleAssetOptions(
     const su = assetDetails.storageUnits[focus.key];
     if (!su) return [];
     return [
-      { key: 'dispatch',      label: 'Dispatch',        unit: 'MW',  rows: su.dispatchSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, dispatch: p.dispatch })), series: [{ key: 'dispatch', label: 'Dispatch MW', color: '#2563eb' }], reducer: 'mean', allowDonut: false },
+      { key: 'dispatch',      label: 'Dispatch',        unit: 'MW',  rows: su.dispatchSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, dispatch: p.dispatch })), series: [{ key: 'dispatch', label: 'Dispatch MW', color: '#0f766e' }], reducer: 'mean', allowDonut: false },
       { key: 'storage_power', label: 'Storage power',   unit: 'MW',  rows: su.chargeSeries.map((p, i) => ({ label: p.label, timestamp: p.timestamp, charge: p.charge, discharge: su.dischargeSeries[i]?.discharge || 0 })), series: [{ key: 'charge', label: 'Charge MW', color: '#0ea5e9' }, { key: 'discharge', label: 'Discharge MW', color: '#f97316' }], reducer: 'mean', allowDonut: true },
       { key: 'state',         label: 'State of charge', unit: 'MWh', rows: su.stateSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, state: p.state })), series: [{ key: 'state', label: 'State MWh', color: '#14b8a6' }], reducer: 'mean', allowDonut: false },
     ];
@@ -196,7 +196,7 @@ function buildSingleAssetOptions(
     const br = assetDetails.branches[focus.key];
     if (!br) return [];
     return [
-      { key: 'terminal_flows', label: 'Terminal flows', unit: 'MW', rows: br.flowSeries.map((p)    => ({ label: p.label, timestamp: p.timestamp, p0: p.p0, p1: p.p1 })),       series: [{ key: 'p0', label: 'P0 MW', color: '#2563eb' }, { key: 'p1', label: 'P1 MW', color: '#1d4ed8' }], reducer: 'mean', allowDonut: true  },
+      { key: 'terminal_flows', label: 'Terminal flows', unit: 'MW', rows: br.flowSeries.map((p)    => ({ label: p.label, timestamp: p.timestamp, p0: p.p0, p1: p.p1 })),       series: [{ key: 'p0', label: 'P0 MW', color: '#0f766e' }, { key: 'p1', label: 'P1 MW', color: '#0b5d56' }], reducer: 'mean', allowDonut: true  },
       { key: 'loading',        label: 'Loading',        unit: '%',  rows: br.loadingSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, loading: p.loading })),         series: [{ key: 'loading', label: 'Loading %',  color: '#ea580c' }], reducer: 'mean', allowDonut: false },
       { key: 'losses',         label: 'Losses',         unit: 'MW', rows: br.lossesSeries.map((p)  => ({ label: p.label, timestamp: p.timestamp, losses: p.losses })),           series: [{ key: 'losses',  label: 'Losses MW', color: '#dc2626' }], reducer: 'mean', allowDonut: false },
     ];
@@ -207,7 +207,7 @@ function buildSingleAssetOptions(
     const c = pr.color || carrierColor(pr.carrier || 'Other');
     return [
       { key: 'throughput',     label: 'Throughput',     unit: 'MW', rows: pr.throughputSeries.map((p) => ({ label: p.label, timestamp: p.timestamp, throughput: p.throughput })), series: [{ key: 'throughput', label: 'Throughput MW', color: c }],                                                          reducer: 'mean', allowDonut: false },
-      { key: 'terminal_flows', label: 'Terminal flows', unit: 'MW', rows: pr.p0Series.map((p, i)      => ({ label: p.label, timestamp: p.timestamp, p0: p.p0, p1: pr.p1Series[i]?.p1 ?? 0 })), series: [{ key: 'p0', label: 'P0 MW', color: '#2563eb' }, { key: 'p1', label: 'P1 MW', color: '#1d4ed8' }],  reducer: 'mean', allowDonut: true  },
+      { key: 'terminal_flows', label: 'Terminal flows', unit: 'MW', rows: pr.p0Series.map((p, i)      => ({ label: p.label, timestamp: p.timestamp, p0: p.p0, p1: pr.p1Series[i]?.p1 ?? 0 })), series: [{ key: 'p0', label: 'P0 MW', color: '#0f766e' }, { key: 'p1', label: 'P1 MW', color: '#0b5d56' }],  reducer: 'mean', allowDonut: true  },
     ];
   }
   if (focus.type === 'shuntImpedance') {

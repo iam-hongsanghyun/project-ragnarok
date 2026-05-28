@@ -28,6 +28,7 @@ interface Entry {
 }
 
 const ENTRIES: Entry[] = [
+  { id: 'Build',     glyph: 'B', label: 'Build' },
   { id: 'Model',     glyph: 'M', label: 'Model' },
   { id: 'Settings',  glyph: 'S', label: 'Settings' },
   { id: 'Analytics', glyph: 'A', label: 'Analytics' },

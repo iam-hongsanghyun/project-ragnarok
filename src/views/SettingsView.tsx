@@ -9,7 +9,6 @@ import React, { useState } from 'react';
 import {
   CarbonPriceScheduleEntry,
   CustomConstraint,
-  GridRow,
   PathwayConfig,
   Primitive,
   RollingHorizonConfig,
@@ -28,7 +27,6 @@ import { RollingSection } from './SettingsView.sections/Rolling';
 import { StochasticSection } from './SettingsView.sections/Stochastic/Stochastic';
 import { SclopfSection } from './SettingsView.sections/Sclopf';
 import { ConstraintsSection } from './SettingsView.sections/Constraints';
-import { ComponentTypesSection } from './SettingsView.sections/ComponentTypes';
 import { AppearanceSection } from './SettingsView.sections/Appearance';
 import { ProjectDefaultsSection } from './SettingsView.sections/ProjectDefaults';
 import { SolverSection } from './SettingsView.sections/Solver';
@@ -42,30 +40,36 @@ type SectionId =
   | 'stochastic'
   | 'sclopf'
   | 'constraints'
-  | 'types'
   | 'appearance'
   | 'projectDefaults'
   | 'solver';
 
+type SectionGroup = 'Setup' | 'Policy' | 'Solve' | 'App';
+
 interface Section {
   id: SectionId;
   label: string;
-  group: 'Run' | 'Solve' | 'App';
+  group: SectionGroup;
 }
 
+const GROUPS: SectionGroup[] = ['Setup', 'Policy', 'Solve', 'App'];
+
 const SECTIONS: Section[] = [
-  { id: 'scenarios',  label: 'Scenarios',         group: 'Run' },
-  { id: 'window',     label: 'Simulation window', group: 'Run' },
-  { id: 'carbon',     label: 'Carbon price',      group: 'Run' },
-  { id: 'planning',   label: 'Multi-year planning', group: 'Run' },
-  { id: 'rolling',    label: 'Rolling horizon',   group: 'Run' },
-  { id: 'stochastic', label: 'Stochastic',        group: 'Run' },
-  { id: 'sclopf',     label: 'Security-constrained (SCLOPF)', group: 'Run' },
-  { id: 'constraints', label: 'Constraints',       group: 'Solve' },
-  { id: 'types',       label: 'Component types',   group: 'Solve' },
-  { id: 'appearance',       label: 'Appearance',       group: 'App' },
-  { id: 'projectDefaults',  label: 'Project defaults', group: 'App' },
-  { id: 'solver',           label: 'Solver',           group: 'App' },
+  // Setup — what scenario and time span we're solving over
+  { id: 'scenarios',  label: 'Scenarios',           group: 'Setup' },
+  { id: 'window',     label: 'Simulation window',   group: 'Setup' },
+  { id: 'planning',   label: 'Multi-year planning', group: 'Setup' },
+  { id: 'rolling',    label: 'Rolling horizon',     group: 'Setup' },
+  // Policy — economic / regulatory assumptions imposed on the model
+  { id: 'carbon',      label: 'Carbon price', group: 'Policy' },
+  { id: 'constraints', label: 'Constraints',  group: 'Policy' },
+  // Solve — how the optimiser is run
+  { id: 'stochastic', label: 'Stochastic',                    group: 'Solve' },
+  { id: 'sclopf',     label: 'Security-constrained (SCLOPF)',  group: 'Solve' },
+  { id: 'solver',     label: 'Solver',                        group: 'Solve' },
+  // App — workspace preferences
+  { id: 'appearance',      label: 'Appearance',       group: 'App' },
+  { id: 'projectDefaults', label: 'Project defaults', group: 'App' },
 ];
 
 export interface SettingsViewProps {
@@ -113,7 +117,6 @@ export interface SettingsViewProps {
   onUpdateRow: (sheet: 'global_constraints', rowIndex: number, key: string, value: Primitive) => void;
   onAddRow: (sheet: 'global_constraints') => void;
   onDeleteRow: (sheet: 'global_constraints', rowIndex: number) => void;
-  onAddStandardType: (sheet: 'line_types' | 'transformer_types', row: GridRow) => void;
 
   // App preferences
   dateFormat: DateFormat;
@@ -136,7 +139,7 @@ export interface SettingsViewProps {
 
 export function SettingsView(props: SettingsViewProps) {
   const [section, setSection] = useState<SectionId>('scenarios');
-  const groups = ['Run', 'Solve', 'App'] as const;
+  const groups = GROUPS;
 
   return (
     <div className="settings-view">
@@ -166,7 +169,6 @@ export function SettingsView(props: SettingsViewProps) {
         {section === 'stochastic'     && <StochasticSection {...props} />}
         {section === 'sclopf'         && <SclopfSection {...props} />}
         {section === 'constraints'    && <ConstraintsSection {...props} />}
-        {section === 'types'          && <ComponentTypesSection {...props} />}
         {section === 'appearance'     && <AppearanceSection {...props} />}
         {section === 'projectDefaults' && <ProjectDefaultsSection {...props} />}
         {section === 'solver'         && <SolverSection {...props} />}

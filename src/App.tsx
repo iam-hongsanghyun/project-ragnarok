@@ -44,6 +44,7 @@ import { RunDialog } from './features/run/RunDialog';
 import { SettingsView } from './views/SettingsView';
 import { PluginsView } from './views/PluginsView';
 import { ModelView } from './views/ModelView';
+import { BuildView } from './features/build/BuildView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { ActivityBar } from './layout/ActivityBar';
 import { useModelIssues } from './features/validation/useModelIssues';
@@ -53,7 +54,45 @@ import { ToastProvider, useToast } from './shared/components/Toast';
 function AppInner() {
   const { showToast } = useToast();
   const [model, setModel] = useState<WorkbookModel>(() => createEmptyWorkbook());
+  // Cell-level undo/redo. Each entry is a full (immutable) model snapshot;
+  // since every mutation already builds a fresh object this is cheap to retain.
+  const undoStack = useRef<WorkbookModel[]>([]);
+  const redoStack = useRef<WorkbookModel[]>([]);
+  const HISTORY_LIMIT = 50;
+  const pushHistory = useCallback(() => {
+    undoStack.current.push(model);
+    if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift();
+    redoStack.current = [];
+  }, [model]);
+  const undo = useCallback(() => {
+    const prev = undoStack.current.pop();
+    if (!prev) return;
+    redoStack.current.push(model);
+    setModel(prev);
+  }, [model]);
+  const redo = useCallback(() => {
+    const next = redoStack.current.pop();
+    if (!next) return;
+    undoStack.current.push(model);
+    setModel(next);
+  }, [model]);
   const [tab, setTab] = useState<WorkspaceTab>('Model');
+  // Ctrl/Cmd+Z / Ctrl+Y (or Shift+Z) undo-redo for model edits, only on the
+  // Model/Build tabs and never while a text field is focused (so it doesn't
+  // hijack native input undo).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (tab !== 'Model' && tab !== 'Build') return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tab, undo, redo]);
   const [analyticsSubTab, setAnalyticsSubTab] = useState<AnalyticsSubTab>('Result');
   const [results, setResults] = useState<RunResults | null>(null);
   const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -818,13 +857,39 @@ function AppInner() {
   };
 
   const updateRowValue = (sheet: SheetName, rowIndex: number, key: string, value: Primitive) => {
+    pushHistory();
     setModel((current) => {
       const nextRows = current[sheet].map((row, index) => (index === rowIndex ? { ...row, [key]: value } : row));
       return { ...current, [sheet]: nextRows };
     });
   };
 
+  // Atomic paste: grow the sheet by `extraRows` (seeded from the schema default)
+  // then apply every edit, in a single state update so a multi-row Excel paste
+  // lands as one undoable operation.
+  const bulkPaste = (
+    sheet: SheetName,
+    edits: { rowIndex: number; col: string; val: Primitive }[],
+    extraRows: number,
+  ) => {
+    if (edits.length === 0 && extraRows === 0) return;
+    pushHistory();
+    setModel((current) => {
+      const base = current[sheet] ?? [];
+      const grown = extraRows > 0
+        ? [...base, ...Array.from({ length: extraRows }, () => ({ ...getDefaultRowForSheet(sheet) }))]
+        : [...base];
+      for (const { rowIndex, col, val } of edits) {
+        if (rowIndex < 0 || rowIndex >= grown.length) continue;
+        grown[rowIndex] = { ...grown[rowIndex], [col]: val };
+      }
+      return { ...current, [sheet]: grown };
+    });
+    setStatus(`Pasted ${edits.length} cell${edits.length === 1 ? '' : 's'} into ${sheet}${extraRows > 0 ? ` (+${extraRows} rows)` : ''}.`);
+  };
+
   const addRow = (sheet: SheetName) => {
+    pushHistory();
     setModel((current) => {
       const nextRows = [...(current[sheet] ?? []), { ...getDefaultRowForSheet(sheet) }];
       return { ...current, [sheet]: nextRows };
@@ -833,6 +898,7 @@ function AppInner() {
   };
 
   const deleteRow = (sheet: SheetName, rowIndex: number) => {
+    pushHistory();
     setModel((current) => {
       const nextRows = current[sheet].filter((_, i) => i !== rowIndex);
       return { ...current, [sheet]: nextRows };
@@ -841,6 +907,7 @@ function AppInner() {
   };
 
   const moveRow = (sheet: SheetName, rowIndex: number, direction: -1 | 1) => {
+    pushHistory();
     setModel((current) => {
       const nextIndex = rowIndex + direction;
       if (nextIndex < 0 || nextIndex >= current[sheet].length) return current;
@@ -852,6 +919,7 @@ function AppInner() {
   };
 
   const addColumn = (sheet: SheetName, col: string, defaultValue: string | number | boolean) => {
+    pushHistory();
     setModel((current) => {
       const nextRows = current[sheet].map((row) =>
         col in row ? row : { ...row, [col]: defaultValue },
@@ -862,6 +930,7 @@ function AppInner() {
   };
 
   const deleteColumn = (sheet: SheetName, col: string) => {
+    pushHistory();
     setModel((current) => {
       const nextRows = current[sheet].map((row) => {
         const { [col]: _removed, ...rest } = row as Record<string, Primitive>;
@@ -874,6 +943,7 @@ function AppInner() {
 
   const renameColumn = (sheet: SheetName, oldCol: string, newCol: string) => {
     if (!newCol || newCol === oldCol) return;
+    pushHistory();
     setModel((current) => {
       const nextRows = current[sheet].map((row) => {
         const r = row as Record<string, Primitive>;
@@ -1466,15 +1536,6 @@ function AppInner() {
               onUpdateRow={updateRowValue}
               onAddRow={addRow}
               onDeleteRow={deleteRow}
-              onAddStandardType={(sheet, row) => {
-                setModel((current) => {
-                  const existing = (current[sheet] ?? []) as typeof current[typeof sheet];
-                  const name = String(row.name ?? '');
-                  if (!name || existing.some((r) => String(r.name) === name)) return current;
-                  return { ...current, [sheet]: [...existing, { ...row }] };
-                });
-                showToast(`Added ${String(row.name)} to ${sheet}`, 'success');
-              }}
               dateFormat={settings.dateFormat}
               onDateFormatChange={(f) => updateSettings({ dateFormat: f })}
               currencyCode={settings.currencyCode}
@@ -1497,6 +1558,24 @@ function AppInner() {
             />
           )}
 
+          {tab === 'Build' && (
+            <BuildView
+              model={model}
+              onUpdateRow={updateRowValue}
+              onAddRow={addRow}
+              onDeleteRow={deleteRow}
+              onAddColumn={addColumn}
+              onDeleteColumn={deleteColumn}
+              onRenameColumn={renameColumn}
+              onImportTsSheet={handleImportTsSheet}
+              onBulkPaste={bulkPaste}
+              modelIssues={modelIssues}
+              currencySymbol={settings.currencySymbol}
+              dateFormat={settings.dateFormat}
+              onOpenRunSetup={() => { setDryRun(false); setRunDialogOpen(true); }}
+            />
+          )}
+
           {tab === 'Model' && (
             <ModelView
               model={model}
@@ -1509,6 +1588,7 @@ function AppInner() {
               onDeleteColumn={deleteColumn}
               onRenameColumn={renameColumn}
               onImportTsSheet={handleImportTsSheet}
+              onBulkPaste={bulkPaste}
               modelIssues={modelIssues}
               jumpTo={jumpTo}
               currencySymbol={settings.currencySymbol}
