@@ -2072,23 +2072,32 @@ button {
 }
 
 .analytics-empty {
-  padding: 64px 28px;
-  border-radius: 22px;
-  border: 1px dashed var(--border-strong);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(239, 246, 255, 0.8));
+  flex: 1 1 auto;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 24px;
   text-align: center;
+  background: transparent;
+  border: none;
 }
 
 .analytics-empty h3 {
-  margin: 0 0 10px;
-  font-size: 1.2rem;
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .analytics-empty p {
-  max-width: 620px;
-  margin: 0 auto;
+  margin: 0;
+  max-width: 520px;
   color: var(--muted);
-  line-height: 1.6;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .analytics-map-card,
