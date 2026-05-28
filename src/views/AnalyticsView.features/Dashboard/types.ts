@@ -14,15 +14,34 @@
  */
 import { ChartSectionConfig } from '../../../shared/types';
 
-export type CardKind = 'chart' | 'map' | 'notes';
+export type CardKind =
+  | 'chart'
+  | 'map'
+  | 'notes'
+  | 'kpi-strip'
+  | 'duration-curve'
+  | 'merit-order'
+  | 'co2-shadow'
+  | 'emissions-breakdown'
+  | 'capacity-expansion'
+  | 'capacity-by-period'
+  | 'carrier-analysis'
+  | 'load-analysis'
+  | 'stochastic-scenarios';
 
 interface CardBase {
   id: string;
+  /** User-provided title override. Falsy = auto-generate from card kind / config. */
+  title?: string;
 }
 
 export interface ChartCard extends CardBase {
   kind: 'chart';
   config: ChartSectionConfig;
+  /** When true, this card rewrites its focus when the user clicks an
+   *  asset on a map card. Default false: cards keep their authored
+   *  focus until the user changes it explicitly via the gear modal. */
+  followFocus?: boolean;
 }
 
 export interface MapCard extends CardBase {
@@ -33,7 +52,62 @@ export interface NotesCard extends CardBase {
   kind: 'notes';
 }
 
-export type Card = ChartCard | MapCard | NotesCard;
+export interface KpiStripCard extends CardBase {
+  kind: 'kpi-strip';
+}
+
+export interface DurationCurveCardData extends CardBase {
+  kind: 'duration-curve';
+  /** 'load' = system load duration; 'price' = marginal-price duration. */
+  source: 'load' | 'price';
+}
+
+export interface MeritOrderCardData extends CardBase {
+  kind: 'merit-order';
+}
+
+export interface Co2ShadowCardData extends CardBase {
+  kind: 'co2-shadow';
+}
+
+export interface EmissionsBreakdownCardData extends CardBase {
+  kind: 'emissions-breakdown';
+}
+
+export interface CapacityExpansionCardData extends CardBase {
+  kind: 'capacity-expansion';
+}
+
+export interface CapacityByPeriodCardData extends CardBase {
+  kind: 'capacity-by-period';
+}
+
+export interface CarrierAnalysisCardData extends CardBase {
+  kind: 'carrier-analysis';
+}
+
+export interface LoadAnalysisCardData extends CardBase {
+  kind: 'load-analysis';
+}
+
+export interface StochasticScenariosCardData extends CardBase {
+  kind: 'stochastic-scenarios';
+}
+
+export type Card =
+  | ChartCard
+  | MapCard
+  | NotesCard
+  | KpiStripCard
+  | DurationCurveCardData
+  | MeritOrderCardData
+  | Co2ShadowCardData
+  | EmissionsBreakdownCardData
+  | CapacityExpansionCardData
+  | CapacityByPeriodCardData
+  | CarrierAnalysisCardData
+  | LoadAnalysisCardData
+  | StochasticScenariosCardData;
 
 export interface Cell {
   id: string;
@@ -69,7 +143,8 @@ export interface NamedLayout {
   updatedAt: number;
 }
 
-/** Storage key for the active layout + named layouts list. */
+/** Default storage key for the Analytics sub-tab dashboard. Override
+ *  via the `storageKey` prop to give the Result sub-tab its own slot. */
 export const STORAGE_KEY = 'ragnarok:dashboard:analytics:v1';
 
 /** A drag payload carries the cell being moved. */

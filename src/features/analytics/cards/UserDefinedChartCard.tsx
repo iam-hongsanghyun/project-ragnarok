@@ -69,6 +69,10 @@ export function UserDefinedChartCard({
   onRemove,
   currencySymbol = '$',
   compact = false,
+  title,
+  onTitleChange,
+  followFocus,
+  onFollowFocusChange,
 }: {
   section: ChartSectionConfig;
   results: RunResults | null;
@@ -80,6 +84,13 @@ export function UserDefinedChartCard({
   /** Compact mode: hide all controls; render only the chart with a gear
    *  button overlay. Opening the gear pops the full settings panel. */
   compact?: boolean;
+  /** Card-level title override (set via the modal's Title input). */
+  title?: string;
+  onTitleChange?: (next: string) => void;
+  /** When true, this card rewrites its focus on map asset clicks.
+   *  Toggled via a checkbox in the settings modal. */
+  followFocus?: boolean;
+  onFollowFocusChange?: (next: boolean) => void;
 }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
@@ -409,6 +420,29 @@ export function UserDefinedChartCard({
                 </div>
               </div>
               <div className="chart-modal-body">
+                {onTitleChange && (
+                  <div className="chart-modal-meta-row">
+                    <label className="chart-control">
+                      <span>Card title</span>
+                      <input
+                        type="text"
+                        value={title ?? ''}
+                        placeholder="auto"
+                        onChange={(e) => onTitleChange(e.target.value)}
+                      />
+                    </label>
+                    {onFollowFocusChange && (
+                      <label className="chart-modal-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={!!followFocus}
+                          onChange={(e) => onFollowFocusChange(e.target.checked)}
+                        />
+                        <span>Follow map focus</span>
+                      </label>
+                    )}
+                  </div>
+                )}
                 {settingsPanel}
               </div>
             </div>

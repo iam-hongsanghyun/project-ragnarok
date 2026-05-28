@@ -53,6 +53,14 @@ interface CellSpec {
   stacked?: boolean;
   timeframe?: TimeframeOption;
   flex?: number;
+  /** Override the default `system` focus. */
+  focusType?: ChartSectionConfig['focusType'];
+  /** Default: [] (all assets, multi mode). */
+  focusKeys?: string[];
+  /** When true, this card rewrites its focus on map asset clicks. */
+  followFocus?: boolean;
+  /** Bind a custom user-facing title. */
+  title?: string;
 }
 
 function chartCard(spec: CellSpec): { card: Card; flex: number } {
@@ -60,7 +68,11 @@ function chartCard(spec: CellSpec): { card: Card; flex: number } {
     card: {
       id: id('chart'),
       kind: 'chart',
+      title: spec.title,
+      followFocus: spec.followFocus,
       config: chartConfig({
+        focusType: spec.focusType ?? 'system',
+        focusKeys: spec.focusKeys ?? [],
         metricKey: spec.metric,
         chartType: spec.chart ?? 'line',
         stacked: spec.stacked ?? false,
@@ -69,6 +81,10 @@ function chartCard(spec: CellSpec): { card: Card; flex: number } {
     },
     flex: spec.flex ?? 1,
   };
+}
+
+function mapCard(opts?: { followFocus?: boolean; flex?: number }): { card: Card; flex: number } {
+  return { card: { id: id('map'), kind: 'map' }, flex: opts?.flex ?? 1 };
 }
 
 function notesCard(): { card: Card; flex: number } {
@@ -256,7 +272,98 @@ export const PRESETS: Preset[] = [
     ]),
   },
 
-  // ── 10. Blank ──────────────────────────────────────────────────────────
+  // ── 10. Map operations ─────────────────────────────────────────────────
+  {
+    key: 'map-ops',
+    label: 'Map operations',
+    description: 'Hero map (line loadings, SMP coloring) on top; click any asset to refocus the follow-focus charts below.',
+    build: () => layout([
+      row([mapCard()]),
+      row([
+        chartCard({ metric: 'dispatch', chart: 'area', stacked: true }),
+        chartCard({ metric: 'load' }),
+      ]),
+      row([
+        chartCard({ metric: 'output',     focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Output' }),
+        chartCard({ metric: 'curtailment', focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Curtailment' }),
+        chartCard({ metric: 'emissions',  focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Emissions' }),
+      ]),
+    ]),
+  },
+
+  // ── 11. Generator fleet (per-asset multi-mode) ─────────────────────────
+  {
+    key: 'gen-fleet',
+    label: 'Generator fleet',
+    description: 'Whole generator fleet at once — output stacked by carrier, curtailment, emissions, availability.',
+    build: () => layout([
+      row([
+        chartCard({ metric: 'output',      focusType: 'generator', focusKeys: [], chart: 'area', stacked: true, title: 'Fleet output' }),
+      ]),
+      row([
+        chartCard({ metric: 'curtailment', focusType: 'generator', focusKeys: [], chart: 'area', stacked: true, title: 'Fleet curtailment' }),
+        chartCard({ metric: 'emissions',   focusType: 'generator', focusKeys: [], chart: 'bar', stacked: true, timeframe: 'daily', title: 'Daily emissions' }),
+      ]),
+      row([
+        chartCard({ metric: 'available',   focusType: 'generator', focusKeys: [], chart: 'line', title: 'Available capacity' }),
+      ]),
+    ]),
+  },
+
+  // ── 12. Nodal view ─────────────────────────────────────────────────────
+  {
+    key: 'nodal',
+    label: 'Nodal view',
+    description: 'Per-bus marginal price and load, system dispatch reference, plus a SMP-colored map.',
+    build: () => layout([
+      row([mapCard()]),
+      row([
+        chartCard({ metric: 'smp',  focusType: 'bus', focusKeys: [], title: 'Nodal SMP' }),
+        chartCard({ metric: 'load', focusType: 'bus', focusKeys: [], chart: 'area', stacked: true, title: 'Load by bus' }),
+      ]),
+      row([
+        chartCard({ metric: 'dispatch', chart: 'area', stacked: true }),
+      ]),
+    ]),
+  },
+
+  // ── 13. Storage fleet ──────────────────────────────────────────────────
+  {
+    key: 'storage-fleet',
+    label: 'Storage fleet',
+    description: 'Per-storage state, dispatch, and power across the whole fleet, with system context.',
+    build: () => layout([
+      row([
+        chartCard({ metric: 'state',    focusType: 'storageUnit', focusKeys: [], title: 'Fleet state of charge' }),
+      ]),
+      row([
+        chartCard({ metric: 'dispatch',      focusType: 'storageUnit', focusKeys: [], title: 'Fleet dispatch' }),
+        chartCard({ metric: 'storage_power', focusType: 'storageUnit', focusKeys: [], title: 'Fleet charge/discharge' }),
+      ]),
+      row([
+        chartCard({ metric: 'dispatch', chart: 'area', stacked: true }),
+      ]),
+    ]),
+  },
+
+  // ── 14. Branch loading ─────────────────────────────────────────────────
+  {
+    key: 'branch-loading',
+    label: 'Branch loading',
+    description: 'Line / link / transformer loading and losses across the network, with dispatch context.',
+    build: () => layout([
+      row([mapCard()]),
+      row([
+        chartCard({ metric: 'loading', focusType: 'branch', focusKeys: [], title: 'Branch loading' }),
+        chartCard({ metric: 'losses',  focusType: 'branch', focusKeys: [], chart: 'bar', timeframe: 'daily', title: 'Daily losses' }),
+      ]),
+      row([
+        chartCard({ metric: 'dispatch', chart: 'area', stacked: true }),
+      ]),
+    ]),
+  },
+
+  // ── 15. Blank ──────────────────────────────────────────────────────────
   {
     key: 'blank',
     label: 'Blank',
