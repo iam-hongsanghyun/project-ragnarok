@@ -122,6 +122,10 @@ export interface StochasticConfig {
   scenarios: StochasticScenarioConfig[];
 }
 
+export interface SecurityConstrainedConfig {
+  enabled: boolean;
+}
+
 export interface StochasticScenarioResult {
   name: string;
   weight: number;
@@ -443,6 +447,7 @@ export interface RunResults {
     windows: RollingWindowSummary[];
   };
   stochastic?: StochasticResult | null;
+  securityConstrained?: { enabled: boolean; branchCount: number } | null;
   assetDetails: {
     generators: Record<string, GeneratorDetail>;
     buses: Record<string, BusDetail>;

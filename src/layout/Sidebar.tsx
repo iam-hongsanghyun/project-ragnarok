@@ -5,7 +5,7 @@
  * The parent (<App>) keeps the <aside> shell and the collapse toggle button.
  */
 import React, { useEffect, useState } from 'react';
-import { CustomConstraint, GridRow, ModuleDescriptor, ModuleHostInventory, PathwayConfig, RollingHorizonConfig, RunHistoryEntry, RunResults, ScenarioCatalog, StochasticConfig, StochasticScenarioConfig, WorkbookModel } from '../shared/types';
+import { CustomConstraint, GridRow, ModuleDescriptor, ModuleHostInventory, PathwayConfig, RollingHorizonConfig, RunHistoryEntry, RunResults, ScenarioCatalog, SecurityConstrainedConfig, StochasticConfig, StochasticScenarioConfig, WorkbookModel } from '../shared/types';
 import { normalizeRollingConfig } from '../shared/utils/rolling';
 import { SidebarGroup } from '../shared/components/SidebarGroup';
 import { ModuleManagerSection } from '../features/modules/ModuleManagerSection';
@@ -49,6 +49,8 @@ export interface SidebarProps {
   onRollingConfigChange: (config: RollingHorizonConfig) => void;
   stochasticConfig: StochasticConfig;
   onStochasticConfigChange: (config: StochasticConfig) => void;
+  sclopfConfig: SecurityConstrainedConfig;
+  onSclopfConfigChange: (config: SecurityConstrainedConfig) => void;
   maxSnapshots: number;
   snapshotStart: number;
   snapshotEnd: number;
@@ -121,6 +123,8 @@ export function Sidebar({
   onRollingConfigChange,
   stochasticConfig,
   onStochasticConfigChange,
+  sclopfConfig,
+  onSclopfConfigChange,
   maxSnapshots,
   snapshotStart,
   snapshotEnd,
@@ -578,6 +582,28 @@ export function Sidebar({
       </SidebarGroup>
 
       <SidebarGroup
+        title="Security-constrained (SCLOPF)"
+        badge={
+          sclopfConfig.enabled
+            ? <span className="sg-badge">N-1</span>
+            : undefined
+        }
+      >
+        <SclopfEditor
+          config={sclopfConfig}
+          onChange={onSclopfConfigChange}
+          blocked={rollingConfig.enabled || stochasticConfig.enabled || pathwayConfig.enabled}
+          blockReason={
+            rollingConfig.enabled ? 'rolling horizon' :
+            stochasticConfig.enabled ? 'stochastic mode' :
+            pathwayConfig.enabled ? 'pathway mode' : ''
+          }
+          lineCount={model.lines?.length ?? 0}
+          transformerCount={model.transformers?.length ?? 0}
+        />
+      </SidebarGroup>
+
+      <SidebarGroup
         title="Carbon price"
         badge={carbonPrice > 0 ? <span className="sg-badge">{currencySymbol}{carbonPrice}/t</span> : undefined}
       >
@@ -1021,6 +1047,73 @@ function StochasticEditor({
               {hasZeroOrNegative && <span style={{ color: 'var(--danger, #dc2626)' }}> Weights must be positive.</span>}
             </p>
           )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Security-constrained (SCLOPF) editor ─────────────────────────────────────
+
+function SclopfEditor({
+  config,
+  onChange,
+  blocked,
+  blockReason,
+  lineCount,
+  transformerCount,
+}: {
+  config: SecurityConstrainedConfig;
+  onChange: (next: SecurityConstrainedConfig) => void;
+  blocked: boolean;
+  blockReason: string;
+  lineCount: number;
+  transformerCount: number;
+}) {
+  const branchCount = lineCount + transformerCount;
+  return (
+    <div className="sg-stochastic">
+      <div className="sg-setting-row">
+        <label className="sg-setting-label">Mode</label>
+        <div className="sg-btn-row">
+          <button
+            className={`tb-btn sg-solver-btn${!config.enabled ? '' : ' tb-btn--muted'}`}
+            onClick={() => onChange({ enabled: false })}
+          >
+            Off
+          </button>
+          <button
+            className={`tb-btn sg-solver-btn${config.enabled ? '' : ' tb-btn--muted'}`}
+            disabled={blocked}
+            title={blocked ? `Disable ${blockReason} to enable SCLOPF` : undefined}
+            onClick={() => onChange({ enabled: true })}
+          >
+            On
+          </button>
+        </div>
+        <p className="sg-setting-hint">
+          Security-constrained LOPF: dispatch must remain feasible under
+          an outage of any single passive branch (line or transformer).
+          Defaults to N-1 against every passive branch in the network.
+          {blocked && (
+            <strong> Disable {blockReason} to enable SCLOPF.</strong>
+          )}
+        </p>
+      </div>
+      {config.enabled && (
+        <>
+          <div className="sg-setting-divider" />
+          <div className="sg-setting-row">
+            <label className="sg-setting-label">N-1 coverage</label>
+            <div className="sg-setting-value">
+              {branchCount} branch{branchCount === 1 ? '' : 'es'}
+              {transformerCount > 0 && (
+                <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: 4 }}>
+                  ({lineCount} line{lineCount === 1 ? '' : 's'} + {transformerCount} transformer{transformerCount === 1 ? '' : 's'})
+                </span>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>

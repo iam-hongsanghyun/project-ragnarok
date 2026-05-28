@@ -43,10 +43,22 @@ def run_pypsa(
     pathway = parse_pathway_config(options.get("pathwayConfig"))
     rolling = parse_rolling_config(options.get("rollingConfig"))
     stochastic = parse_stochastic_config(options.get("stochasticConfig"))
+    sclopf_cfg = options.get("securityConstrainedConfig") or {}
+    sclopf_enabled = bool(sclopf_cfg.get("enabled", False))
     if stochastic.enabled and rolling.enabled:
         raise HTTPException(
             status_code=400,
             detail="Stochastic mode and rolling horizon cannot be combined.",
+        )
+    if sclopf_enabled and (rolling.enabled or stochastic.enabled):
+        raise HTTPException(
+            status_code=400,
+            detail="Security-constrained (SCLOPF) cannot be combined with rolling horizon or stochastic mode.",
+        )
+    if sclopf_enabled and pathway.enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Security-constrained (SCLOPF) cannot be combined with multi-investment pathway mode.",
         )
 
     # ── pre-build ─────────────────────────────────────────────────────────────
@@ -117,6 +129,17 @@ def run_pypsa(
                 solver_options=solver_options if solver_options else {},
                 extra_functionality=extra_functionality,
             )
+        elif sclopf_enabled:
+            # SCLOPF: every dispatch decision must remain feasible under the
+            # outage of any single passive branch. PyPSA enforces this by
+            # adding N-1 line-loading constraints for each branch in
+            # `branch_outages` (default: all passive branches in the
+            # network).
+            network.optimize.optimize_security_constrained(
+                solver_name="highs",
+                solver_options=solver_options if solver_options else {},
+                extra_functionality=extra_functionality,
+            )
         else:
             network.optimize(
                 multi_investment_periods=pathway.enabled,
@@ -134,6 +157,16 @@ def run_pypsa(
                 "PyPSA rolling horizon solved with "
                 f"{solver_note}: horizon {rolling.horizon_snapshots}, overlap {rolling.overlap_snapshots}, "
                 f"{len(rolling_windows)} window(s)."
+            )
+        elif sclopf_enabled:
+            n_passive = (
+                len(network.lines) + len(network.transformers)
+                if "transformers" in network.components.keys()
+                else len(network.lines)
+            )
+            notes.append(
+                f"PyPSA SCLOPF solved with {solver_note}: "
+                f"N-1 security against {n_passive} passive branch(es)."
             )
         else:
             notes.append(f"PyPSA optimize() solved with {solver_note}.")
@@ -388,6 +421,17 @@ def run_pypsa(
             "windows": rolling_windows,
         } if rolling.enabled else None,
         "stochastic": stochastic_result,
+        "securityConstrained": (
+            {
+                "enabled": True,
+                "branchCount": (
+                    len(network.lines)
+                    + (len(network.transformers) if "transformers" in network.components.keys() else 0)
+                ),
+            }
+            if sclopf_enabled
+            else None
+        ),
         # Full PyPSA-native output dataset (every output attribute, every
         # component, every snapshot). The frontend turns this into per-asset
         # detail records (`assetDetails`) locally and uses the same cache for

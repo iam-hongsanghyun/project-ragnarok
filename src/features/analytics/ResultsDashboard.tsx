@@ -222,6 +222,22 @@ export function ResultsDashboard({
         />
       )}
 
+      {results.securityConstrained?.enabled && (
+        <div className="stochastic-card" style={{ marginBottom: 16 }}>
+          <div className="stochastic-card-header">
+            <div>
+              <h3>Security-constrained dispatch (N-1)</h3>
+              <p>
+                Dispatch satisfies the N-1 contingency criterion against{' '}
+                <strong>{results.securityConstrained.branchCount}</strong> passive branches.
+                The line-loading values shown below are the worst-case loadings consistent
+                with any single branch outage.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {results.pathway?.enabled && (
         <DashboardSection title="Pathway period summary" defaultOpen>
           <div className="kpi-strip">

@@ -14,6 +14,7 @@ import {
   ProjectImportProvenance,
   RollingHorizonConfig,
   StochasticConfig,
+  SecurityConstrainedConfig,
   Primitive,
   RunHistoryEntry,
   RunResults,
@@ -81,6 +82,7 @@ function AppInner() {
   const [pathwayConfig, setPathwayConfig] = useState<PathwayConfig>(() => defaultPathwayConfig());
   const [rollingConfig, setRollingConfig] = useState<RollingHorizonConfig>(() => defaultRollingConfig());
   const [stochasticConfig, setStochasticConfig] = useState<StochasticConfig>({ enabled: false, scenarios: [] });
+  const [sclopfConfig, setSclopfConfig] = useState<SecurityConstrainedConfig>({ enabled: false });
   const [validateResult, setValidateResult] = useState<{
     valid: boolean;
     errors: string[];
@@ -1003,6 +1005,7 @@ function AppInner() {
       },
       rollingConfig: normalizeRollingConfig(rollingConfig),
       stochasticConfig,
+      securityConstrainedConfig: sclopfConfig,
     };
 
     setRunDialogOpen(false);
@@ -1399,6 +1402,8 @@ function AppInner() {
               onRollingConfigChange={(config) => setRollingConfig(normalizeRollingConfig(config))}
               stochasticConfig={stochasticConfig}
               onStochasticConfigChange={setStochasticConfig}
+              sclopfConfig={sclopfConfig}
+              onSclopfConfigChange={setSclopfConfig}
               maxSnapshots={maxSnapshots}
               snapshotStart={snapshotStart}
               snapshotEnd={snapshotEnd}
