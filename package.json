@@ -23,6 +23,8 @@
   },
   "scripts": {
     "generate:pypsa-schema": "node scripts/generate-pypsa-schema.mjs",
+    "generate:standard-types": "node scripts/generate-pypsa-standard-types.mjs",
+    "generate:support-matrix": "node scripts/generate-support-matrix.mjs",
     "start": "react-scripts start",
     "start:frontend": "react-scripts start",
     "build": "react-scripts build",
