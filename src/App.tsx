@@ -680,6 +680,51 @@ function AppInner() {
     }
   };
 
+  const csvFolderImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleExportCsvFolder = async () => {
+    const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_project';
+    const archive = `${base}_csv_folder`;
+    try {
+      const { exportModelAsCsvFolderZip } = await import('./shared/utils/csvFolder');
+      const blob = exportModelAsCsvFolderZip(model, archive);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${archive}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Exported PyPSA CSV folder to ${archive}.zip`, 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'CSV folder export failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
+    }
+  };
+
+  const handleImportCsvFolder = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const { importCsvFolderZip } = await import('./shared/utils/csvFolder');
+      const { model: nextModel, unknownFiles, importedSheets } = await importCsvFolderZip(file);
+      normalizeInputDatesToIso(nextModel, settings.dateFormat);
+      resetForNewModel(nextModel, file.name.replace(/\.zip$/i, '.xlsx'));
+      const note = unknownFiles.length
+        ? ` (${unknownFiles.length} unknown file${unknownFiles.length === 1 ? '' : 's'} skipped)`
+        : '';
+      setStatus(`Imported ${importedSheets.length} sheet(s) from CSV folder${note}.`);
+      showToast(`Imported PyPSA CSV folder: ${importedSheets.length} sheets${note}`, 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'CSV folder import failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
+    }
+  };
+
   const handleOpenWorkbook = async () => {
     const picker = (window as any).showOpenFilePicker;
     if (!picker) {
@@ -1276,6 +1321,7 @@ function AppInner() {
     <div className="studio-shell">
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
       <input ref={projectImportInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportProject} />
+      <input ref={csvFolderImportInputRef} type="file" accept=".zip" hidden onChange={handleImportCsvFolder} />
 
       {/* ── Top bar ── */}
       <header className="topbar">
@@ -1371,6 +1417,8 @@ function AppInner() {
               onSaveAs={saveAsWorkbook}
               onImportProject={() => projectImportInputRef.current?.click()}
               onExportProject={handleExportProject}
+              onImportCsvFolder={() => csvFolderImportInputRef.current?.click()}
+              onExportCsvFolder={handleExportCsvFolder}
               onExportResult={() => {
                 if (!displayResults) return;
                 exportFullResults(model, displayResults, filename.replace(/\.xlsx$/i, ''));

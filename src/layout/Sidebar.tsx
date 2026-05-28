@@ -31,6 +31,8 @@ export interface SidebarProps {
   onSaveAs: () => void;
   onImportProject: () => void;
   onExportProject: () => void;
+  onImportCsvFolder: () => void;
+  onExportCsvFolder: () => void;
   onExportResult: () => void;
   onExportReport: () => void;
   scenarioCatalog: ScenarioCatalog;
@@ -105,6 +107,8 @@ export function Sidebar({
   onSaveAs,
   onImportProject,
   onExportProject,
+  onImportCsvFolder,
+  onExportCsvFolder,
   onExportResult,
   onExportReport,
   scenarioCatalog,
@@ -204,6 +208,20 @@ export function Sidebar({
             }
           >
             Export Project
+          </button>
+          <button
+            className="tb-btn sg-full"
+            onClick={onImportCsvFolder}
+            title="Import a PyPSA-native CSV folder, packaged as a .zip"
+          >
+            Import CSV folder
+          </button>
+          <button
+            className="tb-btn sg-full"
+            onClick={onExportCsvFolder}
+            title="Export the input model as a PyPSA-native CSV folder (zipped)"
+          >
+            Export CSV folder
           </button>
           <button
             className="tb-btn sg-full"
