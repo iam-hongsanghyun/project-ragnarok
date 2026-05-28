@@ -127,9 +127,10 @@ export function canonicalizeOutputSeries(
 
 /**
  * Canonicalise every temporal sheet of a workbook model in place: ISO-`T`
- * ``snapshot`` timestamps and leading ``period?``/``snapshot`` columns, so the
- * model is uniformly PyPSA-canonical before it reaches the backend or an
- * export. Non-temporal (static) sheets pass through unchanged.
+ * ``snapshot`` values + ``period?``/``snapshot`` leading column order. A sheet
+ * is considered temporal iff it carries a ``snapshot`` column (anywhere in the
+ * row, not just the first key). Sheets without one are NEVER mutated — we do
+ * not invent a snapshot index.
  */
 export function normalizeInputDatesToIso(model: WorkbookModel, fmt: DateFormat): void {
   canonicalizeTemporalSheets(model as unknown as Record<string, GridRow[] | undefined>, fmt);
