@@ -210,6 +210,13 @@ function AppInner() {
   }, [activeScenario, captureCurrentScenario]);
 
   const resetForNewModel = useCallback((nextModel: WorkbookModel, name?: string) => {
+    // Single choke point: every temporal sheet in the incoming model becomes
+    // ISO-`T` with `snapshot` leading, no matter which path the model came in
+    // through (workbook import, project import, demo, plugin preview, history
+    // restore, …). Idempotent — a second call on already-canonical data is a
+    // no-op, so callers that pre-normalise with a project-specific dateFormat
+    // (e.g. handleImportProject) stay correct.
+    normalizeInputDatesToIso(nextModel, settings.dateFormat);
     const snapshotMax = snapshotMaxFromWorkbook(nextModel.snapshots);
     const nextPathway = readPathwayConfigFromModel(nextModel);
     const nextRolling = readRollingConfigFromModel(nextModel);
@@ -278,6 +285,7 @@ function AppInner() {
   }, [
     snapshotWeight,
     carbonPrice,
+    settings.dateFormat,
     settings.discountRate,
     settings.enableLoadShedding,
     settings.loadSheddingCost,
