@@ -10,6 +10,7 @@
  * users to drill into every option from a 252-px-wide rail.
  */
 import React, { useState } from 'react';
+import { ActivityId } from '../shared/utils/persistedLayout';
 import {
   CarbonPriceScheduleEntry,
   CustomConstraint,
@@ -86,6 +87,13 @@ export interface SidebarProps {
   onToggleModuleEnabled: (moduleId: string, enabled: boolean) => void;
   onInstallModule: (file: File) => void;
   onUninstallModule: (module: ModuleDescriptor) => void;
+  /**
+   * Which activity is selected in the workbench activity bar. Drives which
+   * sidebar groups render. `model` shows network-building groups, `solve`
+   * shows run-configuration groups, `analytics` shows result groups, etc.
+   * `null` falls back to the full set (legacy non-workbench mode).
+   */
+  activity?: ActivityId | null;
 }
 
 export function Sidebar({
@@ -143,12 +151,24 @@ export function Sidebar({
   onToggleModuleEnabled,
   onInstallModule,
   onUninstallModule,
+  activity = null,
 }: SidebarProps) {
+  // Per-activity visibility. `null` = legacy mode, show everything.
+  const showFile        = activity === null || activity === 'model'     || activity === 'analytics';
+  const showConstraints = activity === null || activity === 'model'     || activity === 'solve';
+  const showScenarios   = activity === null || activity === 'model'     || activity === 'solve' || activity === 'analytics';
+  const showRunSetup    = activity === null || activity === 'solve';
+  const showResults     = activity === null || activity === 'solve'     || activity === 'analytics';
+  const showHistory     = activity === null || activity === 'solve'     || activity === 'analytics';
+  const showSettings    = activity === null || activity === 'settings';
+  const showModules     = activity === null || activity === 'plugins';
   const [showAdvancedFormats, setShowAdvancedFormats] = useState(false);
   const activeScenario = scenarioCatalog.scenarios.find((s) => s.id === scenarioCatalog.activeScenarioId) ?? null;
 
   return (
     <>
+      {showFile && (
+      <>
       {/* ── File ── */}
       <SidebarGroup title="File" defaultOpen>
         <div className="sg-btn-grid">
@@ -212,7 +232,11 @@ export function Sidebar({
           )}
         </div>
       </SidebarGroup>
+      </>
+      )}
 
+      {showConstraints && (
+      <>
       {/* ── Constraints ── */}
       <SidebarGroup
         title="Constraints"
@@ -228,7 +252,11 @@ export function Sidebar({
           onOpen={onOpenConstraintsWorkspace}
         />
       </SidebarGroup>
+      </>
+      )}
 
+      {showScenarios && (
+      <>
       {/* ── Scenarios ── */}
       <SidebarGroup
         title="Scenarios"
@@ -315,7 +343,11 @@ export function Sidebar({
           </>
         )}
       </SidebarGroup>
+      </>
+      )}
 
+      {showRunSetup && (
+      <>
       {/* ── Run summary — opens the Run setup workspace ── */}
       <SidebarGroup title="Run setup">
         <RunSummary
@@ -332,7 +364,11 @@ export function Sidebar({
           onOpen={onOpenRunSetupWorkspace}
         />
       </SidebarGroup>
+      </>
+      )}
 
+      {showSettings && (
+      <>
       {/* ── Application settings (one-time per project) ── */}
       <SidebarGroup title="Settings">
         <div className="constraints-summary">
@@ -344,9 +380,10 @@ export function Sidebar({
           </button>
         </div>
       </SidebarGroup>
+      </>
+      )}
 
-      {/* ── Results ── */}
-      {results && (
+      {showResults && results && (
         <SidebarGroup title="Results" defaultOpen>
           <div className="sg-summary">
             {results.summary.map((s) => (
@@ -360,8 +397,7 @@ export function Sidebar({
         </SidebarGroup>
       )}
 
-      {/* ── History ── */}
-      {runHistory.length > 0 && (
+      {showHistory && runHistory.length > 0 && (
         <SidebarGroup
           title="History"
           badge={<span className="sg-badge">{runHistory.length}</span>}
@@ -381,7 +417,7 @@ export function Sidebar({
         </SidebarGroup>
       )}
 
-      {/* ── Modules ── */}
+      {showModules && (
       <SidebarGroup
         title="Modules"
         badge={
@@ -402,6 +438,7 @@ export function Sidebar({
           onUninstall={onUninstallModule}
         />
       </SidebarGroup>
+      )}
     </>
   );
 }
