@@ -1,23 +1,26 @@
 /**
  * Model view — workbook input editor.
  *
- * Owns ALL file ops (open/save/import/export) in a top toolbar, plus
- * a split body with the Table on the left and the Map on the right.
+ * Three independent columns side-by-side:
+ *   Tree (component → static / temporal sheets) · Table · Map.
+ * Each column scrolls on its own. File ops live in the toolbar above.
  *
- * The view file is a thin shell: layout only. The toolbar and panes
- * are in `ModelView.features/`.
+ * The view file is a thin shell: layout + selection state. The tree,
+ * table and map are each their own component.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   GridRow,
   Primitive,
   SheetName,
+  TableSel,
   TsSheetName,
   WorkbookModel,
 } from '../shared/types';
 import { ModelIssue } from '../features/validation/useModelIssues';
 import { DateFormat } from '../features/settings/useSettings';
 import { FileToolbar, FileToolbarProps } from './ModelView.features/FileToolbar';
+import { SheetTree } from './ModelView.features/SheetTree';
 import { MapPane } from '../features/map/MapPane';
 import { TablesPane } from '../features/input/TablesPane';
 
@@ -43,13 +46,25 @@ export interface ModelViewProps extends FileToolbarProps {
 }
 
 export function ModelView(props: ModelViewProps) {
+  const [sel, setSel] = useState<TableSel>({ kind: 'static', sheet: 'buses' });
+
   return (
-    <div className="pane model-pane">
+    <div className="model-view">
       <FileToolbar {...props} />
-      <div className="model-split">
-        <section className="model-split-pane model-split-table">
+      <div className="model-columns">
+        <section className="model-column model-column-tree">
+          <SheetTree
+            model={props.model}
+            issues={props.modelIssues}
+            sel={sel}
+            onSelChange={setSel}
+          />
+        </section>
+        <section className="model-column model-column-table">
           <TablesPane
             model={props.model}
+            sel={sel}
+            onSelChange={setSel}
             onUpdate={props.onUpdateRow}
             onAddRow={props.onAddRow}
             onDeleteRow={props.onDeleteRow}
@@ -63,7 +78,7 @@ export function ModelView(props: ModelViewProps) {
             dateFormat={props.dateFormat}
           />
         </section>
-        <section className="model-split-pane model-split-map">
+        <section className="model-column model-column-map">
           <MapPane model={props.model} bounds={props.bounds} busIndex={props.busIndex} />
         </section>
       </div>

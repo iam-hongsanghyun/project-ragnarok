@@ -646,6 +646,8 @@ function SpreadsheetGrid({
 
 interface TablesPaneProps {
   model: WorkbookModel;
+  sel: TableSel;
+  onSelChange: (sel: TableSel) => void;
   onUpdate: (sheet: SheetName, rowIndex: number, col: string, val: Primitive) => void;
   onAddRow: (sheet: SheetName) => void;
   onDeleteRow: (sheet: SheetName, rowIndex: number) => void;
@@ -661,6 +663,8 @@ interface TablesPaneProps {
 
 export function TablesPane({
   model,
+  sel,
+  onSelChange,
   onUpdate,
   onAddRow,
   onDeleteRow,
@@ -673,20 +677,16 @@ export function TablesPane({
   currencySymbol = '$',
   dateFormat = 'auto',
 }: TablesPaneProps) {
-  const [sel, setSel] = useState<TableSel>({ kind: 'static', sheet: 'buses' });
   const [jumpHighlight, setJumpHighlight] = useState<number | null>(null);
 
   // When jumpTo changes: switch to the target sheet and flash the row
   useEffect(() => {
     if (!jumpTo) return;
-    setSel({ kind: 'static', sheet: jumpTo.sheet as SheetName });
+    onSelChange({ kind: 'static', sheet: jumpTo.sheet as SheetName });
     setJumpHighlight(jumpTo.rowIndex);
-    // Clear the flash after 2.5 s
     const t = setTimeout(() => setJumpHighlight(null), 2500);
     return () => clearTimeout(t);
-  }, [jumpTo]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [navSearch, setNavSearch] = useState('');
+  }, [jumpTo, onSelChange]);
   const [addColOpen, setAddColOpen] = useState(false);
   const [addColAnchor, setAddColAnchor] = useState<DOMRect | null>(null);
   const [showAnalyser, setShowAnalyser] = useState(false);
@@ -717,13 +717,6 @@ export function TablesPane({
       });
     return map;
   }, [issues, sel.sheet]);
-
-  const toggleGroup = (sheet: string) =>
-    setCollapsed((s) => {
-      const n = new Set(s);
-      n.has(sheet) ? n.delete(sheet) : n.add(sheet);
-      return n;
-    });
 
   const handleCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -805,89 +798,6 @@ export function TablesPane({
   };
 
   return (
-    <div className="tables-layout">
-      <nav className="tables-nav">
-        <div className="nav-search-wrap">
-          <input
-            className="nav-search"
-            type="text"
-            placeholder="Filter sheets…"
-            value={navSearch}
-            onChange={(e) => setNavSearch(e.target.value)}
-            aria-label="Filter sheets"
-          />
-          {navSearch && (
-            <button className="nav-search-clear" onClick={() => setNavSearch('')} aria-label="Clear filter">
-              ×
-            </button>
-          )}
-        </div>
-        <div className="nav-toolbar">
-          <button
-            className="tb-btn"
-            onClick={() => setCollapsed(new Set(TABLE_GROUPS.map((g) => g.sheet)))}
-          >
-            Collapse all
-          </button>
-          <button className="tb-btn" onClick={() => setCollapsed(new Set())}>
-            Expand all
-          </button>
-        </div>
-        {TABLE_GROUPS.filter(
-          (g) =>
-            !navSearch ||
-            g.label.toLowerCase().includes(navSearch.toLowerCase()) ||
-            g.sheet.toLowerCase().includes(navSearch.toLowerCase()) ||
-            g.temporalSheets.some((ts) => ts.attribute.toLowerCase().includes(navSearch.toLowerCase())),
-        ).map((g) => {
-          const open = !collapsed.has(g.sheet);
-          const staticActive = sel.kind === 'static' && sel.sheet === g.sheet;
-          return (
-            <div key={g.sheet} className="nav-group">
-              <div className="nav-group-header" onClick={() => toggleGroup(g.sheet)}>
-                <span className={`nav-chevron${open ? ' open' : ''}`}>›</span>
-                <span className="nav-group-label">{g.label}</span>
-                <span className="nav-count">{(model[g.sheet] ?? []).length}</span>
-              </div>
-              {open && (
-                <div className="nav-items">
-                  <button
-                    className={`nav-item${staticActive ? ' active' : ''}`}
-                    onClick={() => { setSel({ kind: 'static', sheet: g.sheet }); setAddColOpen(false); }}
-                  >
-                    <span className="nav-item-icon">≡</span>
-                    <span className="nav-item-label">static</span>
-                    <span className="nav-count">{(model[g.sheet] ?? []).length}</span>
-                    {issueCounts[g.sheet]?.errors > 0 && (
-                      <span className="nav-issue-badge nav-issue-badge--error">{issueCounts[g.sheet].errors}</span>
-                    )}
-                    {!issueCounts[g.sheet]?.errors && issueCounts[g.sheet]?.warnings > 0 && (
-                      <span className="nav-issue-badge nav-issue-badge--warning">{issueCounts[g.sheet].warnings}</span>
-                    )}
-                  </button>
-                  {g.temporalSheets.map((ts) => {
-                    const tsRows: GridRow[] = ((model as any)[ts.sheet] as GridRow[]) ?? [];
-                    const tsActive = sel.kind === 'ts' && sel.sheet === ts.sheet;
-                    return (
-                    <button
-                      key={ts.sheet}
-                      className={`nav-item ts-item${tsActive ? ' active' : ''}`}
-                      onClick={() => setSel({ kind: 'ts', sheet: ts.sheet })}
-                    >
-                      <span className="nav-item-icon">t</span>
-                      <span className="nav-item-label">{ts.attribute}</span>
-                      <span className={`nav-count${tsRows.length > 0 ? ' has-data' : ''}`}>
-                        {tsRows.length > 0 ? `${tsRows.length}t` : '—'}
-                      </span>
-                    </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
 
       <div className="tables-content">
         <div className="tables-content-header">
@@ -1027,6 +937,5 @@ export function TablesPane({
           )}
         </div>
       </div>
-    </div>
   );
 }
