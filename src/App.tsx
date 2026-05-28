@@ -319,6 +319,12 @@ function AppInner() {
     setStatus(`Uninstalled local module ${module.id}.`);
   }, [moduleHost, showToast]);
 
+  const prepareModelForBackend = useCallback((source: WorkbookModel): WorkbookModel => {
+    const cloned = JSON.parse(JSON.stringify(source)) as WorkbookModel;
+    normalizeInputDatesToIso(cloned, settings.dateFormat);
+    return cloned;
+  }, [settings.dateFormat]);
+
   const handleModuleAction = useCallback(async (
     moduleId: string,
     fieldKey: string,
@@ -337,11 +343,12 @@ function AppInner() {
     const options = {
       moduleConfigs: moduleHost.moduleConfigs,
     };
+    const modelForBackend = prepareModelForBackend(model);
     try {
       const resp = await fetch(`${API_BASE}/api/modules/${encodeURIComponent(moduleId)}/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, scenario, options }),
+        body: JSON.stringify({ model: modelForBackend, scenario, options }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
@@ -363,7 +370,7 @@ function AppInner() {
       showToast(msg, 'error');
       setStatus(msg);
     }
-  }, [model, constraints, carbonPrice, settings.discountRate, moduleHost.moduleConfigs, resetForNewModel, showToast]);
+  }, [model, constraints, carbonPrice, settings.discountRate, moduleHost.moduleConfigs, prepareModelForBackend, resetForNewModel, showToast]);
 
   // Elapsed-time ticker while running
   useEffect(() => {
@@ -997,8 +1004,7 @@ function AppInner() {
 
     // Same ISO normalization as import/open so the backend always receives
     // canonical snapshot timestamps (and the grid stays in sync).
-    const modelForRun = JSON.parse(JSON.stringify(model)) as WorkbookModel;
-    normalizeInputDatesToIso(modelForRun, settings.dateFormat);
+    const modelForRun = prepareModelForBackend(model);
     setModel(modelForRun);
 
     if (dryRun) {
