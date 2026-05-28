@@ -126,6 +126,29 @@ function addRequiredFieldIssues(sheet: string, rows: Row[], issues: ModelIssue[]
   });
 }
 
+function addTypeReferenceIssues(
+  sheet: string,
+  rows: Row[],
+  catalogue: Set<string>,
+  catalogueSheet: string,
+  issues: ModelIssue[],
+) {
+  if (catalogue.size === 0) return;
+  rows.forEach((row, rowIndex) => {
+    const typeRef = stringValue(row.type).trim();
+    if (!typeRef) return;
+    if (!catalogue.has(typeRef)) {
+      issues.push({
+        sheet,
+        rowIndex,
+        col: 'type',
+        severity: 'warning',
+        message: `type "${typeRef}" not found in ${catalogueSheet}`,
+      });
+    }
+  });
+}
+
 function addBusReferenceIssues(sheet: string, rows: Row[], busNames: Set<string>, issues: ModelIssue[]) {
   const refs = busReferenceAttributes(sheet);
   rows.forEach((row, rowIndex) => {
@@ -213,6 +236,8 @@ export function useModelIssues(model: WorkbookModel): ModelIssue[] {
     const issues: ModelIssue[] = [];
     const busNames = new Set((model.buses ?? []).map((row) => stringValue(row.name).trim()).filter(Boolean));
     const carrierNames = new Set((model.carriers ?? []).map((row) => stringValue(row.name).trim()).filter(Boolean));
+    const lineTypeNames = new Set((model.line_types ?? []).map((row) => stringValue(row.name).trim()).filter(Boolean));
+    const transformerTypeNames = new Set((model.transformer_types ?? []).map((row) => stringValue(row.name).trim()).filter(Boolean));
 
     for (const component of PYPSA_COMPONENTS) {
       const sheet = component.sheet_name;
@@ -226,6 +251,11 @@ export function useModelIssues(model: WorkbookModel): ModelIssue[] {
       addRequiredFieldIssues(sheet, rows, issues);
       addBusReferenceIssues(sheet, rows, busNames, issues);
       addStaticValueIssues(sheet, rows, carrierNames, issues);
+      if (sheet === 'lines') {
+        addTypeReferenceIssues(sheet, rows, lineTypeNames, 'line_types', issues);
+      } else if (sheet === 'transformers') {
+        addTypeReferenceIssues(sheet, rows, transformerTypeNames, 'transformer_types', issues);
+      }
     }
 
     for (const sheet of ALL_KNOWN_TS_SHEETS) {
