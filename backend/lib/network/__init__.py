@@ -284,7 +284,7 @@ def build_network(
         notes.append(
             "Enabled stochastic mode with "
             + ", ".join(
-                f"{s.name} (w={s.weight:.2f}, load×{s.load_multiplier:.2f})"
+                f"{s.name} (w={s.weight:.2f}, {len(s.overrides)} override{'s' if len(s.overrides) != 1 else ''})"
                 for s in stochastic.scenarios
             )
             + "."

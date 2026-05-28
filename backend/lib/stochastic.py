@@ -34,18 +34,13 @@ import pypsa
 from .utils.coerce import number
 
 
-DEFAULT_RENEWABLE_CARRIERS = (
-    "solar", "wind", "pv", "onwind", "offwind", "onshore_wind", "offshore_wind",
-    "hydro", "ror", "run_of_river", "wave", "tidal", "geothermal",
-)
-
-
 @dataclass(frozen=True)
 class ScenarioOverride:
-    """Advanced per-scenario override.
+    """Per-scenario override.
 
-    Targets a single (sheet, attribute) cell or a subset of rows by name /
-    carrier, then either multiplies or replaces the existing value.
+    Targets a sheet's attribute on either all rows, rows matching a name,
+    or rows matching a carrier; then either multiplies or replaces the
+    existing value.
     """
     sheet: str
     attribute: str
@@ -59,9 +54,6 @@ class ScenarioOverride:
 class StochasticScenario:
     name: str
     weight: float
-    load_multiplier: float
-    marginal_cost_multiplier: float
-    renewable_availability_multiplier: float
     overrides: tuple[ScenarioOverride, ...]
 
 
@@ -89,9 +81,6 @@ def parse_stochastic_config(raw: dict[str, Any] | None) -> StochasticConfig:
         weight = float(number(item.get("weight"), 0.0))
         if weight <= 0:
             continue
-        load_mult = float(number(item.get("loadMultiplier"), 1.0))
-        mc_mult = float(number(item.get("marginalCostMultiplier"), 1.0))
-        re_mult = float(number(item.get("renewableAvailabilityMultiplier"), 1.0))
         raw_overrides = item.get("overrides") or []
         overrides: list[ScenarioOverride] = []
         for raw_override in raw_overrides:
@@ -118,9 +107,6 @@ def parse_stochastic_config(raw: dict[str, Any] | None) -> StochasticConfig:
         scenarios.append(StochasticScenario(
             name=name,
             weight=weight,
-            load_multiplier=load_mult,
-            marginal_cost_multiplier=mc_mult,
-            renewable_availability_multiplier=re_mult,
             overrides=tuple(overrides),
         ))
 
@@ -130,14 +116,7 @@ def parse_stochastic_config(raw: dict[str, Any] | None) -> StochasticConfig:
     # Normalise weights to sum=1
     total = sum(s.weight for s in scenarios)
     normalised = tuple(
-        StochasticScenario(
-            name=s.name,
-            weight=s.weight / total,
-            load_multiplier=s.load_multiplier,
-            marginal_cost_multiplier=s.marginal_cost_multiplier,
-            renewable_availability_multiplier=s.renewable_availability_multiplier,
-            overrides=s.overrides,
-        )
+        StochasticScenario(name=s.name, weight=s.weight / total, overrides=s.overrides)
         for s in scenarios
     )
     return StochasticConfig(enabled=True, scenarios=normalised)
@@ -146,12 +125,17 @@ def parse_stochastic_config(raw: dict[str, Any] | None) -> StochasticConfig:
 def apply_scenarios(network: pypsa.Network, config: StochasticConfig) -> None:
     """Expand ``network`` to a stochastic shape and apply per-scenario overrides.
 
-    Order of application:
-      1. Quick knobs (load×, marginal_cost×, renewable_availability×)
-      2. Advanced overrides (in row order)
+    Every variation lives in ``scenario.overrides``: a list of
+    ``ScenarioOverride`` rows applied in row order. There are no special
+    multiplier shortcuts — the override editor is the single mechanism.
+    Common patterns:
 
-    Later steps overwrite earlier ones so a power user can override a knob
-    with a more-specific advanced rule.
+      - **Load × 0.8** in this scenario:
+        ``{sheet: loads, attribute: p_set, scope: all, op: multiply, value: 0.8}``
+      - **Fuel price × 2** on gas generators:
+        ``{sheet: generators, attribute: marginal_cost, scope: carrier, scope_value: gas, op: multiply, value: 2}``
+      - **Drought year on a specific hydro plant**:
+        ``{sheet: generators, attribute: p_max_pu, scope: name, scope_value: hydro_a, op: multiply, value: 0.4}``
     """
     if not config.enabled:
         return
@@ -159,86 +143,8 @@ def apply_scenarios(network: pypsa.Network, config: StochasticConfig) -> None:
     network.set_scenarios(weights)
 
     for scenario in config.scenarios:
-        _apply_load_multiplier(network, scenario)
-        _apply_marginal_cost_multiplier(network, scenario)
-        _apply_renewable_availability_multiplier(network, scenario)
         for override in scenario.overrides:
             _apply_advanced_override(network, scenario, override)
-
-
-def _apply_load_multiplier(network: pypsa.Network, scenario: StochasticScenario) -> None:
-    if scenario.load_multiplier == 1.0:
-        return
-    if "p_set" in network.loads.columns:
-        mask = network.loads.index.get_level_values("scenario") == scenario.name
-        network.loads.loc[mask, "p_set"] = (
-            network.loads.loc[mask, "p_set"] * scenario.load_multiplier
-        )
-    p_set_t = network.loads_t.p_set
-    if not p_set_t.empty and isinstance(p_set_t.columns, pd.MultiIndex):
-        scenario_cols = [c for c in p_set_t.columns if c[0] == scenario.name]
-        if scenario_cols:
-            p_set_t.loc[:, scenario_cols] = p_set_t.loc[:, scenario_cols] * scenario.load_multiplier
-
-
-def _apply_marginal_cost_multiplier(network: pypsa.Network, scenario: StochasticScenario) -> None:
-    """Scale the effective marginal cost (post-carbon adder) for every
-    generator in this scenario. Useful for fuel-price uncertainty."""
-    if scenario.marginal_cost_multiplier == 1.0:
-        return
-    if "marginal_cost" in network.generators.columns:
-        mask = network.generators.index.get_level_values("scenario") == scenario.name
-        network.generators.loc[mask, "marginal_cost"] = (
-            network.generators.loc[mask, "marginal_cost"] * scenario.marginal_cost_multiplier
-        )
-    mc_t = network.generators_t.marginal_cost
-    if not mc_t.empty and isinstance(mc_t.columns, pd.MultiIndex):
-        scenario_cols = [c for c in mc_t.columns if c[0] == scenario.name]
-        if scenario_cols:
-            mc_t.loc[:, scenario_cols] = mc_t.loc[:, scenario_cols] * scenario.marginal_cost_multiplier
-
-
-def _is_renewable_carrier(name: object) -> bool:
-    text = str(name or "").strip().lower()
-    if not text:
-        return False
-    return any(token in text for token in DEFAULT_RENEWABLE_CARRIERS)
-
-
-def _apply_renewable_availability_multiplier(network: pypsa.Network, scenario: StochasticScenario) -> None:
-    """Scale ``p_max_pu`` for generators whose carrier looks renewable.
-
-    Matched by carrier-name substring against ``DEFAULT_RENEWABLE_CARRIERS``
-    so common renames (``solar_pv``, ``onwind_2020`` …) still resolve.
-    """
-    if scenario.renewable_availability_multiplier == 1.0:
-        return
-    carriers = network.generators["carrier"] if "carrier" in network.generators.columns else None
-    if carriers is None:
-        return
-    scenario_mask = network.generators.index.get_level_values("scenario") == scenario.name
-    renewable_mask = carriers.apply(_is_renewable_carrier)
-    target_mask = scenario_mask & renewable_mask
-    if target_mask.any() and "p_max_pu" in network.generators.columns:
-        network.generators.loc[target_mask, "p_max_pu"] = (
-            network.generators.loc[target_mask, "p_max_pu"] * scenario.renewable_availability_multiplier
-        )
-    p_max_pu_t = network.generators_t.p_max_pu
-    if not p_max_pu_t.empty and isinstance(p_max_pu_t.columns, pd.MultiIndex):
-        # Column tuples are (scenario, name); look up each name's carrier and
-        # only scale renewable-carrier rows in this scenario.
-        target_cols: list[tuple] = []
-        for col in p_max_pu_t.columns:
-            if col[0] != scenario.name:
-                continue
-            try:
-                gen_carrier = carriers.loc[col]
-            except (KeyError, TypeError):
-                continue
-            if _is_renewable_carrier(gen_carrier):
-                target_cols.append(col)
-        if target_cols:
-            p_max_pu_t.loc[:, target_cols] = p_max_pu_t.loc[:, target_cols] * scenario.renewable_availability_multiplier
 
 
 def _resolve_override_targets(
@@ -273,11 +179,12 @@ def _apply_advanced_override(
     scenario: StochasticScenario,
     override: ScenarioOverride,
 ) -> None:
-    """Apply a single user-authored override to the static frame for this scenario.
+    """Apply a single user-authored override to this scenario.
 
-    Skipped silently if the column doesn't exist on the target sheet or no
-    rows match the scope — the validation pane is the right place to flag
-    misconfigured overrides (covered separately).
+    Writes to both the static frame and (if present) the corresponding
+    ``<list>_t.<attribute>`` time-varying frame so per-snapshot precision
+    survives whether the user supplied the attribute as a scalar or as a
+    time series.
     """
     targets = _resolve_override_targets(network, scenario, override)
     if len(targets) == 0:
@@ -286,15 +193,38 @@ def _apply_advanced_override(
         comp = network.components[override.sheet]
     except KeyError:
         return
+
+    target_names = [target[1] if isinstance(target, tuple) else target for target in targets]
+
+    # ── Static frame ────────────────────────────────────────────────────────
     static = comp.static
-    if override.attribute not in static.columns:
+    if override.attribute in static.columns:
+        if override.operation == "set":
+            comp.static.loc[targets, override.attribute] = override.value
+        else:  # multiply
+            comp.static.loc[targets, override.attribute] = (
+                comp.static.loc[targets, override.attribute] * override.value
+            )
+
+    # ── Dynamic frame (if any) ──────────────────────────────────────────────
+    dynamic = getattr(comp, "dynamic", None)
+    if dynamic is None or override.attribute not in dynamic:
+        return
+    df = dynamic[override.attribute]
+    if df is None or df.empty:
+        return
+    if not isinstance(df.columns, pd.MultiIndex):
+        return
+    scenario_cols = [
+        col for col in df.columns
+        if col[0] == scenario.name and col[1] in target_names
+    ]
+    if not scenario_cols:
         return
     if override.operation == "set":
-        comp.static.loc[targets, override.attribute] = override.value
+        df.loc[:, scenario_cols] = override.value
     else:  # multiply
-        comp.static.loc[targets, override.attribute] = (
-            comp.static.loc[targets, override.attribute] * override.value
-        )
+        df.loc[:, scenario_cols] = df.loc[:, scenario_cols] * override.value
 
 
 def per_scenario_summaries(
@@ -349,7 +279,7 @@ def per_scenario_summaries(
         rows.append({
             "name": scenario.name,
             "weight": scenario.weight,
-            "loadMultiplier": scenario.load_multiplier,
+            "overrideCount": len(scenario.overrides),
             "totalEnergyMwh": total_energy,
             "totalEmissionsTco2": total_emissions,
             "totalOperatingCost": total_operating_cost,

@@ -51,7 +51,7 @@ export function StochasticScenariosCard({ stochastic, currencySymbol }: Props) {
           <tr>
             <th>Scenario</th>
             <th>Weight</th>
-            <th>Load ×</th>
+            <th>Overrides</th>
             <th>Energy (MWh)</th>
             <th>Emissions (tCO₂e)</th>
             <th>Operating cost</th>
@@ -71,7 +71,7 @@ export function StochasticScenariosCard({ stochastic, currencySymbol }: Props) {
                 )}
               </td>
               <td>{s.weight.toFixed(2)}</td>
-              <td>{s.loadMultiplier.toFixed(2)}</td>
+              <td>{s.overrideCount}</td>
               <td>{fmt(s.totalEnergyMwh)}</td>
               <td>{fmt(s.totalEmissionsTco2)}</td>
               <td>{fmt(s.totalOperatingCost)} {currencySymbol}</td>

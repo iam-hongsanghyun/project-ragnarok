@@ -124,9 +124,6 @@ export interface StochasticScenarioConfig {
   id: string;
   name: string;
   weight: number;
-  loadMultiplier: number;
-  marginalCostMultiplier: number;
-  renewableAvailabilityMultiplier: number;
   overrides: StochasticScenarioOverride[];
 }
 
@@ -147,7 +144,7 @@ export interface SecurityConstrainedConfig {
 export interface StochasticScenarioResult {
   name: string;
   weight: number;
-  loadMultiplier: number;
+  overrideCount: number;
   totalEnergyMwh: number;
   totalEmissionsTco2: number;
   totalOperatingCost: number;

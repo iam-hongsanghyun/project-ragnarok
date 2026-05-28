@@ -1,9 +1,14 @@
-"""Pins the two-stage stochastic flow end-to-end."""
+"""Pins the two-stage stochastic flow end-to-end.
+
+Every scenario expresses uncertainty through ``overrides`` — there are
+no special multiplier knobs. These tests target the same use cases
+real users care about (load × 0.8, fuel × 2, hydro × 0.4) via the
+override mechanism.
+"""
 from __future__ import annotations
 
 from typing import Any
 
-import pandas as pd
 import pytest
 
 from backend.lib.results import run_pypsa
@@ -35,9 +40,21 @@ def _model() -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def _load_multiplier_override(value: float) -> dict[str, Any]:
+    """An override that scales every ``loads.p_set`` row in this scenario."""
+    return {
+        "sheet": "loads",
+        "attribute": "p_set",
+        "scopeType": "all",
+        "scopeValue": "",
+        "operation": "multiply",
+        "value": value,
+    }
+
+
 def test_stochastic_solve_returns_per_scenario_summaries() -> None:
-    """Two scenarios with different load multipliers must produce distinct
-    energy / emissions / cost totals, with weights normalised to sum=1."""
+    """Two scenarios with different load overrides produce distinct totals;
+    weights normalised to sum=1."""
     result = run_pypsa(
         _model(),
         {"discountRate": 0.05},
@@ -45,8 +62,8 @@ def test_stochastic_solve_returns_per_scenario_summaries() -> None:
             "stochasticConfig": {
                 "enabled": True,
                 "scenarios": [
-                    {"name": "low", "weight": 0.6, "loadMultiplier": 0.8},
-                    {"name": "high", "weight": 0.4, "loadMultiplier": 1.5},
+                    {"name": "low",  "weight": 0.6, "overrides": [_load_multiplier_override(0.8)]},
+                    {"name": "high", "weight": 0.4, "overrides": [_load_multiplier_override(1.5)]},
                 ],
             }
         },
@@ -58,19 +75,14 @@ def test_stochastic_solve_returns_per_scenario_summaries() -> None:
     assert stochastic["representativeScenario"] == "low"  # higher weight
 
     scenarios = {s["name"]: s for s in stochastic["scenarios"]}
-    assert set(scenarios.keys()) == {"low", "high"}
     assert scenarios["low"]["weight"] == pytest.approx(0.6)
     assert scenarios["high"]["weight"] == pytest.approx(0.4)
 
-    # low_demand: 100 × 0.8 × 2h = 160 MWh; high_demand: 100 × 1.5 × 2h = 300 MWh
+    # 100 MW × 0.8 × 2h = 160 MWh; 100 × 1.5 × 2h = 300 MWh
     assert scenarios["low"]["totalEnergyMwh"] == pytest.approx(160.0)
     assert scenarios["high"]["totalEnergyMwh"] == pytest.approx(300.0)
-
-    # Emissions at 0.4 tCO2/MWh
     assert scenarios["low"]["totalEmissionsTco2"] == pytest.approx(64.0)
     assert scenarios["high"]["totalEmissionsTco2"] == pytest.approx(120.0)
-
-    # Operating cost at 20 $/MWh
     assert scenarios["low"]["totalOperatingCost"] == pytest.approx(3200.0)
     assert scenarios["high"]["totalOperatingCost"] == pytest.approx(6000.0)
 
@@ -84,8 +96,8 @@ def test_weights_normalise_to_one() -> None:
             "stochasticConfig": {
                 "enabled": True,
                 "scenarios": [
-                    {"name": "a", "weight": 60.0, "loadMultiplier": 1.0},
-                    {"name": "b", "weight": 40.0, "loadMultiplier": 1.0},
+                    {"name": "a", "weight": 60.0},
+                    {"name": "b", "weight": 40.0},
                 ],
             }
         },
@@ -104,18 +116,16 @@ def test_single_scenario_falls_back_to_deterministic() -> None:
         {
             "stochasticConfig": {
                 "enabled": True,
-                "scenarios": [
-                    {"name": "only", "weight": 1.0, "loadMultiplier": 1.0},
-                ],
+                "scenarios": [{"name": "only", "weight": 1.0}],
             }
         },
     )
     assert result["stochastic"] is None
 
 
-def test_marginal_cost_multiplier_scales_per_scenario_cost() -> None:
-    """Per-scenario marginal_cost_multiplier scales the effective dispatch
-    cost; the gas plant's operating cost should reflect the scenario factor."""
+def test_marginal_cost_override_by_carrier_scales_per_scenario_cost() -> None:
+    """A scope='carrier' override on `generators.marginal_cost` is the same as
+    the old "fuel × N" knob; verify per-scenario dispatch cost reflects it."""
     result = run_pypsa(
         _model(),
         {"discountRate": 0.05},
@@ -123,24 +133,43 @@ def test_marginal_cost_multiplier_scales_per_scenario_cost() -> None:
             "stochasticConfig": {
                 "enabled": True,
                 "scenarios": [
-                    {"name": "cheap_gas", "weight": 0.5, "loadMultiplier": 1.0, "marginalCostMultiplier": 0.5},
-                    {"name": "expensive_gas", "weight": 0.5, "loadMultiplier": 1.0, "marginalCostMultiplier": 2.0},
+                    {
+                        "name": "cheap_gas",
+                        "weight": 0.5,
+                        "overrides": [{
+                            "sheet": "generators",
+                            "attribute": "marginal_cost",
+                            "scopeType": "carrier",
+                            "scopeValue": "gas",
+                            "operation": "multiply",
+                            "value": 0.5,
+                        }],
+                    },
+                    {
+                        "name": "expensive_gas",
+                        "weight": 0.5,
+                        "overrides": [{
+                            "sheet": "generators",
+                            "attribute": "marginal_cost",
+                            "scopeType": "carrier",
+                            "scopeValue": "gas",
+                            "operation": "multiply",
+                            "value": 2.0,
+                        }],
+                    },
                 ],
             }
         },
     )
     scenarios = {s["name"]: s for s in result["stochastic"]["scenarios"]}
-    # Both scenarios dispatch the same load (100 MW × 2h = 200 MWh) but at
-    # different effective costs (10 vs 40 $/MWh after scaling 20 $/MWh).
+    # Both dispatch 100 MW × 2h = 200 MWh, at 10 vs 40 $/MWh effective
     assert scenarios["cheap_gas"]["totalOperatingCost"] == pytest.approx(2000.0)
     assert scenarios["expensive_gas"]["totalOperatingCost"] == pytest.approx(8000.0)
 
 
 def test_advanced_override_by_name_set_operation() -> None:
-    """An override with scope='name' and operation='set' replaces the value
-    on the matching row only; other scenarios untouched."""
+    """Scope='name' + op='set' replaces the value on one specific row."""
     model = _model()
-    # Add a second generator so we can verify the override scope is selective.
     model["generators"].append({
         "name": "g2",
         "bus": "b0",
@@ -156,28 +185,23 @@ def test_advanced_override_by_name_set_operation() -> None:
             "stochasticConfig": {
                 "enabled": True,
                 "scenarios": [
-                    {"name": "base", "weight": 0.5, "loadMultiplier": 1.0},
+                    {"name": "base", "weight": 0.5},
                     {
                         "name": "g2_only_expensive",
                         "weight": 0.5,
-                        "loadMultiplier": 1.0,
-                        "overrides": [
-                            {
-                                "sheet": "generators",
-                                "attribute": "marginal_cost",
-                                "scopeType": "name",
-                                "scopeValue": "g2",
-                                "operation": "set",
-                                "value": 500.0,
-                            },
-                        ],
+                        "overrides": [{
+                            "sheet": "generators",
+                            "attribute": "marginal_cost",
+                            "scopeType": "name",
+                            "scopeValue": "g2",
+                            "operation": "set",
+                            "value": 500.0,
+                        }],
                     },
                 ],
             }
         },
     )
-    # Just assert the solve produced two scenario summaries — the override
-    # mechanism mostly affects dispatch choices, not the headline totals here.
     assert len(result["stochastic"]["scenarios"]) == 2
 
 
@@ -193,8 +217,8 @@ def test_stochastic_and_rolling_horizon_rejected() -> None:
                 "stochasticConfig": {
                     "enabled": True,
                     "scenarios": [
-                        {"name": "a", "weight": 0.5, "loadMultiplier": 1.0},
-                        {"name": "b", "weight": 0.5, "loadMultiplier": 1.0},
+                        {"name": "a", "weight": 0.5},
+                        {"name": "b", "weight": 0.5},
                     ],
                 },
                 "rollingConfig": {"enabled": True, "horizonSnapshots": 24, "overlapSnapshots": 0},
