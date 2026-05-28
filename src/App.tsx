@@ -15,6 +15,7 @@ import {
   RollingHorizonConfig,
   StochasticConfig,
   SecurityConstrainedConfig,
+  CarbonPriceScheduleEntry,
   Primitive,
   RunHistoryEntry,
   RunResults,
@@ -85,6 +86,7 @@ function AppInner() {
   const [rollingConfig, setRollingConfig] = useState<RollingHorizonConfig>(() => defaultRollingConfig());
   const [stochasticConfig, setStochasticConfig] = useState<StochasticConfig>({ enabled: false, scenarios: [] });
   const [sclopfConfig, setSclopfConfig] = useState<SecurityConstrainedConfig>({ enabled: false });
+  const [carbonPriceSchedule, setCarbonPriceSchedule] = useState<CarbonPriceScheduleEntry[]>([]);
   const [validateResult, setValidateResult] = useState<{
     valid: boolean;
     errors: string[];
@@ -1127,6 +1129,7 @@ function AppInner() {
       rollingConfig: normalizeRollingConfig(rollingConfig),
       stochasticConfig,
       securityConstrainedConfig: sclopfConfig,
+      carbonPriceSchedule,
     };
 
     setRunDialogOpen(false);
@@ -1535,6 +1538,7 @@ function AppInner() {
               snapshotEnd={snapshotEnd}
               snapshotWeight={snapshotWeight}
               carbonPrice={carbonPrice}
+              carbonPriceSchedule={carbonPriceSchedule}
               currencySymbol={settings.currencySymbol}
               runHistory={runHistory}
               onRestoreRun={handleRestoreRun}
@@ -1600,6 +1604,8 @@ function AppInner() {
               onSnapshotWeightChange={setSnapshotWeight}
               carbonPrice={carbonPrice}
               onCarbonPriceChange={setCarbonPrice}
+              carbonPriceSchedule={carbonPriceSchedule}
+              onCarbonPriceScheduleChange={setCarbonPriceSchedule}
               currencySymbol={settings.currencySymbol}
               lineCount={model.lines.length}
               transformerCount={model.transformers.length}

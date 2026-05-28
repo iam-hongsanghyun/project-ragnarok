@@ -24,6 +24,7 @@ from typing import Any
 import pandas as pd
 import pypsa
 
+from ..carbon_price import apply_carbon_price, parse_carbon_price_config
 from ..config import load_system_defaults
 from ..pathway import PathwayConfig, parse_pathway_config
 from ..stochastic import apply_scenarios, parse_stochastic_config
@@ -211,27 +212,14 @@ def build_network(
         notes.append(f"Scaled annual energy-sum caps by period factor {period_factor:.3f}.")
 
     # ── Carbon-price adder on generator marginal cost ─────────────────────────
-    if carbon_price > 0 and "co2_emissions" in network.carriers.columns:
-        ef = network.carriers["co2_emissions"]
-        gen_ef = network.generators["carrier"].map(ef).fillna(0.0)
-        emitting = gen_ef[gen_ef > 0]
-        if not emitting.empty:
-            network.generators["marginal_cost"] = (
-                network.generators["marginal_cost"].fillna(0.0)
-                + carbon_price * gen_ef
-            )
-            # PyPSA's optimiser prefers a generator's time-varying marginal_cost
-            # column over the static value, so the adder must also be applied
-            # there or it is silently ignored for generators with a time series.
-            # (No double-count: a generator uses either its _t column or the
-            # static value, never both.)
-            mc_t = network.generators_t.marginal_cost
-            for gen in mc_t.columns.intersection(emitting.index):
-                mc_t[gen] = mc_t[gen].fillna(0.0) + carbon_price * float(emitting[gen])
-            notes.append(
-                f"Applied carbon price {carbon_price:.2f} {currency}/t to "
-                f"{len(emitting)} emitting generator(s)."
-            )
+    # A single scalar still works (the legacy path); when the user provides a
+    # year→price schedule, the adder becomes per-snapshot. See
+    # `backend/lib/carbon_price.py` for the year-resolution rule.
+    carbon_config = parse_carbon_price_config(
+        carbon_price,
+        options.get("carbonPriceSchedule"),
+    )
+    apply_carbon_price(network, carbon_config, notes, currency)
 
     # ── Annuitise CAPEX for extendable assets ─────────────────────────────────
     # The extendable flag column name varies by component (p_nom_extendable,

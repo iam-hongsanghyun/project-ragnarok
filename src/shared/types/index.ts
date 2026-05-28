@@ -122,6 +122,11 @@ export interface StochasticConfig {
   scenarios: StochasticScenarioConfig[];
 }
 
+export interface CarbonPriceScheduleEntry {
+  year: number;
+  price: number;
+}
+
 export interface SecurityConstrainedConfig {
   enabled: boolean;
 }

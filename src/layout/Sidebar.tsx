@@ -11,6 +11,7 @@
  */
 import React, { useState } from 'react';
 import {
+  CarbonPriceScheduleEntry,
   CustomConstraint,
   GridRow,
   ModuleDescriptor,
@@ -68,6 +69,7 @@ export interface SidebarProps {
   snapshotEnd: number;
   snapshotWeight: number;
   carbonPrice: number;
+  carbonPriceSchedule: CarbonPriceScheduleEntry[];
   currencySymbol: string;
   runHistory: RunHistoryEntry[];
   onRestoreRun: (entry: RunHistoryEntry) => void;
@@ -124,6 +126,7 @@ export function Sidebar({
   snapshotEnd,
   snapshotWeight,
   carbonPrice,
+  carbonPriceSchedule,
   currencySymbol,
   runHistory,
   onRestoreRun,
@@ -324,6 +327,7 @@ export function Sidebar({
           snapshotEnd={snapshotEnd}
           snapshotWeight={snapshotWeight}
           carbonPrice={carbonPrice}
+          carbonPriceSchedule={carbonPriceSchedule}
           currencySymbol={currencySymbol}
           onOpen={onOpenRunSetupWorkspace}
         />
@@ -455,6 +459,7 @@ function RunSummary({
   snapshotEnd,
   snapshotWeight,
   carbonPrice,
+  carbonPriceSchedule,
   currencySymbol,
   onOpen,
 }: {
@@ -466,6 +471,7 @@ function RunSummary({
   snapshotEnd: number;
   snapshotWeight: number;
   carbonPrice: number;
+  carbonPriceSchedule: CarbonPriceScheduleEntry[];
   currencySymbol: string;
   onOpen: () => void;
 }) {
@@ -494,7 +500,22 @@ function RunSummary({
       <div className="constraints-summary-line">
         <span className="constraints-summary-label">Carbon</span>
         <span className="constraints-summary-value">
-          {carbonPrice > 0 ? `${currencySymbol}${carbonPrice}/t` : <em>off</em>}
+          {(() => {
+            if (carbonPriceSchedule.length >= 2) {
+              const prices = carbonPriceSchedule.map((r) => r.price);
+              const minP = Math.min(...prices);
+              const maxP = Math.max(...prices);
+              const firstYear = carbonPriceSchedule[0].year;
+              const lastYear = carbonPriceSchedule[carbonPriceSchedule.length - 1].year;
+              return minP === maxP
+                ? `${currencySymbol}${minP}/t (${firstYear}–${lastYear})`
+                : `${currencySymbol}${minP}→${maxP}/t (${firstYear}–${lastYear})`;
+            }
+            if (carbonPriceSchedule.length === 1) {
+              return `${currencySymbol}${carbonPriceSchedule[0].price}/t (${carbonPriceSchedule[0].year})`;
+            }
+            return carbonPrice > 0 ? `${currencySymbol}${carbonPrice}/t` : <em>off</em>;
+          })()}
         </span>
       </div>
       {flags.length > 0 && (
