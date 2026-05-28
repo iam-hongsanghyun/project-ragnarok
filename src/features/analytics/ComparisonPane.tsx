@@ -1,6 +1,7 @@
 import React from 'react';
 import { RunHistoryEntry, RunResults } from '../../shared/types';
 import { RunComparisonTable } from '../run-history/RunComparisonTable';
+import { ScenarioPivotCard } from './cards/ScenarioPivotCard';
 
 // ── Mini horizontal-bar chart ─────────────────────────────────────────────────
 
@@ -93,6 +94,13 @@ export function ComparisonPane({ runHistory, activeResults, onToggleComparison, 
 
   return (
     <div className="results-dashboard">
+
+      {/* ── Cross-scenario pivot ──────────────────────────────────────────── */}
+      <ScenarioPivotCard
+        runs={included}
+        activeResults={activeResults}
+        currencySymbol={currencySymbol}
+      />
 
       {/* ── KPI bar charts ────────────────────────────────────────────────── */}
       {showKpiCharts && (
