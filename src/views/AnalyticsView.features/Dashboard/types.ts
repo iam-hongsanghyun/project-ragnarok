@@ -45,8 +45,16 @@ export interface Cell {
 
 export interface Row {
   id: string;
-  /** Row height in pixels. Resizable from the bottom edge. */
+  /** Row height in pixels. Used when `autoHeight` is false (or unset and the
+   *  user has dragged the resize handle). */
   height: number;
+  /** When true, the renderer computes height from the dashboard width and
+   *  the cell count using the rule:
+   *    1 cell  → 0.5 × containerWidth
+   *    N ≥ 2   → containerWidth / N   (square cells)
+   *  Toggling cells in the row adapts the height automatically. Dragging
+   *  the row-resize handle switches this to false (manual height). */
+  autoHeight?: boolean;
   cells: Cell[];
 }
 

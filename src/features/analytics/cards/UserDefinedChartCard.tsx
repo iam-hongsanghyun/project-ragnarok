@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AnalyticsFocus,
   ChartSectionConfig,
@@ -371,20 +372,33 @@ export function UserDefinedChartCard({
         >
           ⚙
         </button>
-        {settingsOpen && (
-          <div className="chart-builder-settings-pop">
-            <div className="chart-builder-settings-head">
-              <strong>{hasMetric ? metric!.label : 'Configure chart'}</strong>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {hasMetric && <button className="ghost-button" onClick={handleExport}>Export</button>}
-                <button className="ghost-button" onClick={onClean}>Clean</button>
-                <button className="ghost-button" onClick={() => setSettingsOpen(false)}>Done</button>
+        {chartBody}
+        {settingsOpen && createPortal(
+          <div
+            className="chart-modal-backdrop"
+            onClick={() => setSettingsOpen(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="chart-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="chart-modal-head">
+                <div>
+                  <strong>{hasMetric ? metric!.label : 'Configure chart'}</strong>
+                  {hasMetric && <p className="chart-modal-sub">{metric!.unit}</p>}
+                </div>
+                <div className="chart-modal-actions">
+                  {hasMetric && <button className="tb-btn" onClick={handleExport}>Export</button>}
+                  <button className="tb-btn" onClick={onClean}>Clean</button>
+                  <button className="tb-btn tb-btn--active" onClick={() => setSettingsOpen(false)}>Apply</button>
+                </div>
+              </div>
+              <div className="chart-modal-body">
+                {settingsPanel}
               </div>
             </div>
-            {settingsPanel}
-          </div>
+          </div>,
+          document.body,
         )}
-        {chartBody}
       </div>
     );
   }

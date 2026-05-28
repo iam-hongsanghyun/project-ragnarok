@@ -9,13 +9,29 @@
  * in by the parent so this file knows nothing about PyPSA results;
  * its job is purely layout.
  */
-import React, { useCallback, useRef, useState } from 'react';
-import { Card, DashboardLayout, DragPayload } from './types';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Card, DashboardLayout, DragPayload, Row } from './types';
 
 const MIN_ROW_HEIGHT = 120;
 const MAX_ROW_HEIGHT = 1000;
 const MIN_CELL_FLEX = 0.25;
 const MAX_CELL_FLEX = 6;
+
+/** Aspect rule from the user spec:
+ *    1 cell  → height = 0.5 × width  (wide chart for time series)
+ *    N ≥ 2   → height =       width / N   (square cells)
+ *  Returns the height in pixels for a row given the container width.
+ */
+function autoRowHeight(containerWidth: number, cellCount: number): number {
+  if (cellCount <= 0 || containerWidth <= 0) return MIN_ROW_HEIGHT;
+  if (cellCount === 1) return Math.max(MIN_ROW_HEIGHT, Math.round(containerWidth * 0.5));
+  return Math.max(MIN_ROW_HEIGHT, Math.round(containerWidth / cellCount));
+}
+
+function effectiveRowHeight(row: Row, containerWidth: number): number {
+  if (row.autoHeight) return autoRowHeight(containerWidth, row.cells.length);
+  return row.height;
+}
 
 interface Props {
   layout: DashboardLayout;
@@ -33,6 +49,22 @@ const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(_newI
 export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTitle }: Props) {
   const cardById = new Map(layout.cards.map((c) => [c.id, c]));
 
+  // Container-width observer so auto-height rows can compute their
+  // pixel height from the current dashboard width on every layout pass.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setContainerWidth(w);
+    });
+    ro.observe(el);
+    setContainerWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+
   // ── Mutation helpers ──────────────────────────────────────────────────────
   const removeCell = (rowId: string, cellId: string) => {
     const next = {
@@ -49,7 +81,7 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
     onLayoutChange({ ...layout, rows: layout.rows.filter((r) => r.id !== rowId) });
 
   const addRow = () =>
-    onLayoutChange({ ...layout, rows: [...layout.rows, { id: newId('row'), height: 280, cells: [] }] });
+    onLayoutChange({ ...layout, rows: [...layout.rows, { id: newId('row'), height: 280, autoHeight: true, cells: [] }] });
 
   const moveCell = (from: DragPayload, toRowId: string, toIndex: number) => {
     if (from.rowId === toRowId) {
@@ -111,7 +143,9 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
       rowId,
       startY: e.clientY,
       startX: e.clientX,
-      startHeight: row.height,
+      // Start from the currently-rendered height so dragging picks up the
+      // auto-computed value if the row was in auto mode.
+      startHeight: effectiveRowHeight(row, containerWidth),
     };
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', onDragUp);
@@ -149,7 +183,7 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
       const next = Math.max(MIN_ROW_HEIGHT, Math.min(MAX_ROW_HEIGHT, s.startHeight + dy));
       const updated: DashboardLayout = {
         ...cur,
-        rows: cur.rows.map((r) => (r.id === s.rowId ? { ...r, height: next } : r)),
+        rows: cur.rows.map((r) => (r.id === s.rowId ? { ...r, height: next, autoHeight: false } : r)),
       };
       dragLatest.current = updated;
       onLayoutChange(updated);
@@ -213,7 +247,7 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className={`dashboard${editing ? ' is-editing' : ''}`}>
+    <div ref={containerRef} className={`dashboard${editing ? ' is-editing' : ''}`}>
       {layout.rows.length === 0 && (
         <div className="dashboard-empty">
           <p>Empty layout. Turn on Edit and add a row.</p>
@@ -224,7 +258,7 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
         <div
           key={row.id}
           className="db-row"
-          style={{ height: row.height }}
+          style={{ height: effectiveRowHeight(row, containerWidth) }}
         >
           {row.cells.map((cell, index) => {
             const card = cardById.get(cell.cardId);
@@ -325,14 +359,14 @@ export function addCard(layout: DashboardLayout, rowId: string | null, card: Car
     // No row chosen — append a new row with this single cell.
     return {
       cards: nextCards,
-      rows: [...layout.rows, { id: newId('row'), height: 280, cells: [cell] }],
+      rows: [...layout.rows, { id: newId('row'), height: 280, autoHeight: true, cells: [cell] }],
     };
   }
   const exists = layout.rows.some((r) => r.id === rowId);
   if (!exists) {
     return {
       cards: nextCards,
-      rows: [...layout.rows, { id: newId('row'), height: 280, cells: [cell] }],
+      rows: [...layout.rows, { id: newId('row'), height: 280, autoHeight: true, cells: [cell] }],
     };
   }
   return {
