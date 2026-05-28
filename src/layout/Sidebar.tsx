@@ -5,15 +5,14 @@
  * The parent (<App>) keeps the <aside> shell and the collapse toggle button.
  */
 import React, { useEffect, useState } from 'react';
-import { CustomConstraint, ModuleDescriptor, ModuleHostInventory, PathwayConfig, RollingHorizonConfig, RunHistoryEntry, RunResults, ScenarioCatalog, WorkbookModel } from '../shared/types';
+import { CustomConstraint, GridRow, ModuleDescriptor, ModuleHostInventory, PathwayConfig, RollingHorizonConfig, RunHistoryEntry, RunResults, ScenarioCatalog, WorkbookModel } from '../shared/types';
 import { normalizeRollingConfig } from '../shared/utils/rolling';
 import { SidebarGroup } from '../shared/components/SidebarGroup';
-import { GlobalConstraintsSection } from '../features/constraints/GlobalConstraintsSection';
 import { ModuleManagerSection } from '../features/modules/ModuleManagerSection';
 import { RunHistoryList } from '../features/run-history/RunHistoryList';
 import { DualRangeSlider } from '../shared/components/DualRangeSlider';
 import { DateFormat, SolverType } from '../features/settings/useSettings';
-import { CURRENCIES, MAX_UNPINNED_HISTORY, RUN_WINDOW, SETTINGS_CONFIG } from '../constants';
+import { CURRENCIES, MAX_UNPINNED_HISTORY, METRIC_DEFS, RUN_WINDOW, SETTINGS_CONFIG } from '../constants';
 import { resolvedColor, stringValue } from '../shared/utils/helpers';
 
 interface Currency { code: string; symbol: string; name: string; }
@@ -26,6 +25,7 @@ export interface SidebarProps {
   results: RunResults | null;
   constraints: CustomConstraint[];
   onConstraintsChange: (c: CustomConstraint[]) => void;
+  onOpenConstraintsWorkspace: () => void;
   onOpen: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -95,6 +95,7 @@ export function Sidebar({
   results,
   constraints,
   onConstraintsChange,
+  onOpenConstraintsWorkspace,
   onOpen,
   onSave,
   onSaveAs,
@@ -226,10 +227,10 @@ export function Sidebar({
             : undefined
         }
       >
-        <GlobalConstraintsSection
+        <ConstraintsSummary
           constraints={constraints}
-          carriers={carriers}
-          onChange={onConstraintsChange}
+          globalConstraintRows={model.global_constraints ?? []}
+          onOpen={onOpenConstraintsWorkspace}
         />
       </SidebarGroup>
 
@@ -837,5 +838,58 @@ export function Sidebar({
         />
       </SidebarGroup>
     </>
+  );
+}
+
+// ── Compact constraints summary (opens the workspace overlay) ─────────────────
+
+function ConstraintsSummary({
+  constraints,
+  globalConstraintRows,
+  onOpen,
+}: {
+  constraints: CustomConstraint[];
+  globalConstraintRows: GridRow[];
+  onOpen: () => void;
+}) {
+  const enabled = constraints.filter((c) => c.enabled);
+  const activeNames = enabled
+    .map((c) => c.label || METRIC_DEFS[c.metric]?.label || c.metric)
+    .slice(0, 3);
+  const extra = Math.max(0, enabled.length - activeNames.length);
+  const globalNames = globalConstraintRows
+    .map((row) => stringValue(row.name))
+    .filter(Boolean)
+    .slice(0, 2);
+  const globalExtra = Math.max(0, globalConstraintRows.length - globalNames.length);
+
+  return (
+    <div className="constraints-summary">
+      <div className="constraints-summary-line">
+        <span className="constraints-summary-label">Custom</span>
+        <span className="constraints-summary-value">
+          {enabled.length === 0
+            ? <em>none active</em>
+            : <>
+                {activeNames.join(', ')}
+                {extra > 0 ? `, +${extra} more` : ''}
+              </>}
+        </span>
+      </div>
+      <div className="constraints-summary-line">
+        <span className="constraints-summary-label">Global</span>
+        <span className="constraints-summary-value">
+          {globalConstraintRows.length === 0
+            ? <em>no rows</em>
+            : <>
+                {globalNames.join(', ')}
+                {globalExtra > 0 ? `, +${globalExtra} more` : ''}
+              </>}
+        </span>
+      </div>
+      <button className="tb-btn constraints-summary-open" onClick={onOpen} title="Open the constraints editor">
+        Open constraints editor →
+      </button>
+    </div>
   );
 }

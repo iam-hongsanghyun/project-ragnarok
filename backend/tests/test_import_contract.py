@@ -237,6 +237,34 @@ def test_timeseries_sheet_wires_to_dynamic_attribute(
     assert float(p_max_pu["solar_a"].iloc[2]) == pytest.approx(0.9)
 
 
+def test_generic_loop_imports_global_constraints_without_bus(
+    scenario: dict[str, Any],
+) -> None:
+    """`global_constraints` declares ``bus`` as optional in the schema; rows
+    without a bus column must still be imported through the generic loop."""
+    model = {
+        "buses": _two_bus_buses(),
+        "snapshots": _hourly_snapshots(2),
+        "carriers": [{"name": "coal", "co2_emissions": 0.9}],
+        "global_constraints": [
+            {
+                "name": "co2_cap_native",
+                "type": "primary_energy",
+                "sense": "<=",
+                "constant": 1000.0,
+                "carrier_attribute": "co2_emissions",
+            }
+        ],
+    }
+    network, _ = build_network(model, scenario)
+
+    assert "co2_cap_native" in network.global_constraints.index
+    row = network.global_constraints.loc["co2_cap_native"]
+    assert str(row["type"]) == "primary_energy"
+    assert str(row["sense"]) == "<="
+    assert float(row["constant"]) == pytest.approx(1000.0)
+
+
 def test_broken_bus_reference_is_dropped(scenario: dict[str, Any]) -> None:
     """Rows whose required bus reference points to a missing bus must be
     dropped and reported in ``notes``, never silently passed to PyPSA."""

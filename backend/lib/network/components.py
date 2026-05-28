@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 import pypsa
 
-from ..pypsa_schema import input_temporal_attributes
+from ..pypsa_schema import bus_reference_attributes, input_temporal_attributes
 from ..utils.coerce import number
 
 
@@ -51,12 +51,21 @@ def _drop_broken_bus_refs(
     sheet: str,
     notes: list[str],
 ) -> pd.DataFrame:
-    """Drop rows where a required bus reference points to a missing bus."""
+    """Drop rows where a *required* bus reference points to a missing bus.
+
+    The schema is the source of truth for which bus references are required —
+    components like ``global_constraints`` declare ``bus`` as optional, so an
+    absent ``bus`` column on those sheets must not delete every row.
+    """
     bus_cols = _bus_ref_columns_for_list(network, sheet)
     if not bus_cols:
         return df
-    # Only the primary bus (bus or bus0/bus1) is required; bus2/bus3 are optional.
-    required = [c for c in bus_cols if c in ("bus", "bus0", "bus1")]
+    schema_required = {
+        attr["attribute"]
+        for attr in bus_reference_attributes(sheet)
+        if attr.get("required")
+    }
+    required = [c for c in bus_cols if c in ("bus", "bus0", "bus1") and c in schema_required]
     if not required:
         return df
     valid_buses = set(network.buses.index)

@@ -40,6 +40,7 @@ import { defaultRollingConfig, normalizeRollingConfig, readRollingConfigFromMode
 import { buildScenarioPreset, defaultScenarioCatalog, readScenarioCatalogFromModel, sameScenarioCatalog, writeScenarioCatalogToModel } from './shared/utils/scenarios';
 import { RunDialog } from './features/run/RunDialog';
 import { Sidebar } from './layout/Sidebar';
+import { ConstraintsWorkspaceView } from './features/constraints/ConstraintsWorkspaceView';
 import { MapPane } from './features/map/MapPane';
 import { TablesPane } from './features/input/TablesPane';
 import { ValidationPane } from './features/validation/ValidationPane';
@@ -74,6 +75,7 @@ function AppInner() {
   const [chartSections, setChartSections] = useState<ChartSectionConfig[]>([]);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [dryRun, setDryRun] = useState(false);
+  const [activeWorkspaceOverlay, setActiveWorkspaceOverlay] = useState<'constraints' | null>(null);
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
   const [pathwayConfig, setPathwayConfig] = useState<PathwayConfig>(() => defaultPathwayConfig());
   const [rollingConfig, setRollingConfig] = useState<RollingHorizonConfig>(() => defaultRollingConfig());
@@ -1357,6 +1359,7 @@ function AppInner() {
               results={results}
               constraints={constraints}
               onConstraintsChange={setConstraints}
+              onOpenConstraintsWorkspace={() => setActiveWorkspaceOverlay('constraints')}
               onOpen={handleOpenWorkbook}
               onSave={saveWorkbook}
               onSaveAs={saveAsWorkbook}
@@ -1447,8 +1450,22 @@ function AppInner() {
 
         <div className="workspace-main">
 
+          {/* ── Workspace overlay (constraints editor) ── */}
+          {activeWorkspaceOverlay === 'constraints' && (
+            <ConstraintsWorkspaceView
+              model={model}
+              carriers={Array.from(new Set(model.carriers.map((c) => String(c.name ?? '')).filter(Boolean)))}
+              constraints={constraints}
+              onConstraintsChange={setConstraints}
+              onUpdateRow={updateRowValue}
+              onAddRow={addRow}
+              onDeleteRow={deleteRow}
+              onClose={() => setActiveWorkspaceOverlay(null)}
+            />
+          )}
+
           {/* ── Model tab ── */}
-          {tab === 'Model' && (
+          {activeWorkspaceOverlay === null && tab === 'Model' && (
             <div className="pane model-pane">
               <div className="pane-header model-pane-header">
                 <nav className="subnav">
@@ -1484,7 +1501,7 @@ function AppInner() {
           )}
 
           {/* ── Analytics tab ── */}
-          {tab === 'Analytics' && (
+          {activeWorkspaceOverlay === null && tab === 'Analytics' && (
             <div className="pane analytics-outer-pane">
               <div className="pane-header analytics-outer-header">
                 <nav className="subnav">
@@ -1571,7 +1588,7 @@ function AppInner() {
             </div>
           )}
 
-          {tab === 'Plugins' && (() => {
+          {activeWorkspaceOverlay === null && tab === 'Plugins' && (() => {
             const enabledModules = moduleHost.modules.filter(
               (m) => moduleHost.enabledIds.includes(m.id) && moduleHost.isEnableEligible(m)
             );

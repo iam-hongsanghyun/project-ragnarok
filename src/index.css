@@ -4605,3 +4605,129 @@ th:hover .col-delete-btn {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Constraints workspace overlay ───────────────────────────────────────── */
+
+.constraints-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.constraints-summary-line {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.constraints-summary-label {
+  flex: 0 0 56px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.constraints-summary-value {
+  flex: 1 1 auto;
+  color: var(--text);
+  word-break: break-word;
+}
+.constraints-summary-value em {
+  color: var(--muted);
+  font-style: italic;
+}
+.constraints-summary-open {
+  align-self: stretch;
+  margin-top: 4px;
+}
+
+.constraints-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--surface);
+  padding: 20px 24px;
+  gap: 16px;
+  overflow: auto;
+}
+.constraints-workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.constraints-workspace-title h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+.constraints-workspace-title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.constraints-workspace-tabs {
+  border-bottom: 1px solid var(--border);
+}
+.constraints-workspace-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.constraints-workspace-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.constraints-workspace-section-header h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.constraints-workspace-section-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.constraints-empty {
+  padding: 24px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.constraints-table-wrap {
+  overflow-x: auto;
+}
+.constraints-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.constraints-table th,
+.constraints-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.constraints-table th {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.constraints-cell-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+.constraints-cell-input--num {
+  text-align: right;
+}
