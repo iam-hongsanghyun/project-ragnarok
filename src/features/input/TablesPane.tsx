@@ -6,6 +6,8 @@ import { getAddableAttributes, getProtectedColumns, TABLE_GROUPS } from '../../c
 import { PypsaAttribute, TableGroup } from '../../constants/pypsa_schema';
 import { getColumns, getTsFirstCol, stringValue } from '../../shared/utils/helpers';
 import { parseCsvToGridRows } from '../../shared/utils/workbook';
+import { normalizeDateToIso } from '../../shared/utils/helpers';
+import type { DateFormat } from '../settings/useSettings';
 import { InputAnalyser } from './InputAnalyser';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -212,9 +214,24 @@ interface SpreadsheetGridProps {
   onRenameColumn?: (oldCol: string, newCol: string) => void;
   /** Columns that cannot be deleted or renamed (e.g. 'name') */
   protectedCols?: string[];
+  formatDisplayValue?: (col: string, val: Primitive) => string;
+  coerceEditedValue?: (col: string, raw: string, current: Primitive) => Primitive;
 }
 
-function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, rowIssues, highlightRow, onDeleteColumn, onRenameColumn, protectedCols }: SpreadsheetGridProps) {
+function SpreadsheetGrid({
+  rows,
+  cols,
+  frozenCol,
+  readOnly = false,
+  onUpdate,
+  rowIssues,
+  highlightRow,
+  onDeleteColumn,
+  onRenameColumn,
+  protectedCols,
+  formatDisplayValue,
+  coerceEditedValue,
+}: SpreadsheetGridProps) {
   const [editCell, setEditCell] = useState<{ row: number; col: string; val: string } | null>(null);
   const [renamingCol, setRenamingCol] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
@@ -422,7 +439,10 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                       key={c}
                       className={frozen ? `${baseClass} col-frozen` : baseClass}
                       onDoubleClick={() => {
-                        if (!readOnly) setEditCell({ row: origIdx, col: c, val: stringValue(row[c]) });
+                        if (!readOnly) {
+                          const display = formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c]);
+                          setEditCell({ row: origIdx, col: c, val: display });
+                        }
                       }}
                     >
                       {isEditing ? (
@@ -446,13 +466,25 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                               }
                               onBlur={() => {
                                 if (editCell && onUpdate)
-                                  onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                                  onUpdate(
+                                    origIdx,
+                                    editCell.col,
+                                    coerceEditedValue
+                                      ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
+                                      : inferInputValue(editCell.val, row[editCell.col]),
+                                  );
                                 setEditCell(null);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === 'Tab') {
                                   if (editCell && onUpdate)
-                                    onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                                    onUpdate(
+                                      origIdx,
+                                      editCell.col,
+                                      coerceEditedValue
+                                        ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
+                                        : inferInputValue(editCell.val, row[editCell.col]),
+                                    );
                                   setEditCell(null);
                                 }
                                 if (e.key === 'Escape') setEditCell(null);
@@ -469,13 +501,25 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                           }
                           onBlur={() => {
                             if (editCell && onUpdate)
-                              onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                              onUpdate(
+                                origIdx,
+                                editCell.col,
+                                coerceEditedValue
+                                  ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
+                                  : inferInputValue(editCell.val, row[editCell.col]),
+                              );
                             setEditCell(null);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === 'Tab') {
                               if (editCell && onUpdate)
-                                onUpdate(origIdx, editCell.col, inferInputValue(editCell.val, row[editCell.col]));
+                                onUpdate(
+                                  origIdx,
+                                  editCell.col,
+                                  coerceEditedValue
+                                    ? coerceEditedValue(editCell.col, editCell.val, row[editCell.col])
+                                    : inferInputValue(editCell.val, row[editCell.col]),
+                                );
                               setEditCell(null);
                             }
                             if (e.key === 'Escape') setEditCell(null);
@@ -486,10 +530,10 @@ function SpreadsheetGrid({ rows, cols, frozenCol, readOnly = false, onUpdate, ro
                         isColorColumn(c) && stringValue(row[c]) ? (
                           <span className="cell-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ width: 12, height: 12, borderRadius: 999, background: stringValue(row[c]), border: '1px solid rgba(15,23,42,0.18)', flexShrink: 0 }} />
-                            <span>{stringValue(row[c])}</span>
+                            <span>{formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c])}</span>
                           </span>
                         ) : (
-                          <span className="cell-value">{stringValue(row[c])}</span>
+                          <span className="cell-value">{formatDisplayValue ? formatDisplayValue(c, row[c]) : stringValue(row[c])}</span>
                         )
                       )}
                     </td>
@@ -532,9 +576,23 @@ interface TablesPaneProps {
   issues?: ModelIssue[];
   jumpTo?: { sheet: string; rowIndex: number } | null;
   currencySymbol?: string;
+  dateFormat?: DateFormat;
 }
 
-export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn, onDeleteColumn, onRenameColumn, onImportTsSheet, issues = [], jumpTo, currencySymbol = '$' }: TablesPaneProps) {
+export function TablesPane({
+  model,
+  onUpdate,
+  onAddRow,
+  onDeleteRow,
+  onAddColumn,
+  onDeleteColumn,
+  onRenameColumn,
+  onImportTsSheet,
+  issues = [],
+  jumpTo,
+  currencySymbol = '$',
+  dateFormat = 'auto',
+}: TablesPaneProps) {
   const [sel, setSel] = useState<TableSel>({ kind: 'static', sheet: 'buses' });
   const [jumpHighlight, setJumpHighlight] = useState<number | null>(null);
 
@@ -641,6 +699,19 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
     ? parentGroup?.temporalSheets.find((ts) => ts.sheet === sel.sheet)
     : null;
   const protectedCols = isTs ? [] : getProtectedColumns(sel.sheet);
+  const temporalLabelCols = new Set(['snapshot', 'datetime', 'name', 'index', 'timestep']);
+  const normalizeTemporalDisplay = (raw: string): string => {
+    const iso = normalizeDateToIso(raw, dateFormat);
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso;
+  };
+  const formatDisplayValue = (col: string, val: Primitive): string => {
+    const s = stringValue(val);
+    return isTs && temporalLabelCols.has(col.toLowerCase()) ? normalizeTemporalDisplay(s) : s;
+  };
+  const coerceEditedValue = (col: string, raw: string, current: Primitive): Primitive => {
+    if (isTs && temporalLabelCols.has(col.toLowerCase())) return normalizeTemporalDisplay(raw);
+    return inferInputValue(raw, current);
+  };
 
   return (
     <div className="tables-layout">
@@ -849,6 +920,8 @@ export function TablesPane({ model, onUpdate, onAddRow, onDeleteRow, onAddColumn
               onDeleteColumn={isTs ? undefined : (col) => onDeleteColumn(sel.sheet as SheetName, col)}
               onRenameColumn={isTs ? undefined : (old, next) => onRenameColumn(sel.sheet as SheetName, old, next)}
               protectedCols={protectedCols}
+              formatDisplayValue={formatDisplayValue}
+              coerceEditedValue={coerceEditedValue}
             />
           )}
         </div>

@@ -1477,6 +1477,7 @@ function AppInner() {
                   issues={modelIssues}
                   jumpTo={jumpTo}
                   currencySymbol={settings.currencySymbol}
+                  dateFormat={settings.dateFormat}
                 />
               )}
             </div>
