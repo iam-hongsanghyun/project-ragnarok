@@ -2,29 +2,48 @@
  * Analytics dashboard — wires PyPSA-specific cards into the generic
  * Dashboard grid plus a toolbar for layout edit / save / load.
  *
- * Card kinds supported in this iteration:
- *   - chart  : a user-defined chart (UserDefinedChartCard)
- *   - notes  : run narrative bullet list
+ * Card kinds supported:
+ *   chart  · map  · notes  · kpi-strip  · duration-curve  ·
+ *   merit-order · co2-shadow · emissions-breakdown ·
+ *   capacity-expansion · capacity-by-period · carrier-analysis ·
+ *   load-analysis · stochastic-scenarios
  *
- * A map card is intentionally omitted from the palette here — the
- * Model view already owns the network map, and the analytics map's
- * focus / line-loading / SMP-color logic isn't yet extracted into a
- * self-contained card. Slated for a follow-up.
+ * The same component renders both the Analytics and Result sub-tabs;
+ * the parent picks the storage key and the default preset.
  */
 import React, { useState } from 'react';
-import { ChartSectionConfig, RunResults, WorkbookModel } from '../../../shared/types';
+import { LatLngBoundsExpression } from 'leaflet';
+import {
+  AnalyticsFocus,
+  ChartSectionConfig,
+  GridRow,
+  RunResults,
+  TimeSeriesRow,
+  TimeSeriesSeries,
+  WorkbookModel,
+} from '../../../shared/types';
 import { EMPTY_METRIC_KEY } from '../../../constants';
 import { UserDefinedChartCard } from '../../../features/analytics/cards/UserDefinedChartCard';
+import { AnalyticsMapCard } from '../../../features/analytics/AnalyticsMapCard';
+import { KpiStripCard } from '../../../features/analytics/cards/KpiStripCard';
+import { DurationCurveCard } from '../../../features/analytics/cards/DurationCurveCard';
+import { MeritOrderCard } from '../../../features/analytics/cards/MeritOrderCard';
+import { Co2ShadowCard } from '../../../features/analytics/cards/Co2ShadowCard';
+import { EmissionsBreakdownCard } from '../../../features/analytics/cards/EmissionsBreakdownCard';
+import { CapacityExpansionCard } from '../../../features/analytics/cards/CapacityExpansionCard';
+import { CapacityByPeriodCard } from '../../../features/analytics/cards/CapacityByPeriodCard';
+import { CarrierAnalysisCard } from '../../../features/analytics/cards/CarrierAnalysisCard';
+import { LoadAnalysisCard } from '../../../features/analytics/cards/LoadAnalysisCard';
+import { StochasticScenariosCard } from '../../../features/analytics/cards/StochasticScenariosCard';
+import { numberValue } from '../../../shared/utils/helpers';
 import { Dashboard, addCard, newId } from './Dashboard';
-import { Card, DashboardLayout } from './types';
+import { Card, ChartCard, DashboardLayout } from './types';
 import { useDashboardLayout } from './useDashboardLayout';
 import { PRESETS } from './presets';
 
 const DEFAULT_LAYOUT: DashboardLayout = { rows: [], cards: [] };
 
-/** Human-readable label for a chart card based on its focus + metric.
- *  Mirrors the labels emitted by useMetricOptions so cell titles match
- *  what the user picks inside the settings modal. */
+/** Human-readable label for a chart card based on its focus + metric. */
 const SYSTEM_METRIC_LABEL: Record<string, string> = {
   dispatch:          'Dispatch by carrier',
   dispatch_by_gen:   'Dispatch by generator',
@@ -58,41 +77,66 @@ function chartCardTitle(cfg: ChartSectionConfig): string {
   return `${focus} · ${scope}`;
 }
 
-function newChartCard(): Card {
+function defaultChartConfig(): ChartSectionConfig {
   return {
-    id: newId('chart'),
-    kind: 'chart',
-    config: {
-      id: Date.now(),
-      focusType: 'system',
-      focusKeys: [],
-      groupBy: 'carrier',
-      busFilter: [],
-      carrierFilter: [],
-      metricKey: EMPTY_METRIC_KEY,
-      chartType: 'line',
-      timeframe: 'hourly',
-      startIndex: 0,
-      endIndex: 0,
-      stacked: false,
-    },
+    id: Date.now(),
+    focusType: 'system',
+    focusKeys: [],
+    groupBy: 'carrier',
+    busFilter: [],
+    carrierFilter: [],
+    metricKey: EMPTY_METRIC_KEY,
+    chartType: 'line',
+    timeframe: 'hourly',
+    startIndex: 0,
+    endIndex: 0,
+    stacked: false,
   };
 }
 
-function newNotesCard(): Card {
-  return { id: newId('notes'), kind: 'notes' };
-}
+function newChartCard(): Card { return { id: newId('chart'), kind: 'chart', config: defaultChartConfig() }; }
+function newMapCard(): Card   { return { id: newId('map'),   kind: 'map' }; }
+function newNotesCard(): Card { return { id: newId('notes'), kind: 'notes' }; }
 
 interface Props {
   results: RunResults;
   model: WorkbookModel;
+  bounds: LatLngBoundsExpression | null;
+  busIndex: Record<string, GridRow>;
+  /** System-aggregated time series — passed in from the parent because
+   *  App.tsx already computes them once. Saves recomputing here. */
+  dispatchRows?: TimeSeriesRow[];
+  dispatchSeries?: TimeSeriesSeries[];
+  systemLoadRows?: TimeSeriesRow[];
+  systemPriceRows?: TimeSeriesRow[];
+  storageRows?: TimeSeriesRow[];
   currencySymbol: string;
+  analyticsFocus: AnalyticsFocus;
+  onFocusChange: (focus: AnalyticsFocus) => void;
+  /** localStorage key for this dashboard instance. */
+  storageKey?: string;
+  /** Initial layout if nothing is stored yet. */
+  initialLayout?: DashboardLayout;
 }
 
-export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
+export function AnalyticsDashboard({
+  results, model, bounds, busIndex,
+  systemLoadRows = [],
+  systemPriceRows = [],
+  currencySymbol,
+  analyticsFocus, onFocusChange,
+  storageKey,
+  initialLayout = DEFAULT_LAYOUT,
+}: Props) {
   const { layout, setLayout, editing, setEditing, savedLayouts, saveAs, load, remove, resetToDefault } =
-    useDashboardLayout(DEFAULT_LAYOUT);
+    useDashboardLayout(initialLayout, storageKey);
   const [openMenu, setOpenMenu] = useState<'add' | 'layouts' | 'presets' | null>(null);
+
+  const updateCard = (cardId: string, patch: Partial<Card>) =>
+    setLayout({
+      ...layout,
+      cards: layout.cards.map((c) => (c.id === cardId ? ({ ...c, ...patch } as Card) : c)),
+    });
 
   const updateChartConfig = (cardId: string, next: ChartSectionConfig) =>
     setLayout({
@@ -102,8 +146,32 @@ export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
       ),
     });
 
-  const handleAdd = (kind: 'chart' | 'notes') => {
-    const card = kind === 'chart' ? newChartCard() : newNotesCard();
+  /** Click on a map asset → rewrite focus on every chart card flagged
+   *  followFocus. Cards without the flag (the default for manually
+   *  added cards) stay put. */
+  const handleMapFocusChange = (focus: AnalyticsFocus) => {
+    onFocusChange(focus);
+    if (focus.type === 'system') return; // system means "no focus"; leave cards alone
+    setLayout({
+      ...layout,
+      cards: layout.cards.map((c) => {
+        if (c.kind !== 'chart') return c;
+        const cc = c as ChartCard;
+        if (!cc.followFocus) return c;
+        return {
+          ...cc,
+          config: {
+            ...cc.config,
+            focusType: focus.type,
+            focusKeys: [focus.key],
+          },
+        };
+      }),
+    });
+  };
+
+  const handleAdd = (kind: 'chart' | 'map' | 'notes') => {
+    const card = kind === 'chart' ? newChartCard() : kind === 'map' ? newMapCard() : newNotesCard();
     const targetRow = layout.rows[layout.rows.length - 1]?.id ?? null;
     setLayout(addCard(layout, targetRow, card));
     setOpenMenu(null);
@@ -115,75 +183,152 @@ export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
     setOpenMenu(null);
   };
 
-  const handleLoad = (name: string) => {
-    load(name);
-    setOpenMenu(null);
-  };
-
-  const handleDelete = (name: string) => {
-    if (!window.confirm(`Delete saved layout "${name}"?`)) return;
-    remove(name);
-  };
-
+  const handleLoad = (name: string) => { load(name); setOpenMenu(null); };
+  const handleDelete = (name: string) => { if (window.confirm(`Delete saved layout "${name}"?`)) remove(name); };
   const handleLoadPreset = (key: string) => {
     const preset = PRESETS.find((p) => p.key === key);
     if (preset) setLayout(preset.build());
     setOpenMenu(null);
   };
 
+  // Sorted load / price for duration curves and merit-order systemLoad.
+  const sortedLoad = systemLoadRows
+    .map((r) => numberValue(r['load'] as number | string | undefined))
+    .filter((v: number) => v > 0)
+    .sort((a: number, b: number) => b - a);
+  const sortedPrice = systemPriceRows
+    .map((r) => numberValue(r['price'] as number | string | undefined))
+    .sort((a: number, b: number) => b - a);
+
   const renderCard = (card: Card): React.ReactNode => {
-    if (card.kind === 'chart') {
-      return (
-        <UserDefinedChartCard
-          compact
-          section={card.config}
-          results={results}
-          model={model}
-          currencySymbol={currencySymbol}
-          onChange={(next) => updateChartConfig(card.id, next)}
-          onClean={() => updateChartConfig(card.id, {
-            ...card.config,
-            focusType: 'system',
-            focusKeys: [],
-            groupBy: 'carrier',
-            busFilter: [],
-            carrierFilter: [],
-            metricKey: EMPTY_METRIC_KEY,
-            chartType: 'line',
-            timeframe: 'hourly',
-            startIndex: 0,
-            endIndex: 0,
-            stacked: false,
-          })}
-          onRemove={() => {
-            // The dashboard cell delete button is the canonical way to remove
-            // a card from the layout. Here we collapse to no-op so the chart
-            // card's own internal remove control stays inert in dashboard mode.
-          }}
-        />
-      );
-    }
-    if (card.kind === 'notes') {
-      return (
-        <ul className="dashboard-notes">
-          {results.narrative.length === 0 && <li className="dashboard-notes-empty">No notes from this run.</li>}
-          {results.narrative.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      );
+    try {
+      switch (card.kind) {
+        case 'chart':
+          return (
+            <UserDefinedChartCard
+              compact
+              section={card.config}
+              results={results}
+              model={model}
+              currencySymbol={currencySymbol}
+              onChange={(next) => updateChartConfig(card.id, next)}
+              onClean={() => updateChartConfig(card.id, defaultChartConfig())}
+              onRemove={() => { /* dashboard cell × handles removal */ }}
+              title={card.title}
+              onTitleChange={(next) => updateCard(card.id, { title: next.trim() || undefined })}
+              followFocus={card.followFocus}
+              onFollowFocusChange={(next) => updateCard(card.id, { followFocus: next })}
+            />
+          );
+        case 'map':
+          return (
+            <AnalyticsMapCard
+              results={results}
+              model={model}
+              bounds={bounds}
+              busIndex={busIndex}
+              analyticsFocus={analyticsFocus}
+              onFocusChange={handleMapFocusChange}
+              currencySymbol={currencySymbol}
+            />
+          );
+        case 'notes':
+          return (
+            <ul className="dashboard-notes">
+              {results.narrative.length === 0 && <li className="dashboard-notes-empty">No notes from this run.</li>}
+              {results.narrative.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          );
+        case 'kpi-strip':
+          return <KpiStripCard results={results} model={model} currencySymbol={currencySymbol} />;
+        case 'duration-curve':
+          return (
+            <DurationCurveCard
+              title={card.source === 'price' ? `Marginal price (${currencySymbol}/MWh)` : 'Load (MW)'}
+              data={card.source === 'price' ? sortedPrice : sortedLoad}
+              unit={card.source === 'price' ? `${currencySymbol}/MWh` : 'MW'}
+              color={card.source === 'price' ? '#111827' : '#f97316'}
+            />
+          );
+        case 'merit-order':
+          return (
+            <MeritOrderCard
+              entries={results.meritOrder ?? []}
+              systemLoad={sortedLoad.length > 0 ? sortedLoad[0] : undefined}
+              currencySymbol={currencySymbol}
+            />
+          );
+        case 'co2-shadow':
+          return (
+            <Co2ShadowCard
+              currencySymbol={currencySymbol}
+              shadow={results.co2Shadow ?? {
+                found: false,
+                constraint_name: null,
+                shadow_price: 0,
+                explicit_price: 0,
+                cap_ktco2: null,
+                status: 'none',
+                note: 'No CO₂ shadow price for this run.',
+              }}
+            />
+          );
+        case 'emissions-breakdown':
+          return results.emissionsBreakdown
+            ? <EmissionsBreakdownCard data={results.emissionsBreakdown} />
+            : <p className="dashboard-cell-missing">No emissions breakdown available.</p>;
+        case 'capacity-expansion':
+          return results.expansionResults && results.expansionResults.length > 0
+            ? <CapacityExpansionCard assets={results.expansionResults} currencySymbol={currencySymbol} />
+            : <p className="dashboard-cell-missing">No capacity expansion in this run.</p>;
+        case 'capacity-by-period':
+          return results.pathway?.enabled
+            ? <CapacityByPeriodCard model={model} results={results} />
+            : <p className="dashboard-cell-missing">Pathway not enabled.</p>;
+        case 'carrier-analysis':
+          return <CarrierAnalysisCard results={results} currencySymbol={currencySymbol} />;
+        case 'load-analysis':
+          return <LoadAnalysisCard results={results} currencySymbol={currencySymbol} />;
+        case 'stochastic-scenarios':
+          return results.stochastic?.enabled
+            ? <StochasticScenariosCard stochastic={results.stochastic} currencySymbol={currencySymbol} />
+            : <p className="dashboard-cell-missing">Stochastic mode not enabled.</p>;
+      }
+    } catch (err) {
+      return <p className="dashboard-cell-missing">Card failed to render.</p>;
     }
     return null;
   };
 
   const cardTitle = (card: Card): string => {
+    if (card.title) return card.title;
     if (card.kind === 'chart') {
       const label = chartCardTitle(card.config);
       const tf = card.config.timeframe;
       const tfSuffix = tf && tf !== 'hourly' ? ` · ${tf}` : '';
       return `${label}${tfSuffix}`;
     }
-    if (card.kind === 'notes') return 'Run notes';
+    switch (card.kind) {
+      case 'map': return 'Network map';
+      case 'notes': return 'Run notes';
+      case 'kpi-strip': return 'KPIs';
+      case 'duration-curve': return card.source === 'price' ? 'Price duration curve' : 'Load duration curve';
+      case 'merit-order': return 'Merit order (supply stack)';
+      case 'co2-shadow': return 'CO₂ shadow price';
+      case 'emissions-breakdown': return 'Emissions by generator / carrier';
+      case 'capacity-expansion': return 'Capacity expansion';
+      case 'capacity-by-period': return 'Capacity by period';
+      case 'carrier-analysis': return 'Carrier performance';
+      case 'load-analysis': return 'Load analysis';
+      case 'stochastic-scenarios': return 'Stochastic scenarios';
+    }
     return 'Card';
   };
+
+  // Rename text input on the chart settings modal is rendered by
+  // UserDefinedChartCard. The card object is passed through so a small
+  // adapter handles the title field. Same for map's rename affordance —
+  // simpler: a tiny inline rename overlay activated on cell title click.
 
   return (
     <div className="analytics-dashboard">
@@ -227,6 +372,7 @@ export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
               {openMenu === 'add' && (
                 <div className="dashboard-toolbar-pop">
                   <button className="tb-btn" onClick={() => handleAdd('chart')}>Chart</button>
+                  <button className="tb-btn" onClick={() => handleAdd('map')}>Map</button>
                   <button className="tb-btn" onClick={() => handleAdd('notes')}>Run notes</button>
                 </div>
               )}
@@ -270,6 +416,7 @@ export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
         editing={editing}
         renderCard={renderCard}
         cardTitle={cardTitle}
+        onCardRename={(cardId, title) => updateCard(cardId, { title })}
       />
     </div>
   );

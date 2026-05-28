@@ -41,12 +41,15 @@ interface Props {
   renderCard: (card: Card) => React.ReactNode;
   /** Resolve the human label for a card, shown in its title bar. */
   cardTitle: (card: Card) => string;
+  /** Optional: persist a renamed card title. When provided, the cell
+   *  header offers a double-click-to-rename affordance. */
+  onCardRename?: (cardId: string, title: string) => void;
 }
 
 let _newId = 0;
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(_newId++).toString(36)}`;
 
-export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTitle }: Props) {
+export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTitle, onCardRename }: Props) {
   const cardById = new Map(layout.cards.map((c) => [c.id, c]));
 
   // Container-width observer so auto-height rows can compute their
@@ -280,9 +283,16 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
                   onDragStart={editing ? onCellDragStart(row.id, cell.id) : undefined}
                 >
                   <div className="dashboard-cell-header">
-                    <span className="dashboard-cell-title">
-                      {card ? cardTitle(card) : 'Missing card'}
-                    </span>
+                    {card && onCardRename ? (
+                      <CellTitle
+                        title={cardTitle(card)}
+                        onRename={(next) => onCardRename(card.id, next)}
+                      />
+                    ) : (
+                      <span className="dashboard-cell-title">
+                        {card ? cardTitle(card) : 'Missing card'}
+                      </span>
+                    )}
                     {editing && (
                       <button
                         className="dashboard-cell-remove"
@@ -376,3 +386,53 @@ export function addCard(layout: DashboardLayout, rowId: string | null, card: Car
 }
 
 export { newId };
+
+// ── Inline rename input for cell titles ─────────────────────────────────
+
+interface CellTitleProps {
+  title: string;
+  onRename: (next: string) => void;
+}
+
+function CellTitle({ title, onRename }: CellTitleProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(title);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    onRename(trimmed === title ? title : trimmed);
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <span
+        className="dashboard-cell-title"
+        title="Double-click to rename"
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          setDraft(title);
+          setEditing(true);
+        }}
+      >
+        {title}
+      </span>
+    );
+  }
+  return (
+    <input
+      className="dashboard-cell-title-input"
+      type="text"
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') { setDraft(title); setEditing(false); }
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    />
+  );
+}

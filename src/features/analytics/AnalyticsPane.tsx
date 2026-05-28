@@ -3,8 +3,8 @@ import { LatLngBoundsExpression } from 'leaflet';
 import {
   AnalyticsFocus, AnalyticsSubTab, ChartSectionConfig, GridRow, PathwayConfig, RunHistoryEntry, RunResults, TimeSeriesRow, TimeSeriesSeries, WorkbookModel,
 } from '../../shared/types';
-import { ResultsDashboard } from './ResultsDashboard';
 import { AnalyticsDashboard } from '../../views/AnalyticsView.features/Dashboard/AnalyticsDashboard';
+import { buildResultPreset } from '../../views/AnalyticsView.features/Dashboard/result-preset';
 
 interface Props {
   results: RunResults;
@@ -42,13 +42,16 @@ function EmptyAnalytics() {
 
 export { EmptyAnalytics };
 
+const ANALYTICS_STORAGE_KEY = 'ragnarok:dashboard:analytics:v1';
+const RESULT_STORAGE_KEY    = 'ragnarok:dashboard:result:v1';
+
 export function AnalyticsPane({
-  results, model,
+  results, model, bounds, busIndex,
+  analyticsFocus, setAnalyticsFocus,
   dispatchRows, dispatchSeries,
   systemLoadRows, systemPriceRows, storageRows,
   subTab,
   currencySymbol,
-  onExportAll,
   pathwayConfig,
   onSelectedPeriodChange,
 }: Props) {
@@ -78,28 +81,27 @@ export function AnalyticsPane({
           </section>
         );
       })()}
-      {/* ── Result sub-tab — predefined charts ───────────────────────── */}
-      {subTab === 'Result' && (
-        <ResultsDashboard
+
+      {/* Both Result and Analytics now use the same dashboard engine.
+       * They differ only in storage key (independent localStorage) and
+       * the initial layout (curated for Result, empty for Analytics). */}
+      {(subTab === 'Result' || subTab === 'Analytics') && (
+        <AnalyticsDashboard
+          key={subTab /* force remount when sub-tab changes so the hook re-reads its storage */}
           results={results}
           model={model}
+          bounds={bounds}
+          busIndex={busIndex}
           dispatchRows={dispatchRows}
           dispatchSeries={dispatchSeries}
           systemLoadRows={systemLoadRows}
           systemPriceRows={systemPriceRows}
           storageRows={storageRows}
           currencySymbol={currencySymbol}
-          onExportAll={onExportAll}
-          selectedPeriod={pathwayConfig?.selectedPeriod ?? results.pathway?.selectedPeriod ?? null}
-        />
-      )}
-
-      {/* ── Analytics sub-tab — Bloomberg-style editable grid ───────── */}
-      {subTab === 'Analytics' && (
-        <AnalyticsDashboard
-          results={results}
-          model={model}
-          currencySymbol={currencySymbol}
+          analyticsFocus={analyticsFocus}
+          onFocusChange={setAnalyticsFocus}
+          storageKey={subTab === 'Result' ? RESULT_STORAGE_KEY : ANALYTICS_STORAGE_KEY}
+          initialLayout={subTab === 'Result' ? buildResultPreset(results) : undefined}
         />
       )}
     </div>

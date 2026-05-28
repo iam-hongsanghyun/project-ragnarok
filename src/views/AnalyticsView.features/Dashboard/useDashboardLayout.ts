@@ -27,9 +27,9 @@ interface UseDashboardLayout {
   resetToDefault: () => void;
 }
 
-function readStored(): Stored | null {
+function readStored(key: string): Stored | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Stored;
     if (!parsed?.active?.rows || !Array.isArray(parsed.saved)) return null;
@@ -39,16 +39,19 @@ function readStored(): Stored | null {
   }
 }
 
-function writeStored(value: Stored): void {
+function writeStored(key: string, value: Stored): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* quota or privacy mode — silently drop */
   }
 }
 
-export function useDashboardLayout(defaultLayout: DashboardLayout): UseDashboardLayout {
-  const stored = useMemo(() => readStored(), []);
+export function useDashboardLayout(
+  defaultLayout: DashboardLayout,
+  storageKey: string = STORAGE_KEY,
+): UseDashboardLayout {
+  const stored = useMemo(() => readStored(storageKey), [storageKey]);
   const [layout, setLayoutState] = useState<DashboardLayout>(stored?.active ?? defaultLayout);
   const [savedLayouts, setSavedLayouts] = useState<NamedLayout[]>(stored?.saved ?? []);
   const [editing, setEditing] = useState(false);
@@ -58,12 +61,12 @@ export function useDashboardLayout(defaultLayout: DashboardLayout): UseDashboard
   useEffect(() => {
     if (writeTimer.current !== null) window.clearTimeout(writeTimer.current);
     writeTimer.current = window.setTimeout(() => {
-      writeStored({ active: layout, saved: savedLayouts });
+      writeStored(storageKey, { active: layout, saved: savedLayouts });
     }, 200);
     return () => {
       if (writeTimer.current !== null) window.clearTimeout(writeTimer.current);
     };
-  }, [layout, savedLayouts]);
+  }, [layout, savedLayouts, storageKey]);
 
   const setLayout = useCallback((next: DashboardLayout) => setLayoutState(next), []);
 
