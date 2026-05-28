@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   AnalyticsFocus,
   ChartSectionConfig,
@@ -67,6 +67,7 @@ export function UserDefinedChartCard({
   onClean,
   onRemove,
   currencySymbol = '$',
+  compact = false,
 }: {
   section: ChartSectionConfig;
   results: RunResults | null;
@@ -75,9 +76,13 @@ export function UserDefinedChartCard({
   onClean: () => void;
   onRemove: () => void;
   currencySymbol?: string;
+  /** Compact mode: hide all controls; render only the chart with a gear
+   *  button overlay. Opening the gear pops the full settings panel. */
+  compact?: boolean;
 }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const assetNames = assetNamesFor(section.focusType, model);
 
@@ -174,25 +179,9 @@ export function UserDefinedChartCard({
       .catch(()  => showToast('Export failed', 'error'));
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <section className="chart-card chart-builder-card">
-
-      {/* header row */}
-      <div className="chart-card-header chart-card-controls">
-        <div>
-          <h3>{hasMetric ? metric!.label : 'Empty chart'}</h3>
-          <p>{hasMetric ? metric!.unit : 'Select a component and value to render a chart.'}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {hasMetric && (
-            <button className="ghost-button chart-export-btn" onClick={handleExport}>Export</button>
-          )}
-          <button className="ghost-button" onClick={onClean}>Clean</button>
-          <button className="ghost-button" style={{ color: '#dc2626' }} onClick={onRemove}>Remove</button>
-        </div>
-      </div>
-
+  // ── Settings panel (extracted so both compact and full modes can render it) ──
+  const settingsPanel = (
+    <>
       {/* controls row */}
       <div className="chart-builder-controls">
 
@@ -335,33 +324,90 @@ export function UserDefinedChartCard({
         />
       )}
 
-      {/* Chart */}
-      <div ref={chartContainerRef}>
-        {!hasMetric ? (
-          <div className="chart-empty-state">
-            <p className="empty-text">Choose component, assets, value and chart type.</p>
-          </div>
-        ) : section.chartType === 'donut' ? (
-          <section className="chart-card">
+    </>
+  );
+
+  const chartBody = (
+    <div ref={chartContainerRef} className="chart-body">
+      {!hasMetric ? (
+        <div className="chart-empty-state">
+          <p className="empty-text">{compact ? 'Click ⚙ to configure this chart.' : 'Choose component, assets, value and chart type.'}</p>
+        </div>
+      ) : section.chartType === 'donut' ? (
+        <section className="chart-card">
+          {!compact && (
             <div className="chart-card-header">
               <div><h3>{metric!.label}</h3><p>average {metric!.unit} over window</p></div>
             </div>
-            {buildDonutFromMetric(metric!, safeStart, safeEnd).length > 0
-              ? <DonutChart data={buildDonutFromMetric(metric!, safeStart, safeEnd)} />
-              : <p className="empty-text">No data for current selection.</p>
-            }
-          </section>
-        ) : (
-          <InteractiveTimeSeriesCard
-            title={metric!.label}
-            description={`${section.timeframe} · ${metric!.unit}`}
-            data={aggregatedRows}
-            series={metric!.series}
-            mode={section.chartType}
-            stacked={section.stacked}
-          />
+          )}
+          {buildDonutFromMetric(metric!, safeStart, safeEnd).length > 0
+            ? <DonutChart data={buildDonutFromMetric(metric!, safeStart, safeEnd)} />
+            : <p className="empty-text">No data for current selection.</p>
+          }
+        </section>
+      ) : (
+        <InteractiveTimeSeriesCard
+          title={compact ? '' : metric!.label}
+          description={compact ? '' : `${section.timeframe} · ${metric!.unit}`}
+          data={aggregatedRows}
+          series={metric!.series}
+          mode={section.chartType}
+          stacked={section.stacked}
+        />
+      )}
+    </div>
+  );
+
+  // ── Compact render (Bloomberg dashboard cell) ────────────────────────────
+  if (compact) {
+    return (
+      <div className={`chart-builder-compact${settingsOpen ? ' is-settings-open' : ''}`}>
+        <button
+          type="button"
+          className="chart-builder-gear"
+          onClick={() => setSettingsOpen((v) => !v)}
+          aria-label="Chart settings"
+          title="Chart settings"
+        >
+          ⚙
+        </button>
+        {settingsOpen && (
+          <div className="chart-builder-settings-pop">
+            <div className="chart-builder-settings-head">
+              <strong>{hasMetric ? metric!.label : 'Configure chart'}</strong>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {hasMetric && <button className="ghost-button" onClick={handleExport}>Export</button>}
+                <button className="ghost-button" onClick={onClean}>Clean</button>
+                <button className="ghost-button" onClick={() => setSettingsOpen(false)}>Done</button>
+              </div>
+            </div>
+            {settingsPanel}
+          </div>
         )}
+        {chartBody}
       </div>
+    );
+  }
+
+  // ── Full render (legacy / non-dashboard context) ─────────────────────────
+  return (
+    <section className="chart-card chart-builder-card">
+      {/* header row */}
+      <div className="chart-card-header chart-card-controls">
+        <div>
+          <h3>{hasMetric ? metric!.label : 'Empty chart'}</h3>
+          <p>{hasMetric ? metric!.unit : 'Select a component and value to render a chart.'}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {hasMetric && (
+            <button className="ghost-button chart-export-btn" onClick={handleExport}>Export</button>
+          )}
+          <button className="ghost-button" onClick={onClean}>Clean</button>
+          <button className="ghost-button" style={{ color: '#dc2626' }} onClick={onRemove}>Remove</button>
+        </div>
+      </div>
+      {settingsPanel}
+      {chartBody}
     </section>
   );
 }

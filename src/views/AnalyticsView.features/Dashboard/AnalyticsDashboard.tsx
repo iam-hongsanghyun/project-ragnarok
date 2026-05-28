@@ -99,6 +99,7 @@ export function AnalyticsDashboard({ results, model, currencySymbol }: Props) {
     if (card.kind === 'chart') {
       return (
         <UserDefinedChartCard
+          compact
           section={card.config}
           results={results}
           model={model}
