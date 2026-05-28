@@ -6275,3 +6275,133 @@ code, kbd, samp, tt,
   }
 }
 
+
+/* ── Box-in-box fix: dashboard cells already provide the framing card,
+ *    so inner chart-card / chart-card-wide should be flat. ───────── */
+.dashboard-cell .chart-card,
+.dashboard-cell .chart-card-wide {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* Same for Results dashboard sections: drop the inner card frame so
+ * only the outer .dashboard-section border remains. */
+.dashboard-section-body .chart-card,
+.dashboard-section-body .chart-card-wide {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* ── Chart settings modal (replaces in-cell dropdown) ─────────────── */
+
+.chart-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.chart-modal {
+  width: min(640px, 92vw);
+  max-height: 86vh;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chart-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+}
+.chart-modal-head strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: block;
+}
+.chart-modal-sub {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+.chart-modal-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chart-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+}
+
+/* Inside the modal we use the regular builder layout */
+.chart-modal-body .chart-builder-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+.chart-modal-body .chart-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chart-modal-body .chart-control > span {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.chart-modal-body .chart-control select {
+  font-size: 0.82rem;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+  appearance: none;
+}
+.chart-modal-body .chart-control select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  outline: none;
+}
+.chart-modal-body .chart-control-row {
+  margin-top: 8px;
+}
+.chart-modal-body .chart-control-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
