@@ -9,6 +9,9 @@ import { parseCsvToGridRows } from '../../shared/utils/workbook';
 import { normalizeDateToIso } from '../../shared/utils/helpers';
 import type { DateFormat } from '../settings/useSettings';
 import { PYPSA_STANDARD_LINE_TYPES, PYPSA_STANDARD_TRANSFORMER_TYPES } from '../../constants/pypsa_standard_types';
+import { InputAnalyser } from './InputAnalyser';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** User-defined `*_types` rows first (so custom types shadow standards),
  *  then the PyPSA built-in catalogue. Used to seed the `<datalist>` for
@@ -24,9 +27,6 @@ function mergeTypeNames(modelRows: GridRow[] | undefined, standardRows: GridRow[
   }
   return out;
 }
-import { InputAnalyser } from './InputAnalyser';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function inferInputValue(raw: string, current: Primitive): Primitive {
   if (raw === '') return '';

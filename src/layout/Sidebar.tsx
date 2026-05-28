@@ -167,9 +167,6 @@ export function Sidebar({
   useEffect(() => {
     setCurrencies(CURRENCIES);
   }, []);
-  const carriers = Array.from(
-    new Set(model.carriers.map((c) => String(c.name ?? '')).filter(Boolean)),
-  );
   const carrierRows = model.carriers
     .map((row, index) => ({ row, index, name: stringValue(row.name) }))
     .filter((item) => item.name);
