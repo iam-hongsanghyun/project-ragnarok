@@ -1477,6 +1477,15 @@ function AppInner() {
                 setModelSubTab('Table');
                 setJumpTo({ sheet, rowIndex: 0 });
               }}
+              onAddStandardType={(sheet, row) => {
+                setModel((current) => {
+                  const existing = (current[sheet] ?? []) as typeof current[typeof sheet];
+                  const name = String(row.name ?? '');
+                  if (!name || existing.some((r) => String(r.name) === name)) return current;
+                  return { ...current, [sheet]: [...existing, { ...row }] };
+                });
+                showToast(`Added ${String(row.name)} to ${sheet}`, 'success');
+              }}
             />
           )}
 
