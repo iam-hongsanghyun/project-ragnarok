@@ -33,6 +33,10 @@ export interface SidebarProps {
   onExportProject: () => void;
   onImportCsvFolder: () => void;
   onExportCsvFolder: () => void;
+  onImportNetcdf: () => void;
+  onExportNetcdf: () => void;
+  onImportHdf5: () => void;
+  onExportHdf5: () => void;
   onExportResult: () => void;
   onExportReport: () => void;
   scenarioCatalog: ScenarioCatalog;
@@ -109,6 +113,10 @@ export function Sidebar({
   onExportProject,
   onImportCsvFolder,
   onExportCsvFolder,
+  onImportNetcdf,
+  onExportNetcdf,
+  onImportHdf5,
+  onExportHdf5,
   onExportResult,
   onExportReport,
   scenarioCatalog,
@@ -222,6 +230,18 @@ export function Sidebar({
             title="Export the input model as a PyPSA-native CSV folder (zipped)"
           >
             Export CSV folder
+          </button>
+          <button className="tb-btn sg-full" onClick={onImportNetcdf} title="Import a PyPSA-native netCDF (.nc) file via the backend">
+            Import netCDF
+          </button>
+          <button className="tb-btn sg-full" onClick={onExportNetcdf} title="Export the input model as a PyPSA-native netCDF (.nc) file via the backend">
+            Export netCDF
+          </button>
+          <button className="tb-btn sg-full" onClick={onImportHdf5} title="Import a PyPSA-native HDF5 (.h5) file via the backend">
+            Import HDF5
+          </button>
+          <button className="tb-btn sg-full" onClick={onExportHdf5} title="Export the input model as a PyPSA-native HDF5 (.h5) file via the backend">
+            Export HDF5
           </button>
           <button
             className="tb-btn sg-full"

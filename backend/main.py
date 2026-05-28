@@ -8,13 +8,18 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+import io
+import tempfile
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from .lib.config import load_system_defaults
 from .lib.models import RunPayload
 from .lib.module_host import discover_modules, execute_module_action, execute_plugins_at_stage, install_module_from_upload, uninstall_module
-from .lib.network import validate_model
+from .lib.network import build_network, validate_model
 from .lib.results import run_pypsa
 
 
@@ -254,3 +259,176 @@ async def cancel_run(job_id: str) -> dict[str, Any]:
     job.status = "cancelled"
     _jobs.pop(job_id, None)
     return {"jobId": job_id, "status": "cancelled"}
+
+
+# ── PyPSA-native binary formats (netCDF / HDF5) ──────────────────────────────
+#
+# Browsers cannot read/write netCDF or HDF5 reliably (the only mature readers
+# are Python-side: xarray for netCDF, pytables for HDF5). Ragnarok solves this
+# by hosting the conversion on the backend: the frontend POSTs the in-memory
+# workbook model, the backend builds a `pypsa.Network` with the existing
+# schema-driven import path, calls `network.export_to_<format>(...)`, and
+# returns the bytes. Import is the inverse — receive a file upload, parse with
+# PyPSA, and return the in-memory model JSON. No solve happens here; these are
+# pure format converters.
+
+
+def _model_payload_to_network(payload: RunPayload):
+    """Build a `pypsa.Network` from a RunPayload without solving.
+
+    Mirrors the in-process flow that `/api/run` performs: applies the
+    Ragnarok runtime-import rules, snapshots index, time-series sheets, and
+    every deterministic post-load transformation. SCLOPF / stochastic /
+    rolling-horizon flags in `options` are ignored here — the resulting
+    network is the deterministic case the user authored, suitable for
+    sharing with downstream PyPSA tooling.
+    """
+    network, _notes = build_network(payload.model, payload.scenario, payload.options or {})
+    return network
+
+
+@app.post("/api/export/netcdf")
+async def export_netcdf(payload: RunPayload) -> Response:
+    """Return the model as a PyPSA-native netCDF file."""
+    try:
+        network = _model_payload_to_network(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"netCDF build failed: {exc}") from exc
+    with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as tmp:
+        path = Path(tmp.name)
+    try:
+        network.export_to_netcdf(str(path))
+        data = path.read_bytes()
+    finally:
+        path.unlink(missing_ok=True)
+    return Response(
+        content=data,
+        media_type="application/x-netcdf",
+        headers={"Content-Disposition": 'attachment; filename="ragnarok_network.nc"'},
+    )
+
+
+@app.post("/api/export/hdf5")
+async def export_hdf5(payload: RunPayload) -> Response:
+    """Return the model as a PyPSA-native HDF5 file."""
+    try:
+        network = _model_payload_to_network(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"HDF5 build failed: {exc}") from exc
+    with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp:
+        path = Path(tmp.name)
+    try:
+        network.export_to_hdf5(str(path))
+        data = path.read_bytes()
+    finally:
+        path.unlink(missing_ok=True)
+    return Response(
+        content=data,
+        media_type="application/x-hdf5",
+        headers={"Content-Disposition": 'attachment; filename="ragnarok_network.h5"'},
+    )
+
+
+def _network_to_model_json(network) -> dict[str, Any]:
+    """Round-trip a built `pypsa.Network` back into the in-memory model shape.
+
+    The frontend already knows how to consume `{sheet: rows[]}` payloads
+    (it's what every workbook open / project import produces). For each
+    schema-known component class we emit a row per component, copying the
+    static columns and turning any non-empty `*_t` dynamic frame into a
+    `<list_name>-<attr>` sheet with one row per snapshot.
+    """
+    from .lib.pypsa_schema import (
+        input_static_attributes,
+        input_temporal_attributes,
+        component_sheets,
+    )
+    model: dict[str, list[dict[str, Any]]] = {}
+    # Snapshots
+    model["snapshots"] = [{"snapshot": str(ts)} for ts in list(network.snapshots)]
+    # network row
+    if network.name:
+        model["network"] = [{"name": str(network.name)}]
+    for sheet in component_sheets():
+        if sheet in {"network", "snapshots"}:
+            continue
+        if sheet not in network.components.keys():
+            continue
+        comp = network.components[sheet]
+        static = comp.static
+        if not isinstance(static, type(network.lines)):  # DataFrame
+            pass
+        allowed_static = input_static_attributes(sheet)
+        if static is not None and len(static) > 0:
+            rows: list[dict[str, Any]] = []
+            for name, row in static.iterrows():
+                d: dict[str, Any] = {"name": str(name)}
+                for col, val in row.items():
+                    if allowed_static and col not in allowed_static:
+                        continue
+                    if val is None or (hasattr(val, "__float__") and (val != val)):
+                        continue  # NaN
+                    d[str(col)] = val.item() if hasattr(val, "item") else val
+                rows.append(d)
+            if rows:
+                model[sheet] = rows
+        # Time-series sheets
+        allowed_temporal = input_temporal_attributes(sheet)
+        dynamic = getattr(comp, "dynamic", None)
+        if dynamic is None:
+            continue
+        for attr in list(dynamic.keys()):
+            if allowed_temporal and attr not in allowed_temporal:
+                continue
+            df = dynamic[attr]
+            if df is None or df.empty:
+                continue
+            ts_rows: list[dict[str, Any]] = []
+            for ts, ser in df.iterrows():
+                row_d: dict[str, Any] = {"snapshot": str(ts)}
+                for col, val in ser.items():
+                    if val is None or (hasattr(val, "__float__") and (val != val)):
+                        continue
+                    row_d[str(col)] = val.item() if hasattr(val, "item") else val
+                ts_rows.append(row_d)
+            if ts_rows:
+                model[f"{sheet}-{attr}"] = ts_rows
+    return model
+
+
+@app.post("/api/import/netcdf")
+async def import_netcdf(file: UploadFile) -> dict[str, Any]:
+    """Accept a PyPSA-native netCDF upload and return the in-memory model JSON."""
+    import pypsa
+
+    data = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as tmp:
+        tmp.write(data)
+        path = Path(tmp.name)
+    try:
+        network = pypsa.Network()
+        network.import_from_netcdf(str(path))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"netCDF import failed: {exc}") from exc
+    finally:
+        path.unlink(missing_ok=True)
+    return {"model": _network_to_model_json(network)}
+
+
+@app.post("/api/import/hdf5")
+async def import_hdf5(file: UploadFile) -> dict[str, Any]:
+    """Accept a PyPSA-native HDF5 upload and return the in-memory model JSON."""
+    import pypsa
+
+    data = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp:
+        tmp.write(data)
+        path = Path(tmp.name)
+    try:
+        network = pypsa.Network()
+        network.import_from_hdf5(str(path))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"HDF5 import failed: {exc}") from exc
+    finally:
+        path.unlink(missing_ok=True)
+    return {"model": _network_to_model_json(network)}

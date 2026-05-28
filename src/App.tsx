@@ -681,6 +681,80 @@ function AppInner() {
   };
 
   const csvFolderImportInputRef = useRef<HTMLInputElement | null>(null);
+  const netcdfImportInputRef = useRef<HTMLInputElement | null>(null);
+  const hdf5ImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function exportViaBackend(endpoint: string, filenameOut: string): Promise<void> {
+    const scenarioForExport = {
+      constraints: constraints.filter((c) => c.enabled),
+      carbonPrice,
+      discountRate: settings.discountRate,
+    };
+    const modelForBackend = prepareModelForBackend(model);
+    try {
+      const resp = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelForBackend, scenario: scenarioForExport, options: {} }),
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        throw new Error(detail || `Export failed (HTTP ${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filenameOut;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${filenameOut}`, 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Export failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
+    }
+  }
+
+  async function importViaBackend(endpoint: string, file: File): Promise<void> {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const resp = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', body: form });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        throw new Error(detail || `Import failed (HTTP ${resp.status})`);
+      }
+      const json = await resp.json();
+      const nextModel = json.model as WorkbookModel;
+      normalizeInputDatesToIso(nextModel, settings.dateFormat);
+      resetForNewModel(nextModel, file.name.replace(/\.(nc|h5|hdf5)$/i, '.xlsx'));
+      setStatus(`Imported ${file.name}`);
+      showToast(`Imported ${file.name}`, 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Import failed.';
+      setStatus(msg);
+      showToast(msg, 'error');
+    }
+  }
+
+  const handleExportNetcdf = () =>
+    exportViaBackend('/api/export/netcdf', `${filename.replace(/\.xlsx$/i, '') || 'ragnarok'}.nc`);
+  const handleExportHdf5 = () =>
+    exportViaBackend('/api/export/hdf5', `${filename.replace(/\.xlsx$/i, '') || 'ragnarok'}.h5`);
+
+  const handleImportNetcdf = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) await importViaBackend('/api/import/netcdf', file);
+  };
+  const handleImportHdf5 = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) await importViaBackend('/api/import/hdf5', file);
+  };
 
   const handleExportCsvFolder = async () => {
     const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_project';
@@ -1322,6 +1396,8 @@ function AppInner() {
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
       <input ref={projectImportInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportProject} />
       <input ref={csvFolderImportInputRef} type="file" accept=".zip" hidden onChange={handleImportCsvFolder} />
+      <input ref={netcdfImportInputRef} type="file" accept=".nc" hidden onChange={handleImportNetcdf} />
+      <input ref={hdf5ImportInputRef} type="file" accept=".h5,.hdf5" hidden onChange={handleImportHdf5} />
 
       {/* ── Top bar ── */}
       <header className="topbar">
@@ -1419,6 +1495,10 @@ function AppInner() {
               onExportProject={handleExportProject}
               onImportCsvFolder={() => csvFolderImportInputRef.current?.click()}
               onExportCsvFolder={handleExportCsvFolder}
+              onImportNetcdf={() => netcdfImportInputRef.current?.click()}
+              onExportNetcdf={handleExportNetcdf}
+              onImportHdf5={() => hdf5ImportInputRef.current?.click()}
+              onExportHdf5={handleExportHdf5}
               onExportResult={() => {
                 if (!displayResults) return;
                 exportFullResults(model, displayResults, filename.replace(/\.xlsx$/i, ''));
