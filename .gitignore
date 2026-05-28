@@ -191,3 +191,4 @@ cython_debug/
 .cursorindexingignore
 node_modules
 .ragnarok/modules/
+/data
