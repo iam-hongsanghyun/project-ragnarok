@@ -6768,18 +6768,6 @@ code, kbd, samp, tt,
 .subnav-btn--ok    .build-step-num { background: #ccfbf1; color: var(--brand-strong); }
 .subnav-btn--error .build-step-num { background: #fee2e2; color: #b91c1c; }
 .subnav-btn--warn  .build-step-num { background: #fef3c7; color: #92400e; }
-.build-step-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface, #fff);
-}
-.build-step-header h2 { margin: 0; font-size: 1.25rem; }
-.build-step-description { margin: 4px 0 0; color: var(--text-muted, #64748b); font-size: 0.82rem; }
-.build-step-nav { display: flex; gap: 6px; flex-shrink: 0; }
 .build-body {
   flex: 1;
   min-height: 0;

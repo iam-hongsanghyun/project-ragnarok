@@ -56,7 +56,8 @@ describe('BUILD_STEPS registry', () => {
     const order = BUILD_STEPS.map((s) => s.id);
     expect(order.indexOf('carriers')).toBeLessThan(order.indexOf('generators'));
     expect(order.indexOf('buses')).toBeLessThan(order.indexOf('generators'));
-    expect(order.indexOf('buses')).toBeLessThan(order.indexOf('transport'));
+    expect(order.indexOf('buses')).toBeLessThan(order.indexOf('lines'));
+    expect(order.indexOf('buses')).toBeLessThan(order.indexOf('links'));
     expect(order.indexOf('generators')).toBeLessThan(order.indexOf('review'));
   });
 });

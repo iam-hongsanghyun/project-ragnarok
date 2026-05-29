@@ -142,6 +142,9 @@ interface TablesPaneProps {
   onFocusRow?: (rowIndex: number) => void;
   /** Show the resizable attribute-description panel below the grid. */
   showAttrDoc?: boolean;
+  /** Hide the sheet title header (eyebrow + name + stats). Build supplies its
+   *  own step context, so the redundant title block is dropped there. */
+  compact?: boolean;
   /** Atomic paste: apply many cell edits and grow the sheet by `extraRows`. */
   onBulkPaste?: (
     sheet: SheetName,
@@ -168,6 +171,7 @@ export function TablesPane({
   onFocusRow,
   onBulkPaste,
   showAttrDoc = false,
+  compact = false,
 }: TablesPaneProps) {
   const [jumpHighlight, setJumpHighlight] = useState<number | null>(null);
   const [focusedCol, setFocusedCol] = useState<string | null>(null);
@@ -284,6 +288,7 @@ export function TablesPane({
 
   const header = (
     <>
+        {!compact && (
         <div className="tables-content-header">
           <div>
             <p className="eyebrow">{isTs ? 'Temporal (_t)' : 'Static'}</p>
@@ -298,6 +303,7 @@ export function TablesPane({
             {isTs && <span className="ts-chip">time-series</span>}
           </div>
         </div>
+        )}
 
         {isTs ? (
           <div className="section-toolbar">

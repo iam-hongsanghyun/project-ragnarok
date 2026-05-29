@@ -1,10 +1,11 @@
 /**
  * Build-mode network map.
  *
- * Renders the model's buses/branches as geographic context and makes the
- * active step's component layer clickable: clicking a node/line selects that
- * row, which drives the attribute form on the right and highlights the row in
- * the table below. Editing the model live re-draws the map.
+ * Always draws the whole network — every bus, branch and point component —
+ * regardless of which step is open. The active step's class is the bright,
+ * clickable layer; every other class renders as faint context (bleached) so
+ * the topology stays visible while you edit one component type. Selecting a
+ * row highlights it and dims the rest. Editing the model live re-draws the map.
  *
  * Components are placed where the user clicks (own `x`/`y` on the row) and are
  * never auto-attached to a bus — the user links a bus explicitly, either in the
@@ -226,6 +227,13 @@ export function BuildNetworkMap({
   const pointActive = POINT_SHEETS.has(activeSheet);
   const branchActive = BRANCH_SHEETS.has(activeSheet);
   const linking = !!linkMode;
+  // A row is selected → dim the active layer's other rows to spotlight it.
+  const hasSel = selectedRowIndex != null;
+
+  // Every other class is drawn as faint context so the whole topology stays
+  // visible while one class is being edited.
+  const contextBranchSheets = Array.from(BRANCH_SHEETS).filter((s) => s !== activeSheet);
+  const contextPointSheets = Array.from(POINT_SHEETS).filter((s) => s !== activeSheet);
 
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -303,11 +311,6 @@ export function BuildNetworkMap({
     ? (stringValue(rows[linkMode.rowIndex]?.name) || `row ${linkMode.rowIndex + 1}`)
     : '';
 
-  // Faint geographic context: lines as thin grey links (non-branch steps).
-  const contextLines = model.lines
-    .map((line) => branchPositions(line, busIndex))
-    .filter(Boolean) as [number, number][][];
-
   return (
     <div className={`build-map-frame${linking ? ' build-map-frame--linking' : ''}`}>
       <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom>
@@ -321,10 +324,42 @@ export function BuildNetworkMap({
           subdomains="abcd"
         />
 
-        {/* Context lines (non-branch steps) */}
-        {!branchActive && contextLines.map((positions, i) => (
-          <Polyline key={`ctx-line-${i}`} positions={positions} pathOptions={{ color: '#cbd5e1', weight: 2, opacity: 0.7 }} />
-        ))}
+        {/* Context branches — every branch class except the active one, faint
+            and non-interactive so they read as background topology. */}
+        {contextBranchSheets.map((sheet) => {
+          const sheetRows = (model as Record<string, GridRow[]>)[sheet] ?? [];
+          return sheetRows.map((row, index) => {
+            const positions = branchPositions(row, busIndex);
+            if (!positions) return null;
+            return (
+              <Polyline
+                key={`ctx-${sheet}-${index}`}
+                positions={positions}
+                interactive={false}
+                pathOptions={{ color: BRANCH_COLOR[sheet] ?? '#94a3b8', weight: 2, opacity: 0.25 }}
+              />
+            );
+          });
+        })}
+
+        {/* Context points — every point class except the active one, faint and
+            non-interactive. */}
+        {contextPointSheets.map((sheet) => {
+          const sheetRows = (model as Record<string, GridRow[]>)[sheet] ?? [];
+          return sheetRows.map((row, index) => {
+            const coords = pointCoords(row, busIndex);
+            if (!coords) return null;
+            return (
+              <CircleMarker
+                key={`ctx-${sheet}-${index}`}
+                center={coords}
+                radius={4}
+                interactive={false}
+                pathOptions={{ color: '#ffffff', weight: 1, opacity: 0.4, fillColor: pointFill(sheet, row), fillOpacity: 0.35 }}
+              />
+            );
+          });
+        })}
 
         {/* Dashed connectors: active point component → its linked bus. */}
         {pointActive && rows.map((row, index) => {
@@ -354,7 +389,7 @@ export function BuildNetworkMap({
               pathOptions={{
                 color: sel ? SELECT_COLOR : (BRANCH_COLOR[activeSheet] ?? '#0f766e'),
                 weight: sel ? 7 : 3,
-                opacity: sel ? 1 : 0.85,
+                opacity: sel ? 1 : hasSel ? 0.4 : 0.85,
               }}
               eventHandlers={{ click: () => onSelectRow(index) }}
             >
@@ -383,7 +418,7 @@ export function BuildNetworkMap({
                 color: sel ? SELECT_COLOR : linking ? '#0f766e' : '#ffffff',
                 weight: sel ? 3 : linking ? 3 : 2,
                 fillColor: '#0f766e',
-                fillOpacity: linking ? 0.95 : busActive ? 0.95 : 0.5,
+                fillOpacity: linking ? 0.95 : busActive ? (sel ? 0.95 : hasSel ? 0.4 : 0.95) : 0.5,
               }}
               eventHandlers={handlers}
             >
@@ -409,7 +444,7 @@ export function BuildNetworkMap({
               key={`pt-${index}`}
               center={coords}
               radius={sel ? 10 : 6}
-              pathOptions={{ color: sel ? SELECT_COLOR : '#ffffff', weight: sel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.95 }}
+              pathOptions={{ color: sel ? SELECT_COLOR : '#ffffff', weight: sel ? 3 : 1.5, fillColor: fill, fillOpacity: sel ? 0.95 : hasSel ? 0.4 : 0.95 }}
               eventHandlers={{ click: () => onSelectRow(index), ...(draggable ? { mousedown: beginDrag(index, stored) } : {}) }}
             >
               <Tooltip>{stringValue(row.name) || `row ${index + 1}`}{bus ? ` · ${bus}` : ' · (no bus)'}</Tooltip>

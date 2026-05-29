@@ -197,6 +197,7 @@ export function BuildView(props: BuildViewProps) {
       currencySymbol={props.currencySymbol}
       dateFormat={props.dateFormat}
       onFocusRow={setFocusedRowIndex}
+      compact
     />
   );
 
@@ -212,6 +213,32 @@ export function BuildView(props: BuildViewProps) {
       onAddRow={() => { props.onAddRow(step.primarySheet as SheetName); setFocusedRowIndex(stepRows.length); }}
       onDeleteRow={(rowIndex) => { props.onDeleteRow(step.primarySheet as SheetName, rowIndex); setFocusedRowIndex(null); }}
       onPickOnMap={geo ? startLink : undefined}
+    />
+  );
+
+  // The map always renders the full network as context. Placement / link /
+  // drag interactions only apply when the active step's sheet is geo-locatable;
+  // for non-geo steps (network, carriers, processes) the map is read-only
+  // context and the click-to-add hint is suppressed.
+  const geoMap = (
+    <BuildNetworkMap
+      model={props.model}
+      busIndex={props.busIndex}
+      activeSheet={step.primarySheet}
+      selectedRowIndex={focusedRowIndex}
+      onSelectRow={selectFromMap}
+      onAddAtLocation={geo ? addAtLocation : undefined}
+      onDeleteRow={geo ? (rowIndex) => {
+        props.onDeleteRow(step.primarySheet as SheetName, rowIndex);
+        setFocusedRowIndex(null);
+        setJumpTo(null);
+        setLinkMode(null);
+      } : undefined}
+      onMoveRow={geo ? moveRow : undefined}
+      linkMode={linkMode}
+      onStartLink={geo ? startLink : undefined}
+      onPickBus={geo ? pickBus : undefined}
+      onCancelLink={() => setLinkMode(null)}
     />
   );
 
@@ -246,32 +273,6 @@ export function BuildView(props: BuildViewProps) {
         })}
       </nav>
 
-      <div className="build-step-header">
-        <div>
-          <p className="eyebrow">Step {stepIndex + 1} of {BUILD_STEPS.length}</p>
-          <h2>{step.label}</h2>
-          <p className="build-step-description">{step.description}</p>
-        </div>
-        <div className="build-step-nav">
-          <button
-            className="ghost-button sm"
-            onClick={() => goStep(Math.max(0, stepIndex - 1))}
-            disabled={stepIndex === 0}
-            type="button"
-          >
-            ← Back
-          </button>
-          <button
-            className="ghost-button sm"
-            onClick={() => goStep(Math.min(BUILD_STEPS.length - 1, stepIndex + 1))}
-            disabled={stepIndex === BUILD_STEPS.length - 1}
-            type="button"
-          >
-            Next →
-          </button>
-        </div>
-      </div>
-
       {step.id === 'constraints' ? (
         <ResizablePanels id="build" direction="horizontal" className="build-body" initialSizes={[72, 28]} minSize={220}>
           <section className="build-body-main">
@@ -294,35 +295,12 @@ export function BuildView(props: BuildViewProps) {
           </section>
           <BuildDetailPane step={step} model={props.model} issues={props.modelIssues} focusedRowIndex={focusedRowIndex} />
         </ResizablePanels>
-      ) : geo ? (
-        <ResizablePanels id="build-v" direction="vertical" className="build-body" initialSizes={[52, 48]} minSize={160}>
-          <ResizablePanels id="build-top" direction="horizontal" className="build-top-split" initialSizes={[60, 40]} minSize={220}>
-            <BuildNetworkMap
-              model={props.model}
-              busIndex={props.busIndex}
-              activeSheet={step.primarySheet}
-              selectedRowIndex={focusedRowIndex}
-              onSelectRow={selectFromMap}
-              onAddAtLocation={addAtLocation}
-              onDeleteRow={(rowIndex) => {
-                props.onDeleteRow(step.primarySheet as SheetName, rowIndex);
-                setFocusedRowIndex(null);
-                setJumpTo(null);
-                setLinkMode(null);
-              }}
-              onMoveRow={moveRow}
-              linkMode={linkMode}
-              onStartLink={startLink}
-              onPickBus={pickBus}
-              onCancelLink={() => setLinkMode(null)}
-            />
+      ) : (
+        <ResizablePanels id="build-v" direction="vertical" className="build-body" initialSizes={[52, 48]} minSize={120}>
+          <ResizablePanels id="build-top" direction="horizontal" className="build-top-split" initialSizes={[60, 40]} minSize={160}>
+            {geoMap}
             {attributeForm}
           </ResizablePanels>
-          <section className="build-table-region">{buildTable}</section>
-        </ResizablePanels>
-      ) : (
-        <ResizablePanels id="build-v" direction="vertical" className="build-body" initialSizes={[42, 58]} minSize={160}>
-          {attributeForm}
           <section className="build-table-region">{buildTable}</section>
         </ResizablePanels>
       )}
