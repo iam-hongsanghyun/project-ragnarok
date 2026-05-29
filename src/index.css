@@ -6087,6 +6087,11 @@ code, kbd, samp, tt,
   gap: 8px;
   border-bottom: 1px solid transparent;
   margin-bottom: 4px;
+  /* The dashboard is a flex column; without this, rows shrink to fit the
+   * viewport instead of honoring their explicit height — which silently
+   * defeats row-height resizing and collapses tall cards (e.g. the map).
+   * Pin the basis to the row's height so the pane scrolls instead. */
+  flex-shrink: 0;
 }
 
 .dashboard.is-editing .db-row {
@@ -6098,14 +6103,14 @@ code, kbd, samp, tt,
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -2px;
-  height: 6px;
+  bottom: -3px;
+  height: 8px;
   cursor: ns-resize;
   background: transparent;
   z-index: 5;
 }
 .dashboard-row-resize:hover {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(15, 118, 110, 0.2);
 }
 
 .dashboard-row-edge {
@@ -6134,6 +6139,12 @@ code, kbd, samp, tt,
 /* A cell hosting one card */
 .dashboard-cell {
   position: relative;
+  /* z-index:0 makes every cell its own stacking context, so a Leaflet map
+     (which assigns z-indexes up to ~1000 to its panes/controls) is confined
+     to its own cell and can never paint over a sibling cell's gear/settings
+     button or popovers. Header controls within a cell are layered above the
+     map via their own higher z-index. */
+  z-index: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -6143,14 +6154,18 @@ code, kbd, samp, tt,
   border-radius: 0;
   overflow: hidden;
 }
-.dashboard.is-editing .dashboard-cell {
+.dashboard.is-editing .dashboard-cell-header {
   cursor: grab;
 }
-.dashboard.is-editing .dashboard-cell:active {
+.dashboard.is-editing .dashboard-cell-header:active {
   cursor: grabbing;
 }
 
 .dashboard-cell-header {
+  /* Sit above the cell body so a Leaflet map's high internal z-indexes
+     cannot paint over the cell title / remove (gear) controls. */
+  position: relative;
+  z-index: 2;
   height: 28px;
   min-height: 28px;
   padding: 0 10px;
@@ -6173,17 +6188,20 @@ code, kbd, samp, tt,
   text-overflow: ellipsis;
 }
 .dashboard-cell-remove {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border-radius: 0;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.88rem;
+  font-size: 18px;
   line-height: 1;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .dashboard-cell-remove:hover { color: var(--danger); border-color: var(--danger); }
 
@@ -6206,14 +6224,14 @@ code, kbd, samp, tt,
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -4px;
-  width: 8px;
+  right: 0;
+  width: 10px;
   cursor: ew-resize;
   background: transparent;
-  z-index: 4;
+  z-index: 6;
 }
 .dashboard-cell-resize:hover {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(15, 118, 110, 0.2);
 }
 
 /* Drop zones (visible only in edit mode) */
@@ -6225,7 +6243,9 @@ code, kbd, samp, tt,
   transition: background 100ms ease, flex-basis 100ms ease;
 }
 .dashboard-drop-zone.is-tail {
-  flex: 1 1 12px;
+  /* A fixed gutter, not a growing one — otherwise it steals half the row
+   * from a single full-width cell. Still a valid drop target at 12px. */
+  flex: 0 0 12px;
   min-width: 12px;
 }
 .dashboard-drop-zone.is-active {
@@ -6238,6 +6258,78 @@ code, kbd, samp, tt,
   display: flex;
   justify-content: center;
   padding: 12px 0;
+}
+
+/* Per-row "+ Add column" button, sits at the row's right edge in edit mode */
+.dashboard-add-col {
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-width: 96px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  border-radius: 0;
+}
+.dashboard-add-col:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Empty placeholder cell (no card yet) */
+.dashboard-cell.is-placeholder {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+}
+.dashboard-cell-placeholder {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.dashboard-cell-placeholder-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+.dashboard-cell-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.dashboard-cell-add-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  border-radius: 0;
+}
+.dashboard-cell-add-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.dashboard-cell-add-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+/* The placeholder's remove-column "×" floats in the top-right corner */
+.dashboard-cell-remove--placeholder {
+  position: absolute;
+  top: 6px;
+  right: 6px;
 }
 
 /* Notes card body */
@@ -6337,8 +6429,8 @@ code, kbd, samp, tt,
   top: 4px;
   right: 4px;
   z-index: 8;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -6348,7 +6440,7 @@ code, kbd, samp, tt,
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
   opacity: 0;
   transition: opacity 120ms ease, color 120ms ease;
@@ -6408,6 +6500,25 @@ code, kbd, samp, tt,
   background: transparent;
   box-shadow: none;
   padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* Let the chart body fill the cell so resizing the cell resizes the chart.
+   The SVG keeps its viewBox aspect (preserveAspectRatio default) and scales
+   to the available box in both dimensions. */
+.dashboard-cell .chart-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dashboard-cell .chart-main {
+  min-height: 0;
+  display: flex;
+}
+.dashboard-cell .chart-svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* Same for Results dashboard sections: drop the inner card frame so
@@ -6430,7 +6541,9 @@ code, kbd, samp, tt,
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* Above Leaflet, whose panes/controls reach z-index 1000 in the root
+   * stacking context — otherwise a map card paints over this modal. */
+  z-index: 2000;
   padding: 24px;
 }
 
@@ -6474,15 +6587,15 @@ code, kbd, samp, tt,
 }
 
 .chart-modal-close {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 20px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -6637,20 +6750,6 @@ code, kbd, samp, tt,
   background: var(--surface);
   width: 100%;
 }
-.chart-modal-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
-  color: var(--text);
-  white-space: nowrap;
-  padding-bottom: 4px;
-}
-.chart-modal-checkbox input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-}
 
 
 /* ── Build wizard ───────────────────────────────────────────────────────── */
@@ -6706,6 +6805,66 @@ code, kbd, samp, tt,
   overflow: hidden;
   border-right: 1px solid var(--border);
 }
+
+/* Plexos-style Build layout: map | attribute form (top), data table (bottom) */
+.build-top-split { border-bottom: 1px solid var(--border); }
+.build-map-frame {
+  position: relative;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+.build-map-frame .leaflet-map { width: 100%; height: 100%; }
+.build-table-region {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.build-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--surface, #fff);
+  font-size: 0.82rem;
+  gap: 12px;
+}
+.build-form-head .eyebrow { margin: 0; }
+.build-form-head h3 { margin: 2px 0 0; font-size: 1rem; }
+.build-form-empty { color: var(--text-muted, #64748b); font-style: italic; margin: 8px 0; }
+.build-form-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+}
+.build-fields { display: flex; flex-direction: column; gap: 8px; }
+.build-field { display: flex; flex-direction: column; gap: 3px; }
+.build-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text);
+}
+.build-field-unit { color: var(--text-muted, #64748b); font-size: 0.68rem; }
+.build-field input,
+.build-field select {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface, #fff);
+  color: var(--text);
+}
+.build-field input:focus,
+.build-field select:focus { outline: none; border-color: var(--brand); }
+.build-form-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 8px; }
+.build-form-delete:hover { color: var(--danger); border-color: var(--danger); }
 .build-review-panel,
 .build-constraints-panel {
   flex: 1 1 auto;

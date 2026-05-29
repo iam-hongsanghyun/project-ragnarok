@@ -17,15 +17,26 @@ const MAX_ROW_HEIGHT = 1000;
 const MIN_CELL_FLEX = 0.25;
 const MAX_CELL_FLEX = 6;
 
+/** Upper bound for auto-height rows. The aspect rule below scales row
+ *  height with container width, which on a wide monitor (≈1900 px) drives
+ *  a 2-cell row to ≈950 px — far taller than the fixed-size content in
+ *  cards like merit-order / CO₂ shadow, leaving large empty bands. Capping
+ *  keeps charts comfortably tall without runaway whitespace. Users can
+ *  still drag any row taller (which switches it to an explicit height). */
+const MAX_AUTO_ROW_HEIGHT = 500;
+
 /** Aspect rule from the user spec:
  *    1 cell  → height = 0.5 × width  (wide chart for time series)
  *    N ≥ 2   → height =       width / N   (square cells)
- *  Returns the height in pixels for a row given the container width.
+ *  Returns the height in pixels for a row given the container width,
+ *  clamped to [MIN_ROW_HEIGHT, MAX_AUTO_ROW_HEIGHT].
  */
 function autoRowHeight(containerWidth: number, cellCount: number): number {
   if (cellCount <= 0 || containerWidth <= 0) return MIN_ROW_HEIGHT;
-  if (cellCount === 1) return Math.max(MIN_ROW_HEIGHT, Math.round(containerWidth * 0.5));
-  return Math.max(MIN_ROW_HEIGHT, Math.round(containerWidth / cellCount));
+  const raw = cellCount === 1
+    ? Math.round(containerWidth * 0.5)
+    : Math.round(containerWidth / cellCount);
+  return Math.max(MIN_ROW_HEIGHT, Math.min(MAX_AUTO_ROW_HEIGHT, raw));
 }
 
 function effectiveRowHeight(row: Row, containerWidth: number): number {
@@ -44,13 +55,21 @@ interface Props {
   /** Optional: persist a renamed card title. When provided, the cell
    *  header offers a double-click-to-rename affordance. */
   onCardRename?: (cardId: string, title: string) => void;
+  /** Card kinds offerable from an empty placeholder cell's "+" menu. */
+  addableCards?: { kind: string; label: string }[];
+  /** Factory the parent supplies so Dashboard (which is card-agnostic)
+   *  can mint a card of the chosen kind to drop into a placeholder. */
+  createCard?: (kind: string) => Card;
 }
 
 let _newId = 0;
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(_newId++).toString(36)}`;
 
-export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTitle, onCardRename }: Props) {
+export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTitle, onCardRename, addableCards = [], createCard }: Props) {
   const cardById = new Map(layout.cards.map((c) => [c.id, c]));
+
+  // Which empty placeholder cell currently has its "+" menu open.
+  const [addMenuCellId, setAddMenuCellId] = useState<string | null>(null);
 
   // Container-width observer so auto-height rows can compute their
   // pixel height from the current dashboard width on every layout pass.
@@ -83,8 +102,40 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
   const removeRow = (rowId: string) =>
     onLayoutChange({ ...layout, rows: layout.rows.filter((r) => r.id !== rowId) });
 
+  // A fresh row arrives as one full-width placeholder cell the user fills
+  // via its "+". Columns are then added with the per-row "+ Add column".
   const addRow = () =>
-    onLayoutChange({ ...layout, rows: [...layout.rows, { id: newId('row'), height: 280, autoHeight: true, cells: [] }] });
+    onLayoutChange({
+      ...layout,
+      rows: [...layout.rows, { id: newId('row'), height: 280, autoHeight: true, cells: [{ id: newId('cell'), flex: 1 }] }],
+    });
+
+  // Append an empty placeholder column to a row and re-even the widths so
+  // the row's full width splits equally across all columns.
+  const addColumn = (rowId: string) =>
+    onLayoutChange({
+      ...layout,
+      rows: layout.rows.map((r) =>
+        r.id === rowId
+          ? { ...r, cells: [...r.cells, { id: newId('cell'), flex: 1 }].map((c) => ({ ...c, flex: 1 })) }
+          : r,
+      ),
+    });
+
+  // Fill a placeholder cell with a freshly-minted card of the chosen kind.
+  const fillCell = (rowId: string, cellId: string, kind: string) => {
+    if (!createCard) return;
+    const card = createCard(kind);
+    setAddMenuCellId(null);
+    onLayoutChange({
+      cards: [...layout.cards, card],
+      rows: layout.rows.map((r) =>
+        r.id === rowId
+          ? { ...r, cells: r.cells.map((c) => (c.id === cellId ? { ...c, cardId: card.id } : c)) }
+          : r,
+      ),
+    });
+  };
 
   const moveCell = (from: DragPayload, toRowId: string, toIndex: number) => {
     if (from.rowId === toRowId) {
@@ -167,8 +218,6 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
       startX: e.clientX,
       startY: e.clientY,
       startFlex: row.cells[idx].flex,
-      rightFlex: row.cells[idx + 1].flex,
-      rightCellId: row.cells[idx + 1].id,
     };
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', onDragUp);
@@ -190,27 +239,19 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
       };
       dragLatest.current = updated;
       onLayoutChange(updated);
-    } else if (s.type === 'cell-width' && s.startFlex !== undefined && s.rightFlex !== undefined && s.cellId && s.rightCellId) {
+    } else if (s.type === 'cell-width' && s.startFlex !== undefined && s.cellId) {
       const dx = e.clientX - s.startX;
-      // Treat 200 px ≈ 1.0 flex unit shift.
+      // Treat 200 px ≈ 1.0 flex unit shift. Only the dragged cell's flex
+      // changes; flexbox redistributes the rest of the row proportionally,
+      // so every following cell reflows.
       const delta = dx / 200;
-      const total = s.startFlex + s.rightFlex;
-      const next = Math.max(MIN_CELL_FLEX, Math.min(total - MIN_CELL_FLEX, s.startFlex + delta));
-      const right = Math.max(MIN_CELL_FLEX, Math.min(MAX_CELL_FLEX, total - next));
+      const next = Math.max(MIN_CELL_FLEX, Math.min(MAX_CELL_FLEX, s.startFlex + delta));
       const cellId = s.cellId;
-      const rightCellId = s.rightCellId;
       const updated: DashboardLayout = {
         ...cur,
         rows: cur.rows.map((r) =>
           r.id === s.rowId
-            ? {
-                ...r,
-                cells: r.cells.map((c) =>
-                  c.id === cellId ? { ...c, flex: next } :
-                  c.id === rightCellId ? { ...c, flex: right } :
-                  c,
-                ),
-              }
+            ? { ...r, cells: r.cells.map((c) => (c.id === cellId ? { ...c, flex: next } : c)) }
             : r,
         ),
       };
@@ -264,7 +305,7 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
           style={{ height: effectiveRowHeight(row, containerWidth) }}
         >
           {row.cells.map((cell, index) => {
-            const card = cardById.get(cell.cardId);
+            const card = cell.cardId ? cardById.get(cell.cardId) : undefined;
             const isDropTarget = editing && dropHint?.rowId === row.id && dropHint.index === index;
             return (
               <React.Fragment key={cell.id}>
@@ -277,40 +318,82 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
                   />
                 )}
                 <div
-                  className="dashboard-cell"
+                  className={`dashboard-cell${!card ? ' is-placeholder' : ''}`}
                   style={{ flexGrow: cell.flex, flexBasis: 0, minWidth: 0 }}
-                  draggable={editing}
-                  onDragStart={editing ? onCellDragStart(row.id, cell.id) : undefined}
                 >
-                  <div className="dashboard-cell-header">
-                    {card && onCardRename ? (
-                      <CellTitle
-                        title={cardTitle(card)}
-                        onRename={(next) => onCardRename(card.id, next)}
-                      />
-                    ) : (
-                      <span className="dashboard-cell-title">
-                        {card ? cardTitle(card) : 'Missing card'}
-                      </span>
-                    )}
-                    {editing && (
-                      <button
-                        className="dashboard-cell-remove"
-                        onClick={() => removeCell(row.id, cell.id)}
-                        title="Remove card"
-                        aria-label="Remove card"
+                  {card ? (
+                    <>
+                      <div
+                        className="dashboard-cell-header"
+                        draggable={editing}
+                        onDragStart={editing ? onCellDragStart(row.id, cell.id) : undefined}
                       >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  <div className="dashboard-cell-body">
-                    {card ? renderCard(card) : <p className="dashboard-cell-missing">Missing card.</p>}
-                  </div>
+                        {onCardRename ? (
+                          <CellTitle
+                            title={cardTitle(card)}
+                            onRename={(next) => onCardRename(card.id, next)}
+                          />
+                        ) : (
+                          <span className="dashboard-cell-title">{cardTitle(card)}</span>
+                        )}
+                        {editing && (
+                          <button
+                            className="dashboard-cell-remove"
+                            onClick={() => removeCell(row.id, cell.id)}
+                            title="Remove card"
+                            aria-label="Remove card"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                      <div className="dashboard-cell-body">{renderCard(card)}</div>
+                    </>
+                  ) : (
+                    // Empty placeholder: a centered "+" opens a kind picker.
+                    <div className="dashboard-cell-placeholder">
+                      {editing ? (
+                        <div className="dashboard-cell-add">
+                          <button
+                            className="dashboard-cell-add-btn"
+                            onClick={() => setAddMenuCellId(addMenuCellId === cell.id ? null : cell.id)}
+                            title="Add a card here"
+                            aria-label="Add a card here"
+                          >
+                            +
+                          </button>
+                          {addMenuCellId === cell.id && (
+                            <div className="dashboard-cell-add-menu">
+                              {addableCards.map((opt) => (
+                                <button
+                                  key={opt.kind}
+                                  className="tb-btn"
+                                  onClick={() => fillCell(row.id, cell.id, opt.kind)}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <button
+                            className="dashboard-cell-remove dashboard-cell-remove--placeholder"
+                            onClick={() => removeCell(row.id, cell.id)}
+                            title="Remove column"
+                            aria-label="Remove column"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="dashboard-cell-placeholder-hint">Empty</span>
+                      )}
+                    </div>
+                  )}
                   {editing && index < row.cells.length - 1 && (
                     <div
                       className="dashboard-cell-resize"
-                      onMouseDown={(e) => onCellWidthHandleDown(row.id, cell.id, e)}
+                      draggable={false}
+                      onMouseDown={(e) => { e.stopPropagation(); onCellWidthHandleDown(row.id, cell.id, e); }}
                       title="Drag to resize"
                     />
                   )}
@@ -329,6 +412,17 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
           )}
 
           {editing && (
+            <button
+              className="dashboard-add-col"
+              onClick={() => addColumn(row.id)}
+              title="Add a column to this row"
+              aria-label="Add column"
+            >
+              + Add column
+            </button>
+          )}
+
+          {editing && (
             <div className="dashboard-row-edge">
               <button
                 className="dashboard-row-remove"
@@ -344,7 +438,8 @@ export function Dashboard({ layout, onLayoutChange, editing, renderCard, cardTit
           {editing && (
             <div
               className="dashboard-row-resize"
-              onMouseDown={(e) => onRowHeightHandleDown(row.id, e)}
+              draggable={false}
+              onMouseDown={(e) => { e.stopPropagation(); onRowHeightHandleDown(row.id, e); }}
               title="Drag to resize row height"
             />
           )}

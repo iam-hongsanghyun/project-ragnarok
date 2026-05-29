@@ -11,7 +11,7 @@
  * The same component renders both the Analytics and Result sub-tabs;
  * the parent picks the storage key and the default preset.
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { LatLngBoundsExpression } from 'leaflet';
 import {
   AnalyticsFocus,
@@ -36,22 +36,24 @@ import { CarrierAnalysisCard } from '../../../features/analytics/cards/CarrierAn
 import { LoadAnalysisCard } from '../../../features/analytics/cards/LoadAnalysisCard';
 import { StochasticScenariosCard } from '../../../features/analytics/cards/StochasticScenariosCard';
 import { numberValue } from '../../../shared/utils/helpers';
-import { Dashboard, addCard, newId } from './Dashboard';
-import { Card, ChartCard, DashboardLayout } from './types';
+import { Dashboard, newId } from './Dashboard';
+import { Card, DashboardLayout } from './types';
 import { useDashboardLayout } from './useDashboardLayout';
 import { PRESETS } from './presets';
 
 const DEFAULT_LAYOUT: DashboardLayout = { rows: [], cards: [] };
 
 /** Human-readable label for a chart card based on its focus + metric. */
+// Bloomberg-style auto-titles: a category prefix (the desk / panel a trader
+// would scan for) followed by the specific series. Rendered uppercase by CSS.
 const SYSTEM_METRIC_LABEL: Record<string, string> = {
-  dispatch:          'Dispatch by carrier',
-  dispatch_by_gen:   'Dispatch by generator',
-  load:              'Total load',
-  system_price:      'Marginal price',
-  system_emissions:  'Emissions',
-  storage_power:     'Storage power',
-  storage_state:     'State of charge',
+  dispatch:          'Generation · Dispatch by carrier',
+  dispatch_by_gen:   'Generation · Dispatch by unit',
+  load:              'Demand · System load',
+  system_price:      'Price · Marginal (SMP)',
+  system_emissions:  'Emissions · System CO₂',
+  storage_power:     'Storage · Charge / discharge',
+  storage_state:     'Storage · State of charge',
 };
 
 const FOCUS_TYPE_LABEL: Record<string, string> = {
@@ -98,6 +100,21 @@ function newChartCard(): Card { return { id: newId('chart'), kind: 'chart', conf
 function newMapCard(): Card   { return { id: newId('map'),   kind: 'map' }; }
 function newNotesCard(): Card { return { id: newId('notes'), kind: 'notes' }; }
 
+/** Kinds offered from an empty placeholder cell's "+" menu. */
+const ADDABLE_CARDS = [
+  { kind: 'chart', label: 'Chart' },
+  { kind: 'map',   label: 'Map' },
+  { kind: 'notes', label: 'Run notes' },
+];
+
+function createCard(kind: string): Card {
+  switch (kind) {
+    case 'map':   return newMapCard();
+    case 'notes': return newNotesCard();
+    default:      return newChartCard();
+  }
+}
+
 interface Props {
   results: RunResults;
   model: WorkbookModel;
@@ -131,9 +148,27 @@ export function AnalyticsDashboard({
   initialLayout = DEFAULT_LAYOUT,
   showPresets = true,
 }: Props) {
-  const { layout, setLayout, editing, setEditing, savedLayouts, saveAs, load, remove, resetToDefault } =
+  const { layout, setLayout, editing, setEditing, resetToDefault } =
     useDashboardLayout(initialLayout, storageKey);
-  const [openMenu, setOpenMenu] = useState<'add' | 'layouts' | 'presets' | null>(null);
+  const [openMenu, setOpenMenu] = useState<'presets' | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Track which preset is currently in play so Reset re-imports *that*
+  // preset rather than the hardcoded default. null = the initial layout.
+  const [currentPresetKey, setCurrentPresetKey] = useState<string | null>(null);
+
+  // Edit-mode staging: snapshot the layout when the user starts editing so
+  // Cancel can revert every drag/resize/add. Apply just keeps the changes.
+  const [editSnapshot, setEditSnapshot] = useState<DashboardLayout | null>(null);
+
+  const startEditing = () => { setEditSnapshot(layout); setEditing(true); };
+  const applyEditing = () => { setEditSnapshot(null); setEditing(false); setOpenMenu(null); };
+  const cancelEditing = () => {
+    if (editSnapshot) setLayout(editSnapshot);
+    setEditSnapshot(null);
+    setEditing(false);
+    setOpenMenu(null);
+  };
 
   const updateCard = (cardId: string, patch: Partial<Card>) =>
     setLayout({
@@ -149,48 +184,55 @@ export function AnalyticsDashboard({
       ),
     });
 
-  /** Click on a map asset → rewrite focus on every chart card flagged
-   *  followFocus. Cards without the flag (the default for manually
-   *  added cards) stay put. */
-  const handleMapFocusChange = (focus: AnalyticsFocus) => {
-    onFocusChange(focus);
-    if (focus.type === 'system') return; // system means "no focus"; leave cards alone
-    setLayout({
-      ...layout,
-      cards: layout.cards.map((c) => {
-        if (c.kind !== 'chart') return c;
-        const cc = c as ChartCard;
-        if (!cc.followFocus) return c;
-        return {
-          ...cc,
-          config: {
-            ...cc.config,
-            focusType: focus.type,
-            focusKeys: [focus.key],
-          },
-        };
-      }),
-    });
-  };
-
-  const handleAdd = (kind: 'chart' | 'map' | 'notes') => {
-    const card = kind === 'chart' ? newChartCard() : kind === 'map' ? newMapCard() : newNotesCard();
-    const targetRow = layout.rows[layout.rows.length - 1]?.id ?? null;
-    setLayout(addCard(layout, targetRow, card));
+  // Save the current layout as a downloadable .json file the user can keep
+  // on disk and re-import later (or share). The active layout still
+  // autosaves to localStorage; this is the portable, explicit export.
+  const handleExport = () => {
+    const json = JSON.stringify(layout, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ragnarok-dashboard-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
     setOpenMenu(null);
   };
 
-  const handleSave = () => {
-    const name = window.prompt('Save layout as:', `layout-${savedLayouts.length + 1}`);
-    if (name) saveAs(name);
-    setOpenMenu(null);
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset so the same file can be re-imported
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as DashboardLayout;
+        if (parsed && Array.isArray(parsed.rows) && Array.isArray(parsed.cards)) {
+          setLayout(parsed);
+        } else {
+          window.alert('That file is not a valid dashboard layout.');
+        }
+      } catch {
+        window.alert('Could not read that file as JSON.');
+      }
+    };
+    reader.readAsText(file);
   };
 
-  const handleLoad = (name: string) => { load(name); setOpenMenu(null); };
-  const handleDelete = (name: string) => { if (window.confirm(`Delete saved layout "${name}"?`)) remove(name); };
   const handleLoadPreset = (key: string) => {
     const preset = PRESETS.find((p) => p.key === key);
+    if (preset) { setLayout(preset.build()); setCurrentPresetKey(key); }
+    setOpenMenu(null);
+  };
+
+  // Reset re-imports the currently selected preset (a fresh copy, discarding
+  // edits). If no preset has been picked, fall back to the initial layout.
+  const handleReset = () => {
+    const preset = currentPresetKey ? PRESETS.find((p) => p.key === currentPresetKey) : null;
     if (preset) setLayout(preset.build());
+    else resetToDefault();
     setOpenMenu(null);
   };
 
@@ -219,8 +261,6 @@ export function AnalyticsDashboard({
               onRemove={() => { /* dashboard cell × handles removal */ }}
               title={card.title}
               onTitleChange={(next) => updateCard(card.id, { title: next.trim() || undefined })}
-              followFocus={card.followFocus}
-              onFollowFocusChange={(next) => updateCard(card.id, { followFocus: next })}
             />
           );
         case 'map':
@@ -231,7 +271,7 @@ export function AnalyticsDashboard({
               bounds={bounds}
               busIndex={busIndex}
               analyticsFocus={analyticsFocus}
-              onFocusChange={handleMapFocusChange}
+              onFocusChange={onFocusChange}
               currencySymbol={currencySymbol}
             />
           );
@@ -336,12 +376,14 @@ export function AnalyticsDashboard({
   return (
     <div className="analytics-dashboard">
       <div className="dashboard-toolbar">
-        <button
-          className={`tb-btn${editing ? ' tb-btn--active' : ''}`}
-          onClick={() => setEditing(!editing)}
-        >
-          {editing ? 'Done editing' : 'Edit layout'}
-        </button>
+        {editing ? (
+          <>
+            <button className="tb-btn tb-btn--active" onClick={applyEditing}>Apply</button>
+            <button className="tb-btn tb-btn--muted" onClick={cancelEditing}>Cancel</button>
+          </>
+        ) : (
+          <button className="tb-btn" onClick={startEditing}>Edit layout</button>
+        )}
 
         {showPresets && (
           <>
@@ -371,45 +413,21 @@ export function AnalyticsDashboard({
 
         {editing && (
           <>
-            <div className="dashboard-toolbar-menu">
-              <button className="tb-btn" onClick={() => setOpenMenu(openMenu === 'add' ? null : 'add')}>
-                + Add card
-              </button>
-              {openMenu === 'add' && (
-                <div className="dashboard-toolbar-pop">
-                  <button className="tb-btn" onClick={() => handleAdd('chart')}>Chart</button>
-                  <button className="tb-btn" onClick={() => handleAdd('map')}>Map</button>
-                  <button className="tb-btn" onClick={() => handleAdd('notes')}>Run notes</button>
-                </div>
-              )}
-            </div>
+            <button className="tb-btn" onClick={handleExport} title="Download this layout as a .json file">
+              Save layout…
+            </button>
+            <button className="tb-btn" onClick={() => fileInputRef.current?.click()} title="Import a layout from a .json file">
+              Import…
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
             <div className="dashboard-toolbar-sep" />
-            <button className="tb-btn" onClick={handleSave}>Save layout…</button>
-            <div className="dashboard-toolbar-menu">
-              <button
-                className="tb-btn"
-                onClick={() => setOpenMenu(openMenu === 'layouts' ? null : 'layouts')}
-                disabled={savedLayouts.length === 0}
-              >
-                Load…
-              </button>
-              {openMenu === 'layouts' && savedLayouts.length > 0 && (
-                <div className="dashboard-toolbar-pop">
-                  {savedLayouts.map((s) => (
-                    <div key={s.name} className="dashboard-saved-row">
-                      <button className="tb-btn" onClick={() => handleLoad(s.name)} title={`Saved ${new Date(s.updatedAt).toLocaleString()}`}>
-                        {s.name}
-                      </button>
-                      <button className="tb-btn tb-btn--muted" onClick={() => handleDelete(s.name)} title="Delete">
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="dashboard-toolbar-sep" />
-            <button className="tb-btn tb-btn--muted" onClick={resetToDefault} title="Reset to empty layout">
+            <button className="tb-btn tb-btn--muted" onClick={handleReset} title="Re-import the current preset (discards edits)">
               Reset
             </button>
           </>
@@ -423,6 +441,8 @@ export function AnalyticsDashboard({
         renderCard={renderCard}
         cardTitle={cardTitle}
         onCardRename={(cardId, title) => updateCard(cardId, { title })}
+        addableCards={ADDABLE_CARDS}
+        createCard={createCard}
       />
     </div>
   );

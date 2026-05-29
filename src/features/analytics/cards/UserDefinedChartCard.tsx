@@ -71,8 +71,6 @@ export function UserDefinedChartCard({
   compact = false,
   title,
   onTitleChange,
-  followFocus,
-  onFollowFocusChange,
 }: {
   section: ChartSectionConfig;
   results: RunResults | null;
@@ -87,24 +85,48 @@ export function UserDefinedChartCard({
   /** Card-level title override (set via the modal's Title input). */
   title?: string;
   onTitleChange?: (next: string) => void;
-  /** When true, this card rewrites its focus on map asset clicks.
-   *  Toggled via a checkbox in the settings modal. */
-  followFocus?: boolean;
-  onFollowFocusChange?: (next: boolean) => void;
 }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Esc closes the settings modal.
+  // While the settings modal is open (compact mode) edits are staged in a
+  // local draft and only committed to the parent on "Apply" — "Cancel"/Esc
+  // discards them. `active` is the config the modal + preview read from.
+  const [draft, setDraft] = useState<ChartSectionConfig | null>(null);
+  const [draftTitle, setDraftTitle] = useState<string>('');
+  const staging = compact && settingsOpen && draft != null;
+  const active = staging ? (draft as ChartSectionConfig) : section;
+  const activeTitle = staging ? draftTitle : (title ?? '');
+
+  const openSettings = () => {
+    setDraft(section);
+    setDraftTitle(title ?? '');
+    setSettingsOpen(true);
+  };
+  const cancelSettings = () => { setSettingsOpen(false); setDraft(null); };
+  const applySettings = () => {
+    if (draft) onChange(draft);
+    if (onTitleChange && draftTitle !== (title ?? '')) onTitleChange(draftTitle);
+    setSettingsOpen(false);
+    setDraft(null);
+  };
+
+  /** Stage (compact modal) or apply live (full inline mode) a config patch. */
+  const patch = (next: ChartSectionConfig) => {
+    if (staging) setDraft(next);
+    else onChange(next);
+  };
+
+  // Esc cancels the settings modal (discards the draft).
   useEffect(() => {
     if (!settingsOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSettingsOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cancelSettings(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [settingsOpen]);
 
-  const assetNames = assetNamesFor(section.focusType, model);
+  const assetNames = assetNamesFor(active.focusType, model);
 
   // Bus + carrier filter source lists (used by the secondary pill rows below)
   const busNames = model.buses.map((r) => stringValue(r.name)).filter(Boolean);
@@ -116,44 +138,44 @@ export function UserDefinedChartCard({
   const metricOptions: MetricOption[] = useMetricOptions(
     results,
     model,
-    section.focusType,
-    section.focusKeys,
-    section.groupBy,
+    active.focusType,
+    active.focusKeys,
+    active.groupBy,
     currencySymbol,
-    section.busFilter ?? [],
-    section.carrierFilter ?? [],
+    active.busFilter ?? [],
+    active.carrierFilter ?? [],
   );
 
-  const metric     = metricOptions.find((m) => m.key === section.metricKey);
+  const metric     = metricOptions.find((m) => m.key === active.metricKey);
   const hasMetric  = Boolean(metric);
   const metricRows = metric?.rows || [];
 
   const safeStart = hasMetric
-    ? clamp(Math.min(section.startIndex, section.endIndex), 0, Math.max(metricRows.length - 1, 0))
+    ? clamp(Math.min(active.startIndex, active.endIndex), 0, Math.max(metricRows.length - 1, 0))
     : 0;
   const safeEnd = hasMetric
-    ? clamp(Math.max(section.endIndex, safeStart), safeStart, Math.max(metricRows.length - 1, 0))
+    ? clamp(Math.max(active.endIndex, safeStart), safeStart, Math.max(metricRows.length - 1, 0))
     : 0;
   const aggregatedRows = hasMetric
-    ? aggregateMetricRows(metric!, safeStart, safeEnd, section.timeframe)
+    ? aggregateMetricRows(metric!, safeStart, safeEnd, active.timeframe)
     : [];
 
   // Show Group by when:
   //   - Generator focus with multi/all selection, OR
   //   - Bus focus with one of the generator-aggregated metrics picked
-  const isMultiOrAll  = section.focusType !== 'system' && section.focusKeys.length !== 1;
+  const isMultiOrAll  = active.focusType !== 'system' && active.focusKeys.length !== 1;
   const showGroupBy   =
-    (isMultiOrAll && section.focusType === 'generator') ||
-    (section.focusType === 'bus' && BUS_AGG_METRIC_KEYS.has(section.metricKey));
+    (isMultiOrAll && active.focusType === 'generator') ||
+    (active.focusType === 'bus' && BUS_AGG_METRIC_KEYS.has(active.metricKey));
 
   // Filter rows visibility
-  const showBusFilter     = ['generator', 'storageUnit', 'store'].includes(section.focusType) && busNames.length > 0;
-  const showCarrierFilter = section.focusType === 'generator' && carrierNames.length > 0;
+  const showBusFilter     = ['generator', 'storageUnit', 'store'].includes(active.focusType) && busNames.length > 0;
+  const showCarrierFilter = active.focusType === 'generator' && carrierNames.length > 0;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const resetMetric = (extra: Partial<ChartSectionConfig> = {}) =>
-    onChange({ ...section, metricKey: EMPTY_METRIC_KEY, startIndex: 0, endIndex: 0, ...extra });
+    patch({ ...active, metricKey: EMPTY_METRIC_KEY, startIndex: 0, endIndex: 0, ...extra });
 
   const handleFocusTypeChange = (newType: FocusType) => {
     const names = assetNamesFor(newType, model);
@@ -170,13 +192,13 @@ export function UserDefinedChartCard({
   const handleMetricChange = (newKey: string) => {
     const m   = metricOptions.find((x) => x.key === newKey);
     const len = m?.rows.length || 1;
-    onChange({ ...section, metricKey: newKey, startIndex: 0, endIndex: Math.max(len - 1, 0) });
+    patch({ ...active, metricKey: newKey, startIndex: 0, endIndex: Math.max(len - 1, 0) });
   };
 
   const handleExport = () => {
     if (!metric) return;
     let promise: Promise<void>;
-    if (section.chartType === 'donut') {
+    if (active.chartType === 'donut') {
       const data = buildDonutFromMetric(metric, safeStart, safeEnd);
       promise = exportChartToExcel(
         metric.label,
@@ -209,7 +231,7 @@ export function UserDefinedChartCard({
         <label className="chart-control">
           <span>Component</span>
           <select
-            value={section.focusType}
+            value={active.focusType}
             onChange={(e) => handleFocusTypeChange(e.target.value as FocusType)}
           >
             {(Object.keys(FOCUS_LABELS) as FocusType[]).map((ft) => (
@@ -224,7 +246,7 @@ export function UserDefinedChartCard({
         <label className="chart-control">
           <span>Value</span>
           <select
-            value={section.metricKey}
+            value={active.metricKey}
             onChange={(e) => handleMetricChange(e.target.value)}
             disabled={!results}
           >
@@ -240,9 +262,9 @@ export function UserDefinedChartCard({
           <label className="chart-control">
             <span>Group by</span>
             <select
-              value={section.groupBy}
+              value={active.groupBy}
               onChange={(e) =>
-                onChange({ ...section, groupBy: e.target.value as GroupByOption })
+                patch({ ...active, groupBy: e.target.value as GroupByOption })
               }
             >
               <option value="carrier">Carrier</option>
@@ -255,8 +277,8 @@ export function UserDefinedChartCard({
         <label className="chart-control">
           <span>Temporal resolution</span>
           <select
-            value={section.timeframe}
-            onChange={(e) => onChange({ ...section, timeframe: e.target.value as TimeframeOption })}
+            value={active.timeframe}
+            onChange={(e) => patch({ ...active, timeframe: e.target.value as TimeframeOption })}
           >
             <option value="aggregated">Aggregated</option>
             <option value="yearly">By year</option>
@@ -271,8 +293,8 @@ export function UserDefinedChartCard({
         <label className="chart-control">
           <span>Chart</span>
           <select
-            value={section.chartType}
-            onChange={(e) => onChange({ ...section, chartType: e.target.value as ChartSectionType })}
+            value={active.chartType}
+            onChange={(e) => patch({ ...active, chartType: e.target.value as ChartSectionType })}
             disabled={!hasMetric}
           >
             <option value="line">Line</option>
@@ -283,12 +305,12 @@ export function UserDefinedChartCard({
         </label>
 
         {/* Stack */}
-        {section.chartType !== 'donut' && (
+        {active.chartType !== 'donut' && (
           <label className="chart-control">
             <span>Stack</span>
             <select
-              value={section.stacked ? 'stacked' : 'normal'}
-              onChange={(e) => onChange({ ...section, stacked: e.target.value === 'stacked' })}
+              value={active.stacked ? 'stacked' : 'normal'}
+              onChange={(e) => patch({ ...active, stacked: e.target.value === 'stacked' })}
               disabled={!hasMetric}
             >
               <option value="stacked">Stacked</option>
@@ -299,31 +321,31 @@ export function UserDefinedChartCard({
       </div>
 
       {/* Appearance — axis titles, legend, tick labels (time-series only) */}
-      {section.chartType !== 'donut' && (
+      {active.chartType !== 'donut' && (
         <div className="chart-builder-controls">
           <label className="chart-control">
             <span>X-axis title</span>
             <input
               type="text"
-              value={section.xAxisTitle ?? ''}
+              value={active.xAxisTitle ?? ''}
               placeholder="none"
-              onChange={(e) => onChange({ ...section, xAxisTitle: e.target.value })}
+              onChange={(e) => patch({ ...active, xAxisTitle: e.target.value })}
             />
           </label>
           <label className="chart-control">
             <span>Y-axis title</span>
             <input
               type="text"
-              value={section.yAxisTitle ?? ''}
+              value={active.yAxisTitle ?? ''}
               placeholder="none"
-              onChange={(e) => onChange({ ...section, yAxisTitle: e.target.value })}
+              onChange={(e) => patch({ ...active, yAxisTitle: e.target.value })}
             />
           </label>
           <label className="chart-control">
             <span>Legend</span>
             <select
-              value={(section.showLegend ?? true) ? 'show' : 'hide'}
-              onChange={(e) => onChange({ ...section, showLegend: e.target.value === 'show' })}
+              value={(active.showLegend ?? true) ? 'show' : 'hide'}
+              onChange={(e) => patch({ ...active, showLegend: e.target.value === 'show' })}
             >
               <option value="show">Show</option>
               <option value="hide">Hide</option>
@@ -332,24 +354,36 @@ export function UserDefinedChartCard({
           <label className="chart-control">
             <span>Axis labels</span>
             <select
-              value={(section.showAxisLabels ?? true) ? 'show' : 'hide'}
-              onChange={(e) => onChange({ ...section, showAxisLabels: e.target.value === 'show' })}
+              value={(active.showAxisLabels ?? true) ? 'show' : 'hide'}
+              onChange={(e) => patch({ ...active, showAxisLabels: e.target.value === 'show' })}
             >
               <option value="show">Show</option>
               <option value="hide">Hide</option>
+            </select>
+          </label>
+          <label className="chart-control">
+            <span>X-label angle</span>
+            <select
+              value={String(active.xLabelAngle ?? 0)}
+              onChange={(e) => patch({ ...active, xLabelAngle: Number(e.target.value) })}
+            >
+              <option value="0">Horizontal</option>
+              <option value="-30">-30°</option>
+              <option value="-45">-45°</option>
+              <option value="-90">Vertical</option>
             </select>
           </label>
         </div>
       )}
 
       {/* Asset pill multi-select (hidden for system) */}
-      {section.focusType !== 'system' && assetNames.length > 0 && (
+      {active.focusType !== 'system' && assetNames.length > 0 && (
         <div className="chart-control-row">
           <span className="chart-control-label">Assets</span>
           <AssetPills
             names={assetNames}
-            selected={section.focusKeys}
-            onChange={(keys) => onChange({ ...section, focusKeys: keys })}
+            selected={active.focusKeys}
+            onChange={(keys) => patch({ ...active, focusKeys: keys })}
           />
         </div>
       )}
@@ -360,8 +394,8 @@ export function UserDefinedChartCard({
           <span className="chart-control-label">Filter by bus</span>
           <AssetPills
             names={busNames}
-            selected={section.busFilter ?? []}
-            onChange={(keys) => onChange({ ...section, busFilter: keys })}
+            selected={active.busFilter ?? []}
+            onChange={(keys) => patch({ ...active, busFilter: keys })}
           />
         </div>
       )}
@@ -372,8 +406,8 @@ export function UserDefinedChartCard({
           <span className="chart-control-label">Filter by carrier</span>
           <AssetPills
             names={carrierNames}
-            selected={section.carrierFilter ?? []}
-            onChange={(keys) => onChange({ ...section, carrierFilter: keys })}
+            selected={active.carrierFilter ?? []}
+            onChange={(keys) => patch({ ...active, carrierFilter: keys })}
           />
         </div>
       )}
@@ -384,7 +418,7 @@ export function UserDefinedChartCard({
           data={metric!.rows}
           startIndex={safeStart}
           endIndex={safeEnd}
-          onChange={(lo, hi) => onChange({ ...section, startIndex: lo, endIndex: hi })}
+          onChange={(lo, hi) => patch({ ...active, startIndex: lo, endIndex: hi })}
         />
       )}
 
@@ -397,7 +431,7 @@ export function UserDefinedChartCard({
         <div className="chart-empty-state">
           <p className="empty-text">{compact ? 'Click ⚙ to configure this chart.' : 'Choose component, assets, value and chart type.'}</p>
         </div>
-      ) : section.chartType === 'donut' ? (
+      ) : active.chartType === 'donut' ? (
         <section className="chart-card">
           {!compact && (
             <div className="chart-card-header">
@@ -412,15 +446,16 @@ export function UserDefinedChartCard({
       ) : (
         <InteractiveTimeSeriesCard
           title={compact ? '' : metric!.label}
-          description={compact ? '' : `${section.timeframe} · ${metric!.unit}`}
+          description={compact ? '' : `${active.timeframe} · ${metric!.unit}`}
           data={aggregatedRows}
           series={metric!.series}
-          mode={section.chartType}
-          stacked={section.stacked}
-          xAxisTitle={section.xAxisTitle}
-          yAxisTitle={section.yAxisTitle}
-          showLegend={section.showLegend ?? true}
-          showAxisLabels={section.showAxisLabels ?? true}
+          mode={active.chartType}
+          stacked={active.stacked}
+          xAxisTitle={active.xAxisTitle}
+          yAxisTitle={active.yAxisTitle}
+          showLegend={active.showLegend ?? true}
+          showAxisLabels={active.showAxisLabels ?? true}
+          xLabelAngle={active.xLabelAngle ?? 0}
         />
       )}
     </div>
@@ -433,7 +468,7 @@ export function UserDefinedChartCard({
         <button
           type="button"
           className="chart-builder-gear"
-          onClick={() => setSettingsOpen((v) => !v)}
+          onClick={openSettings}
           aria-label="Chart settings"
           title="Chart settings"
         >
@@ -443,7 +478,7 @@ export function UserDefinedChartCard({
         {settingsOpen && createPortal(
           <div
             className="chart-modal-backdrop"
-            onClick={() => setSettingsOpen(false)}
+            onClick={cancelSettings}
             role="dialog"
             aria-modal="true"
           >
@@ -456,12 +491,13 @@ export function UserDefinedChartCard({
                 <div className="chart-modal-actions">
                   {hasMetric && <button className="tb-btn" onClick={handleExport}>Export</button>}
                   <button className="tb-btn" onClick={onClean}>Clean</button>
-                  <button className="tb-btn tb-btn--active" onClick={() => setSettingsOpen(false)}>Apply</button>
+                  <button className="tb-btn" onClick={cancelSettings}>Cancel</button>
+                  <button className="tb-btn tb-btn--active" onClick={applySettings}>Apply</button>
                   <button
                     className="chart-modal-close"
-                    onClick={() => setSettingsOpen(false)}
+                    onClick={cancelSettings}
                     aria-label="Close settings"
-                    title="Close (Esc)"
+                    title="Cancel (Esc)"
                   >
                     ×
                   </button>
@@ -474,21 +510,11 @@ export function UserDefinedChartCard({
                       <span>Card title</span>
                       <input
                         type="text"
-                        value={title ?? ''}
+                        value={activeTitle}
                         placeholder="auto"
-                        onChange={(e) => onTitleChange(e.target.value)}
+                        onChange={(e) => setDraftTitle(e.target.value)}
                       />
                     </label>
-                    {onFollowFocusChange && (
-                      <label className="chart-modal-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={!!followFocus}
-                          onChange={(e) => onFollowFocusChange(e.target.checked)}
-                        />
-                        <span>Follow map focus</span>
-                      </label>
-                    )}
                   </div>
                 )}
                 {settingsPanel}

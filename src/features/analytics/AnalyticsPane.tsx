@@ -5,6 +5,7 @@ import {
 } from '../../shared/types';
 import { AnalyticsDashboard } from '../../views/AnalyticsView.features/Dashboard/AnalyticsDashboard';
 import { buildResultPreset } from '../../views/AnalyticsView.features/Dashboard/result-preset';
+import { PRESETS } from '../../views/AnalyticsView.features/Dashboard/presets';
 
 interface Props {
   results: RunResults;
@@ -84,7 +85,8 @@ export function AnalyticsPane({
 
       {/* Both Result and Analytics now use the same dashboard engine.
        * They differ only in storage key (independent localStorage) and
-       * the initial layout (curated for Result, empty for Analytics). */}
+       * the initial layout (curated for Result, the first preset for
+       * Analytics so Reset restores a real dashboard, not a blank pane). */}
       {(subTab === 'Result' || subTab === 'Analytics') && (
         <AnalyticsDashboard
           key={subTab /* force remount when sub-tab changes so the hook re-reads its storage */}
@@ -101,7 +103,7 @@ export function AnalyticsPane({
           analyticsFocus={analyticsFocus}
           onFocusChange={setAnalyticsFocus}
           storageKey={subTab === 'Result' ? RESULT_STORAGE_KEY : ANALYTICS_STORAGE_KEY}
-          initialLayout={subTab === 'Result' ? buildResultPreset(results) : undefined}
+          initialLayout={subTab === 'Result' ? buildResultPreset(results) : PRESETS[0].build()}
           showPresets={subTab === 'Analytics'}
         />
       )}

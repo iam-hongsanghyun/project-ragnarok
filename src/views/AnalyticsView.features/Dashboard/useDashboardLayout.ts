@@ -80,12 +80,12 @@ export function useDashboardLayout(
   }, [layout]);
 
   const load = useCallback((name: string) => {
-    setSavedLayouts((prev) => {
-      const found = prev.find((s) => s.name === name);
-      if (found) setLayoutState(found.layout);
-      return prev;
-    });
-  }, []);
+    // Read savedLayouts directly — calling setLayoutState inside a
+    // setSavedLayouts updater is a nested-update anti-pattern that React
+    // can drop, which is why "Load" did nothing.
+    const found = savedLayouts.find((s) => s.name === name);
+    if (found) setLayoutState(found.layout);
+  }, [savedLayouts]);
 
   const remove = useCallback((name: string) => {
     setSavedLayouts((prev) => prev.filter((s) => s.name !== name));

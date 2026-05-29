@@ -580,6 +580,7 @@ export interface ChartSectionConfig {
   yAxisTitle?: string;       // custom y-axis caption ('' / undefined = none)
   showLegend?: boolean;      // default true
   showAxisLabels?: boolean;  // default true — tick labels on both axes
+  xLabelAngle?: number;      // rotation (deg) of x-axis tick labels; 0 = horizontal
 }
 
 // ── Tables pane ───────────────────────────────────────────────────────────────

@@ -57,8 +57,6 @@ interface CellSpec {
   focusType?: ChartSectionConfig['focusType'];
   /** Default: [] (all assets, multi mode). */
   focusKeys?: string[];
-  /** When true, this card rewrites its focus on map asset clicks. */
-  followFocus?: boolean;
   /** Bind a custom user-facing title. */
   title?: string;
 }
@@ -69,7 +67,6 @@ function chartCard(spec: CellSpec): { card: Card; flex: number } {
       id: id('chart'),
       kind: 'chart',
       title: spec.title,
-      followFocus: spec.followFocus,
       config: chartConfig({
         focusType: spec.focusType ?? 'system',
         focusKeys: spec.focusKeys ?? [],
@@ -83,7 +80,7 @@ function chartCard(spec: CellSpec): { card: Card; flex: number } {
   };
 }
 
-function mapCard(opts?: { followFocus?: boolean; flex?: number }): { card: Card; flex: number } {
+function mapCard(opts?: { flex?: number }): { card: Card; flex: number } {
   return { card: { id: id('map'), kind: 'map' }, flex: opts?.flex ?? 1 };
 }
 
@@ -276,7 +273,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'map-ops',
     label: 'Map operations',
-    description: 'Hero map (line loadings, SMP coloring) on top; click any asset to refocus the follow-focus charts below.',
+    description: 'Hero map (line loadings, SMP coloring) on top; click any asset to open its detail. Fleet-wide generator charts below.',
     build: () => layout([
       row([mapCard()]),
       row([
@@ -284,9 +281,9 @@ export const PRESETS: Preset[] = [
         chartCard({ metric: 'load' }),
       ]),
       row([
-        chartCard({ metric: 'output',     focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Output' }),
-        chartCard({ metric: 'curtailment', focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Curtailment' }),
-        chartCard({ metric: 'emissions',  focusType: 'generator', focusKeys: [], followFocus: true, title: 'Selected · Emissions' }),
+        chartCard({ metric: 'output',      focusType: 'generator', focusKeys: [], title: 'Fleet · Output' }),
+        chartCard({ metric: 'curtailment', focusType: 'generator', focusKeys: [], title: 'Fleet · Curtailment' }),
+        chartCard({ metric: 'emissions',   focusType: 'generator', focusKeys: [], title: 'Fleet · Emissions' }),
       ]),
     ]),
   },

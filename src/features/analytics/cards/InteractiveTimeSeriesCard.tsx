@@ -1,6 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { ChartMode, TimeSeriesRow, TimeSeriesSeries } from '../../../shared/types';
 import { numberValue, isoDate, isoTime } from '../../../shared/utils/helpers';
+
+/**
+ * Track an element's rendered pixel size so the chart can size its SVG
+ * viewBox to the actual box instead of a fixed 820×360. Driving the
+ * viewBox from the measured size (1 unit = 1 px) lets the chart fill —
+ * and re-render to fit — its dashboard cell on every resize, with no
+ * aspect-ratio letterboxing and no stroke/text distortion. Falls back to
+ * the historic 820×360 until the first measurement lands.
+ */
+function useElementSize<T extends HTMLElement>(): [React.RefObject<T | null>, number, number] {
+  const ref = useRef<T>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 820, h: 360 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setSize((prev) => {
+        const w = Math.max(Math.round(r.width), 160);
+        const h = Math.max(Math.round(r.height), 100);
+        return prev.w === w && prev.h === h ? prev : { w, h };
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, size.w, size.h];
+}
 
 const H24 = 86_400_000;
 const H7D = 7 * H24;
@@ -28,6 +58,7 @@ export function InteractiveTimeSeriesCard({
   yAxisTitle,
   showLegend = true,
   showAxisLabels = true,
+  xLabelAngle = 0,
 }: {
   title: string;
   description: string;
@@ -39,8 +70,10 @@ export function InteractiveTimeSeriesCard({
   yAxisTitle?: string;
   showLegend?: boolean;
   showAxisLabels?: boolean;
+  xLabelAngle?: number;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [mainRef, width, height] = useElementSize<HTMLDivElement>();
 
   if (!series.length) {
     return (
@@ -65,12 +98,6 @@ export function InteractiveTimeSeriesCard({
   }
 
   const visible = data;
-  const width = 820, height = 360;
-  const padTop = 38, padRight = 38;
-  const padLeft = (showAxisLabels ? 38 : 16) + (yAxisTitle ? 18 : 0);
-  const padBottom = (showAxisLabels ? 38 : 16) + (xAxisTitle ? 18 : 0);
-  const innerWidth = width - padLeft - padRight;
-  const innerHeight = height - padTop - padBottom;
   const visibleSeries = series.filter((item) =>
     visible.some((row) => Math.abs(numberValue(row[item.key] as string | number | undefined)) > 1e-6),
   );
@@ -95,21 +122,66 @@ export function InteractiveTimeSeriesCard({
   }
 
   const range = Math.max(maxValue - minValue, 1);
-  const xForIndex = (i: number) => padLeft + (i / Math.max(visible.length - 1, 1)) * innerWidth;
-  const yForValue = (v: number) => padTop + innerHeight - ((v - minValue) / range) * innerHeight;
-  const zeroY = yForValue(0);
 
-  // Compute time span from first/last timestamp to drive label format + tick density
+  // Approximate glyph metrics for the .chart-axis font (12px). Used to size
+  // the gutters so y labels never clip and to budget the rotated x-label band.
+  const CHAR_PX = 6.6;
+  const FONT_PX = 12;
+
+  // Pre-format the five y-axis tick labels once, so the same strings drive
+  // both the left-gutter width and the rendered <text>.
+  const yTickLabels = [0, 0.25, 0.5, 0.75, 1].map((t) =>
+    Math.round(minValue + range * t).toLocaleString(),
+  );
+  const maxYLabelPx = showAxisLabels
+    ? Math.max(...yTickLabels.map((s) => s.length)) * CHAR_PX
+    : 0;
+
+  // Time span drives label format + base tick density.
   const firstTs = visible[0]?.timestamp;
   const lastTs  = visible[visible.length - 1]?.timestamp;
   const spanMs  = firstTs && lastTs
     ? new Date(lastTs).getTime() - new Date(firstTs).getTime()
     : 0;
-  const targetTicks =
+
+  // Widest x label (in px) for the current span, to budget the bottom band
+  // and to space ticks so neighbouring labels don't collide.
+  const maxXLabelPx = showAxisLabels
+    ? Math.max(
+        1,
+        ...visible.map((row) =>
+          (row.timestamp ? formatXLabel(row.timestamp, spanMs) : row.label).length,
+        ),
+      ) * CHAR_PX
+    : 0;
+
+  const angle = Number.isFinite(xLabelAngle) ? xLabelAngle : 0;
+  const rad = Math.abs(angle) * Math.PI / 180;
+  // Vertical footprint of the (possibly rotated) x labels.
+  const xLabelBandPx = showAxisLabels
+    ? Math.ceil(Math.sin(rad) * maxXLabelPx + Math.cos(rad) * FONT_PX) + 8
+    : 0;
+
+  const padTop = 38, padRight = 38;
+  const padLeft = (showAxisLabels ? 14 + maxYLabelPx : 14) + (yAxisTitle ? 18 : 0);
+  const padBottom = (showAxisLabels ? xLabelBandPx + 8 : 12) + (xAxisTitle ? 18 : 0);
+  const innerWidth = Math.max(width - padLeft - padRight, 10);
+  const innerHeight = Math.max(height - padTop - padBottom, 10);
+
+  const xForIndex = (i: number) => padLeft + (i / Math.max(visible.length - 1, 1)) * innerWidth;
+  const yForValue = (v: number) => padTop + innerHeight - ((v - minValue) / range) * innerHeight;
+  const zeroY = yForValue(0);
+
+  const spanTargetTicks =
     spanMs <= H24  ? Math.min(visible.length, 12) :
     spanMs <= H7D  ? 7  :
     spanMs <= H90D ? 13 :
     8;
+  // Cap tick density by available width: each label needs its horizontal
+  // footprint (full width when horizontal, ~cos·width when rotated) plus a gap.
+  const xFootprintPx = Math.max(14, Math.cos(rad) * maxXLabelPx + (angle ? 6 : 12));
+  const maxTicksByWidth = Math.max(2, Math.floor(innerWidth / xFootprintPx));
+  const targetTicks = Math.max(1, Math.min(spanTargetTicks, maxTicksByWidth));
   const stride = Math.max(1, Math.ceil(visible.length / targetTicks));
 
   return (
@@ -118,7 +190,7 @@ export function InteractiveTimeSeriesCard({
         <div><h3>{title}</h3><p>{description}</p></div>
       </div>
       <div className="chart-shell">
-        <div className="chart-main">
+        <div className="chart-main" ref={mainRef}>
           <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img"
             onMouseLeave={() => setHoverIndex(null)}
             onMouseMove={(e) => {
@@ -130,11 +202,11 @@ export function InteractiveTimeSeriesCard({
               setHoverIndex(Math.max(0, Math.min(visible.length - 1, rawIndex)));
             }}
           >
-            {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
+            {[0, 0.25, 0.5, 0.75, 1].map((tick, tickIndex) => (
               <g key={tick}>
                 <line x1={padLeft} x2={width - padRight} y1={padTop + innerHeight - innerHeight * tick} y2={padTop + innerHeight - innerHeight * tick} className="chart-grid" />
                 {showAxisLabels && (
-                  <text x={padLeft - 6} y={padTop + innerHeight - innerHeight * tick + 4} className="chart-axis" textAnchor="end">{Math.round(minValue + range * tick)}</text>
+                  <text x={padLeft - 6} y={padTop + innerHeight - innerHeight * tick + 4} className="chart-axis" textAnchor="end">{yTickLabels[tickIndex]}</text>
                 )}
               </g>
             ))}
@@ -202,13 +274,25 @@ export function InteractiveTimeSeriesCard({
               });
             })()}
 
-            {showAxisLabels && visible.map((row, index) => (
-              <text key={`${row.label}-${index}`} x={xForIndex(index)} y={height - padBottom + 16} className="chart-axis chart-axis-x">
-                {index % stride === 0
-                  ? (row.timestamp ? formatXLabel(row.timestamp, spanMs) : row.label)
-                  : ''}
-              </text>
-            ))}
+            {showAxisLabels && visible.map((row, index) => {
+              if (index % stride !== 0) return null;
+              const label = row.timestamp ? formatXLabel(row.timestamp, spanMs) : row.label;
+              const lx = xForIndex(index);
+              const ly = height - padBottom + (angle ? 12 : 16);
+              return (
+                <text
+                  key={`${row.label}-${index}`}
+                  x={lx}
+                  y={ly}
+                  className="chart-axis chart-axis-x"
+                  textAnchor={angle ? 'end' : 'middle'}
+                  style={angle ? { textAnchor: 'end' } : undefined}
+                  transform={angle ? `rotate(${angle} ${lx} ${ly})` : undefined}
+                >
+                  {label}
+                </text>
+              );
+            })}
 
             {yAxisTitle && (
               <text className="chart-axis-title" transform="rotate(-90)" x={-(padTop + innerHeight / 2)} y={14} textAnchor="middle">{yAxisTitle}</text>

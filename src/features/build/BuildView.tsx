@@ -11,6 +11,7 @@
  * right.
  */
 import React, { useMemo, useState } from 'react';
+import { LatLngBoundsExpression } from 'leaflet';
 import {
   GridRow,
   Primitive,
@@ -22,12 +23,17 @@ import {
 import { TablesPane } from '../input/TablesPane';
 import { ModelIssue } from '../validation/useModelIssues';
 import { DateFormat } from '../settings/useSettings';
+import { stringValue } from '../../shared/utils/helpers';
 import { BUILD_STEPS, BuildStep, getStepIssues } from './steps';
 import { BuildDetailPane } from './BuildDetailPane';
+import { BuildNetworkMap, isGeoSheet } from './BuildNetworkMap';
+import { BuildAttributeForm } from './BuildAttributeForm';
 import { ResizablePanels } from '../../layout/ResizablePanels';
 
 export interface BuildViewProps {
   model: WorkbookModel;
+  bounds: LatLngBoundsExpression | null;
+  busIndex: Record<string, GridRow>;
   onUpdateRow: (sheet: SheetName, rowIndex: number, col: string, val: Primitive) => void;
   onAddRow: (sheet: SheetName) => void;
   onDeleteRow: (sheet: SheetName, rowIndex: number) => void;
@@ -50,7 +56,27 @@ export interface BuildViewProps {
 export function BuildView(props: BuildViewProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+  // A new object on each map-select flashes + scrolls the matching table row.
+  const [jumpTo, setJumpTo] = useState<{ sheet: string; rowIndex: number } | null>(null);
   const step: BuildStep = BUILD_STEPS[stepIndex];
+  const geo = isGeoSheet(step.primarySheet);
+
+  const busNames = useMemo(
+    () => props.model.buses.map((b) => stringValue(b.name)).filter(Boolean),
+    [props.model.buses],
+  );
+  const carrierNames = useMemo(
+    () => (props.model.carriers ?? []).map((c) => stringValue(c.name)).filter(Boolean),
+    [props.model.carriers],
+  );
+
+  const stepRows: GridRow[] = (props.model as Record<string, GridRow[]>)[step.primarySheet] ?? [];
+  const selectedRow = focusedRowIndex != null ? stepRows[focusedRowIndex] ?? null : null;
+
+  const selectFromMap = (rowIndex: number) => {
+    setFocusedRowIndex(rowIndex);
+    setJumpTo({ sheet: step.primarySheet, rowIndex });
+  };
 
   const tableSel: TableSel = useMemo(
     () => ({ kind: 'static', sheet: step.primarySheet as SheetName }),
@@ -81,7 +107,43 @@ export function BuildView(props: BuildViewProps) {
   const goStep = (i: number) => {
     setStepIndex(i);
     setFocusedRowIndex(null);
+    setJumpTo(null);
   };
+
+  const buildTable = (
+    <TablesPane
+      model={props.model}
+      sel={tableSel}
+      onSelChange={() => {/* fixed per step */}}
+      onUpdate={props.onUpdateRow}
+      onAddRow={props.onAddRow}
+      onDeleteRow={props.onDeleteRow}
+      onAddColumn={props.onAddColumn}
+      onDeleteColumn={props.onDeleteColumn}
+      onRenameColumn={props.onRenameColumn}
+      onImportTsSheet={props.onImportTsSheet}
+      onBulkPaste={props.onBulkPaste}
+      issues={props.modelIssues}
+      jumpTo={jumpTo}
+      currencySymbol={props.currencySymbol}
+      dateFormat={props.dateFormat}
+      onFocusRow={setFocusedRowIndex}
+    />
+  );
+
+  const attributeForm = (
+    <BuildAttributeForm
+      sheet={step.primarySheet}
+      row={selectedRow}
+      rowIndex={focusedRowIndex}
+      rowCount={stepRows.length}
+      busNames={busNames}
+      carrierNames={carrierNames}
+      onUpdate={(rowIndex, col, val) => props.onUpdateRow(step.primarySheet as SheetName, rowIndex, col, val)}
+      onAddRow={() => { props.onAddRow(step.primarySheet as SheetName); setFocusedRowIndex(stepRows.length); }}
+      onDeleteRow={(rowIndex) => { props.onDeleteRow(step.primarySheet as SheetName, rowIndex); setFocusedRowIndex(null); }}
+    />
+  );
 
   return (
     <div className="build-view">
@@ -140,48 +202,49 @@ export function BuildView(props: BuildViewProps) {
         </div>
       </div>
 
-      <ResizablePanels id="build" direction="horizontal" className="build-body" initialSizes={[72, 28]} minSize={220}>
-        <section className="build-body-main">
-          {step.id === 'constraints' ? (
+      {step.id === 'constraints' ? (
+        <ResizablePanels id="build" direction="horizontal" className="build-body" initialSizes={[72, 28]} minSize={220}>
+          <section className="build-body-main">
             <ConstraintsStepPanel
               model={props.model}
               onOpenConstraintsWorkspace={props.onOpenConstraintsWorkspace}
             />
-          ) : step.id === 'review' ? (
+          </section>
+          <BuildDetailPane step={step} model={props.model} issues={props.modelIssues} focusedRowIndex={focusedRowIndex} />
+        </ResizablePanels>
+      ) : step.id === 'review' ? (
+        <ResizablePanels id="build" direction="horizontal" className="build-body" initialSizes={[72, 28]} minSize={220}>
+          <section className="build-body-main">
             <ReviewStepPanel
               model={props.model}
               issues={props.modelIssues}
               onJumpToStep={goStep}
               onOpenRunSetup={props.onOpenRunSetup}
             />
-          ) : (
-            <TablesPane
+          </section>
+          <BuildDetailPane step={step} model={props.model} issues={props.modelIssues} focusedRowIndex={focusedRowIndex} />
+        </ResizablePanels>
+      ) : geo ? (
+        <ResizablePanels id="build-v" direction="vertical" className="build-body" initialSizes={[52, 48]} minSize={160}>
+          <ResizablePanels id="build-top" direction="horizontal" className="build-top-split" initialSizes={[60, 40]} minSize={220}>
+            <BuildNetworkMap
               model={props.model}
-              sel={tableSel}
-              onSelChange={() => {/* fixed per step */}}
-              onUpdate={props.onUpdateRow}
-              onAddRow={props.onAddRow}
-              onDeleteRow={props.onDeleteRow}
-              onAddColumn={props.onAddColumn}
-              onDeleteColumn={props.onDeleteColumn}
-              onRenameColumn={props.onRenameColumn}
-              onImportTsSheet={props.onImportTsSheet}
-              onBulkPaste={props.onBulkPaste}
-              issues={props.modelIssues}
-              jumpTo={null}
-              currencySymbol={props.currencySymbol}
-              dateFormat={props.dateFormat}
-              onFocusRow={setFocusedRowIndex}
+              bounds={props.bounds}
+              busIndex={props.busIndex}
+              activeSheet={step.primarySheet}
+              selectedRowIndex={focusedRowIndex}
+              onSelectRow={selectFromMap}
             />
-          )}
-        </section>
-        <BuildDetailPane
-          step={step}
-          model={props.model}
-          issues={props.modelIssues}
-          focusedRowIndex={focusedRowIndex}
-        />
-      </ResizablePanels>
+            {attributeForm}
+          </ResizablePanels>
+          <section className="build-table-region">{buildTable}</section>
+        </ResizablePanels>
+      ) : (
+        <ResizablePanels id="build-v" direction="vertical" className="build-body" initialSizes={[42, 58]} minSize={160}>
+          {attributeForm}
+          <section className="build-table-region">{buildTable}</section>
+        </ResizablePanels>
+      )}
     </div>
   );
 }

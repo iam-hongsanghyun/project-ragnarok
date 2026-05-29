@@ -8,8 +8,8 @@
  * `AnalyticsPane.tsx`. Self-contained so the dashboard can mount it
  * via its `renderCard` callback.
  */
-import React, { useMemo } from 'react';
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from 'react-leaflet';
+import React, { useEffect, useMemo } from 'react';
+import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { LatLngBoundsExpression } from 'leaflet';
 import {
   AnalyticsFocus,
@@ -27,6 +27,24 @@ import {
 import { FitToBounds } from '../map/FitToBounds';
 import { MapLegend, SmpLegend } from '../map/MapLegend';
 import { MapDetailCard } from './MapDetailCard';
+
+/**
+ * Leaflet measures its container once on mount. Inside a dashboard cell the
+ * cell often resolves its flex/auto height *after* the map mounts, leaving the
+ * map blank until told to remeasure. This observes the container and calls
+ * invalidateSize() on every resize (plus once shortly after mount).
+ */
+function InvalidateOnResize() {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(el);
+    const t = window.setTimeout(() => map.invalidateSize(), 0);
+    return () => { ro.disconnect(); window.clearTimeout(t); };
+  }, [map]);
+  return null;
+}
 
 interface Props {
   results: RunResults;
@@ -121,6 +139,7 @@ export function AnalyticsMapCard({
   return (
     <div className="analytics-map-card-inner" style={{ position: 'relative', width: '100%', height: '100%' }}>
       <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom>
+        <InvalidateOnResize />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

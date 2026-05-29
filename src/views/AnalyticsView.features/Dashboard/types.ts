@@ -38,10 +38,6 @@ interface CardBase {
 export interface ChartCard extends CardBase {
   kind: 'chart';
   config: ChartSectionConfig;
-  /** When true, this card rewrites its focus when the user clicks an
-   *  asset on a map card. Default false: cards keep their authored
-   *  focus until the user changes it explicitly via the gear modal. */
-  followFocus?: boolean;
 }
 
 export interface MapCard extends CardBase {
@@ -113,8 +109,9 @@ export interface Cell {
   id: string;
   /** flex-grow weight inside the row. 1 = equal share. */
   flex: number;
-  /** Id of the card rendered in this cell. */
-  cardId: string;
+  /** Id of the card rendered in this cell. Undefined = empty placeholder
+   *  the user can fill by clicking its "+" (pick a card kind). */
+  cardId?: string;
 }
 
 export interface Row {
