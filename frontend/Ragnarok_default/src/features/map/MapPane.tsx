@@ -103,7 +103,7 @@ export function MapPane({ model, bounds, busIndex }: Props) {
         </div>
       </div>
       <div className="map-frame" style={{ position: 'relative' }}>
-        <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false}>
+        <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false} zoomSnap={0.25} zoomDelta={0.25} wheelPxPerZoomLevel={120}>
           <NoZoomAnimation />
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"

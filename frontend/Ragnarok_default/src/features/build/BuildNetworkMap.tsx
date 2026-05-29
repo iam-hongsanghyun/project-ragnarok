@@ -324,7 +324,7 @@ export function BuildNetworkMap({
 
   return (
     <div className={`build-map-frame${linking ? ' build-map-frame--linking' : ''}`}>
-      <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false}>
+      <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false} zoomSnap={0.25} zoomDelta={0.25} wheelPxPerZoomLevel={120}>
         <NoZoomAnimation />
         <InvalidateOnResize />
         <MapRef mapRef={mapRef} />

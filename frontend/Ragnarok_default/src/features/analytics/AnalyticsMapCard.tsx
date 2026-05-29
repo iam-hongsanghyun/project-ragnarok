@@ -146,7 +146,7 @@ export function AnalyticsMapCard({
 
   return (
     <div className="analytics-map-card-inner" style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false}>
+      <MapContainer center={[36.35, 127.9]} zoom={7} className="leaflet-map" scrollWheelZoom zoomAnimation={false} zoomSnap={0.25} zoomDelta={0.25} wheelPxPerZoomLevel={120}>
         <NoZoomAnimation />
         <InvalidateOnResize />
         <TileLayer
