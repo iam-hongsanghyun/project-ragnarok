@@ -209,7 +209,9 @@ describe('workbook project round-trip', () => {
     expect(wb.SheetNames).not.toContain(RUN_HISTORY_SHEET);
 
     const { metadata } = parseProjectWorkbook(toArrayBuffer(wb));
-    expect(metadata.runHistory).toBeUndefined();
+    // runHistory is not part of ProjectMetadata (never serialized); guard that
+    // parsing also never synthesizes the key at runtime.
+    expect((metadata as Record<string, unknown>).runHistory).toBeUndefined();
   });
 });
 

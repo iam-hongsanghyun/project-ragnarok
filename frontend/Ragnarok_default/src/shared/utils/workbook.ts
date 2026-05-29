@@ -7,7 +7,7 @@ import {
   PYPSA_COMPONENT_BY_SHEET,
 } from '../../constants/pypsa_schema';
 import type { AppSettings, DateFormat } from '../../features/settings/useSettings';
-import { CustomConstraint, GridRow, Primitive, ProjectImportProvenance, ProjectRunState, RunHistoryEntry, RunResults, WorkbookModel } from '../types';
+import { CustomConstraint, GridRow, Primitive, ProjectImportProvenance, ProjectRunState, RunResults, WorkbookModel } from '../types';
 import { normalizeDateToIso } from './helpers';
 import { PATHWAY_CONFIG_SHEET, PATHWAY_PERIODS_SHEET } from './pathway';
 import { ROLLING_CONFIG_SHEET } from './rolling';
@@ -384,7 +384,6 @@ export interface ProjectMetadata {
   settings?: AppSettings;
   constraints?: CustomConstraint[];
   runState?: ProjectRunState;
-  runHistory?: RunHistoryEntry[];
   provenance?: ProjectImportProvenance;
 }
 

@@ -596,7 +596,6 @@ function AppInner() {
           }));
         }
       }
-      if (metadata.runHistory) setRunHistory(metadata.runHistory);
       setProjectProvenance({
         exportedAt: metadata.provenance?.exportedAt ?? '',
         exportedFilename: metadata.provenance?.exportedFilename ?? file.name,
@@ -646,37 +645,35 @@ function AppInner() {
           discountRate: importedDiscountRate,
         });
         setAnalyticsFocus({ type: 'system' });
-        if (!metadata.runHistory || metadata.runHistory.length === 0) {
-          const scenarioLabel = importedScenarios.scenarios.find((scenario) => scenario.id === importedRunState?.activeScenarioId)?.label ?? null;
-          const importedEntry: RunHistoryEntry = {
-            id: Date.now().toString(),
-            label: 'Imported project',
-            scenarioLabel,
-            savedAt: new Date().toISOString(),
-            filename: file.name,
-            carbonPrice: importedCarbonPrice,
-            discountRate: importedDiscountRate,
-            snapshotStart: importedRunState?.snapshotStart ?? 0,
-            snapshotEnd: importedRunState?.snapshotEnd ?? snapshotMaxFromWorkbook(nextModel.snapshots),
-            snapshotWeight: importedSnapshotWeight,
-            activeConstraints: metadata.constraints ?? [],
-            componentCounts: Object.fromEntries(
-              SHEETS.map((sheet) => [sheet, nextModel[sheet]?.length ?? 0]).filter(([, n]) => n > 0),
-            ),
-            pinned: false,
-            inComparison: true,
-            results: imported,
-            model: structuredClone(nextModel),
-          };
-          // Prepend to the session history rather than replacing it: prior runs
-          // stay available for comparison across a project import.
-          setRunHistory((hist) => {
-            const withNew = [importedEntry, ...hist];
-            const pinned = withNew.filter((e) => e.pinned);
-            const unpinned = withNew.filter((e) => !e.pinned).slice(0, MAX_UNPINNED_HISTORY);
-            return [...pinned, ...unpinned];
-          });
-        }
+        const scenarioLabel = importedScenarios.scenarios.find((scenario) => scenario.id === importedRunState?.activeScenarioId)?.label ?? null;
+        const importedEntry: RunHistoryEntry = {
+          id: Date.now().toString(),
+          label: 'Imported project',
+          scenarioLabel,
+          savedAt: new Date().toISOString(),
+          filename: file.name,
+          carbonPrice: importedCarbonPrice,
+          discountRate: importedDiscountRate,
+          snapshotStart: importedRunState?.snapshotStart ?? 0,
+          snapshotEnd: importedRunState?.snapshotEnd ?? snapshotMaxFromWorkbook(nextModel.snapshots),
+          snapshotWeight: importedSnapshotWeight,
+          activeConstraints: metadata.constraints ?? [],
+          componentCounts: Object.fromEntries(
+            SHEETS.map((sheet) => [sheet, nextModel[sheet]?.length ?? 0]).filter(([, n]) => n > 0),
+          ),
+          pinned: false,
+          inComparison: true,
+          results: imported,
+          model: structuredClone(nextModel),
+        };
+        // Prepend to the session history rather than replacing it: prior runs
+        // stay available for comparison across a project import.
+        setRunHistory((hist) => {
+          const withNew = [importedEntry, ...hist];
+          const pinned = withNew.filter((e) => e.pinned);
+          const unpinned = withNew.filter((e) => !e.pinned).slice(0, MAX_UNPINNED_HISTORY);
+          return [...pinned, ...unpinned];
+        });
         setStatus(`Imported project: ${file.name}. Full project state restored.`);
       } else {
         setStatus(`Imported project (inputs only): ${file.name}. Metadata restored.`);
