@@ -429,6 +429,22 @@ export interface AppliedConstraint {
   shadowPrice?: number;
 }
 
+export type ConstraintTermKind = 'gen' | 'cap' | 'cf' | 'emissions' | 'load_shed' | 'const';
+
+export interface ConstraintTerm {
+  coef: number;
+  kind: ConstraintTermKind;
+  carrier?: string;
+}
+
+/** Structured constraint spec — the wire format the frontend sends to the backend. */
+export interface ConstraintSpec {
+  id?: string;
+  lhs: ConstraintTerm[];
+  sense: '<=' | '>=' | '==';
+  rhs: ConstraintTerm[];
+}
+
 export interface RunResults {
   pluginAnalytics?: Record<string, PluginAnalyticsEntry>;
   summary: SummaryItem[];

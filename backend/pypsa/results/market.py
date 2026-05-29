@@ -93,7 +93,7 @@ def build_applied_constraints(network: pypsa.Network) -> list[dict[str, Any]]:
             continue
         if name.startswith("cc_"):
             source = "custom"
-        elif name.startswith("dsl_"):
+        elif name.startswith("dsl_") or name.startswith("spec_"):
             source = "dsl"
         else:
             source = "plugin"

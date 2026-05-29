@@ -19,7 +19,6 @@ from fastapi.responses import Response
 from .backends import BackendError, available_backends, get_backend
 from .config import load_system_defaults
 from .models import RunPayload
-from .module_host import discover_modules, execute_module_action, execute_plugins_at_stage, install_module_from_upload, uninstall_module
 from ..pypsa.network import build_network, validate_model
 
 
@@ -132,75 +131,6 @@ def get_config() -> dict[str, Any]:
 def get_backends() -> dict[str, Any]:
     """List the available optimisation backends and their capabilities."""
     return {"backends": available_backends(), "default": "pypsa"}
-
-
-@app.get("/api/modules")
-def get_modules() -> dict[str, Any]:
-    return discover_modules()
-
-
-@app.post("/api/modules/install")
-async def install_module(file: UploadFile) -> dict[str, Any]:
-    if not file.filename or not file.filename.lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="Only .zip files are accepted.")
-    try:
-        zip_bytes = await file.read()
-        return install_module_from_upload(zip_bytes)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.delete("/api/modules/{module_id}")
-def delete_module(module_id: str) -> dict[str, Any]:
-    try:
-        return uninstall_module(module_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.post("/api/modules/{module_id}/preview")
-def preview_module(module_id: str, payload: RunPayload) -> dict[str, Any]:
-    """Run a single plugin's ``transform`` hook in isolation and return the model.
-
-    Powers the SDK 'action' field type: the plugin's ``transform`` hook is
-    invoked with the caller's current workbook as ``model``, and the
-    returned dict replaces the workbook on the frontend. No solver runs.
-
-    The plugin must define a ``transform(model, scenario, options)`` Python
-    function in its entry file.  The manifest's ``stage`` field is NOT
-    consulted — a plugin whose main pipeline stage is ``in-solve`` or
-    ``post-solve`` can still expose a Send-model action via this endpoint.
-    Module enablement is **not** required — the caller can preview an
-    installed-but-disabled module so users can compare outcomes.
-    """
-    try:
-        result = execute_module_action(
-            module_id,
-            hook_name="transform",
-            stage_kwargs_for="pre-build",
-            model=payload.model,
-            scenario=payload.scenario,
-            options=payload.options or {},
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Module '{module_id}' transform failed: {exc}") from exc
-
-    if result is None:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Module '{module_id}' did not return a model. Verify the entry "
-                "file defines a callable transform(model, scenario, options)."
-            ),
-        )
-    if isinstance(result, dict) and "error" in result and len(result) == 1:
-        raise HTTPException(status_code=400, detail=str(result["error"]))
-    if not isinstance(result, dict):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Module '{module_id}' returned non-dict result: {type(result).__name__}",
-        )
-    return {"model": result}
 
 
 @app.post("/api/validate")

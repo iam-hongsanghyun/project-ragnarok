@@ -40,6 +40,7 @@ import { deriveRunResults } from './shared/utils/deriveRunResults';
 import { defaultPathwayConfig, getDefaultSelectedPeriod, readPathwayConfigFromModel, samePathwayConfig, writePathwayConfigToModel } from './shared/utils/pathway';
 import { defaultRollingConfig, normalizeRollingConfig, readRollingConfigFromModel, sameRollingConfig, writeRollingConfigToModel } from './shared/utils/rolling';
 import { readCustomDslFromModel, writeCustomDslToModel } from './shared/utils/customDsl';
+import { dslToSpecs } from './shared/utils/constraintDsl';
 import { buildScenarioPreset, defaultScenarioCatalog, readScenarioCatalogFromModel, sameScenarioCatalog, writeScenarioCatalogToModel } from './shared/utils/scenarios';
 import { RunDialog } from './features/run/RunDialog';
 import { SettingsView } from './views/SettingsView';
@@ -830,7 +831,7 @@ function AppInner() {
   async function exportViaBackend(endpoint: string, filenameOut: string): Promise<void> {
     const scenarioForExport = {
       constraints: constraints.filter((c) => c.enabled),
-      customDsl,
+      constraintSpecs: dslToSpecs(customDsl),
       carbonPrice,
       discountRate: settings.discountRate,
     };
@@ -1338,7 +1339,7 @@ function AppInner() {
     const snapshotCount = snapshotEnd - snapshotStart;
     const scenario = {
       constraints: constraints.filter((c) => c.enabled),
-      customDsl,
+      constraintSpecs: dslToSpecs(customDsl),
       carbonPrice,
       discountRate: settings.discountRate,
     };

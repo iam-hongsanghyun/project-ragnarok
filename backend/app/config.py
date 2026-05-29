@@ -14,10 +14,3 @@ def load_system_defaults() -> dict:
     path = _CONFIG_DIR / "system_defaults.json"
     with path.open() as f:
         return json.load(f)
-
-
-@lru_cache(maxsize=None)
-def load_module_host_config() -> dict:
-    path = _CONFIG_DIR / "module_host.json"
-    with path.open() as f:
-        return json.load(f)

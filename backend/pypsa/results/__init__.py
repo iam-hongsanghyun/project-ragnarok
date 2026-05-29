@@ -18,8 +18,7 @@ from ..stochastic import (
 )
 from ..utils.series import weighted_sum
 from ..network.custom_constraints import apply_custom_constraints
-from ..network.constraint_dsl import apply_dsl_constraints
-from ...app.module_host import execute_plugins_at_stage, get_module_metadata
+from ..network.constraint_dsl import apply_constraint_specs, apply_dsl_constraints
 from .dispatch import (
     build_dispatch_series,
     build_price_emissions_series,
@@ -55,7 +54,6 @@ def run_pypsa(
 ) -> dict[str, Any]:
     """Build the network from the JSON workbook model, optimise, return results."""
     options = options or {}
-    enabled_modules: list[str] = list(options.get("enabledModules") or [])
     pathway = parse_pathway_config(options.get("pathwayConfig"))
     rolling = parse_rolling_config(options.get("rollingConfig"))
     stochastic = parse_stochastic_config(options.get("stochasticConfig"))
@@ -77,21 +75,11 @@ def run_pypsa(
             detail="Security-constrained (SCLOPF) cannot be combined with multi-investment pathway mode.",
         )
 
-    # ── pre-build ─────────────────────────────────────────────────────────────
-    pre_outputs = execute_plugins_at_stage(
-        "pre-build", enabled_modules, model=model, scenario=scenario, options=options
-    )
-    # Any plugin that returns a dict replaces the model (last writer wins)
-    for result in pre_outputs.values():
-        if isinstance(result, dict) and not result.get("error"):
-            model = result
-
+    # The Ragnarok backend is plugin-agnostic: it only ever receives a model,
+    # scenario and options and solves them. Plugins live entirely on the
+    # frontend side (they contribute rows/constraints to the model before it is
+    # sent here), so there is no plugin hook in this pipeline.
     network, notes = build_network(model, scenario, options)
-
-    # ── post-build ────────────────────────────────────────────────────────────
-    execute_plugins_at_stage(
-        "post-build", enabled_modules, network=network, scenario=scenario, options=options
-    )
 
     snapshot_count = len(network.snapshots)
     snapshot_weight = float(network.snapshot_weightings["objective"].iloc[0]) if snapshot_count else 1.0
@@ -107,16 +95,18 @@ def run_pypsa(
         emissions_factors = {}
 
     custom_constraints: list[dict] = scenario.get("constraints") or []
+    # Advanced constraints arrive as a structured JSON spec from the frontend
+    # (constraintSpecs). Older payloads may still send the raw DSL text; accept
+    # both, preferring the JSON spec.
+    constraint_specs: list[dict] = scenario.get("constraintSpecs") or []
     custom_dsl_text: str = str(scenario.get("customDsl") or "")
 
     def extra_functionality(n, snapshots):
         apply_custom_constraints(n, custom_constraints, emissions_factors, notes)
-        apply_dsl_constraints(n, custom_dsl_text, emissions_factors, notes)
-        # ── in-solve ──────────────────────────────────────────────────────────
-        execute_plugins_at_stage(
-            "in-solve", enabled_modules,
-            network=n, model=model, scenario=scenario, options=options,
-        )
+        if constraint_specs:
+            apply_constraint_specs(n, constraint_specs, emissions_factors, notes)
+        elif custom_dsl_text:
+            apply_dsl_constraints(n, custom_dsl_text, emissions_factors, notes)
 
 
     # Currency symbol for formatted output strings
@@ -399,24 +389,7 @@ def run_pypsa(
         f"Load shedding totalled {float(load_shed.sum()):.2f} MWh across the day.",
     ])
 
-    # ── post-solve ────────────────────────────────────────────────────────────
-    raw_plugin_outputs = execute_plugins_at_stage(
-        "post-solve", enabled_modules,
-        network=network, results={}, scenario=scenario, options=options,
-    )
-    # Enrich each plugin result with its display metadata (name, ui hints from
-    # module.json) so the frontend can render generically without hardcoding.
-    plugin_analytics: dict[str, Any] = {}
-    for module_id, data in raw_plugin_outputs.items():
-        meta = get_module_metadata(module_id)
-        plugin_analytics[module_id] = {
-            "name": meta.get("name", module_id),
-            "ui":   meta.get("ui", {}),
-            "data": data if isinstance(data, dict) else {"result": data},
-        }
-
     return {
-        "pluginAnalytics": plugin_analytics,
         "summary": summary,
         "dispatchSeries": dispatch_s,
         "generatorDispatchSeries": gen_dispatch_s,

@@ -302,6 +302,53 @@ def _add(model, lin, sense: str, rhs_const: float, name: str):
         model.add_constraints(lin == rhs_const, name=name)
 
 
+def _apply_parsed(ctx: ModelContext, pc: ParsedConstraint, model, name: str) -> None:
+    """Compile one ParsedConstraint to linopy and add it to the model."""
+    if _is_cf_line(pc):
+        lin, sense, rhs = _compile_cf(ctx, pc)
+        model.add_constraints(
+            {"<=": lin <= rhs, ">=": lin >= rhs, "==": lin == rhs}[sense], name=name
+        )
+        return
+    lhs_lin, lhs_c = _combine(ctx, pc.lhs)
+    rhs_lin, rhs_c = _combine(ctx, pc.rhs)
+    combined = None
+    if lhs_lin is not None:
+        combined = lhs_lin
+    if rhs_lin is not None:
+        combined = (-rhs_lin) if combined is None else (combined - rhs_lin)
+    if combined is None:
+        raise ValueError("constraint has no decision variables")
+    _add(model, combined, pc.sense, rhs_c - lhs_c, name)
+
+
+def _spec_to_parsed(spec: dict, idx: int) -> ParsedConstraint:
+    """Convert a JSON constraint spec into a ParsedConstraint.
+
+    Spec shape: ``{lhs: [{coef, kind, carrier?}], sense, rhs: [...]}``.
+    """
+    sense = spec.get("sense")
+    if sense not in _SENSES:
+        raise DslParseError(idx, f"sense must be one of {', '.join(_SENSES)}")
+
+    def terms(side: object) -> list[Term]:
+        out: list[Term] = []
+        for t in (side or []):  # type: ignore[union-attr]
+            kind = t.get("kind")
+            if kind not in ("gen", "cap", "cf", "emissions", "load_shed", "const"):
+                raise DslParseError(idx, f"unknown term kind '{kind}'")
+            out.append(Term(float(t.get("coef", 1.0)), kind, t.get("carrier")))
+        return out
+
+    return ParsedConstraint(
+        line_no=idx,
+        raw=str(spec.get("id") or f"spec {idx}"),
+        lhs=terms(spec.get("lhs")),
+        sense=sense,
+        rhs=terms(spec.get("rhs")),
+    )
+
+
 def apply_dsl_constraints(
     n: pypsa.Network,
     text: str,
@@ -319,27 +366,35 @@ def apply_dsl_constraints(
         name = f"dsl_{n0}"
         try:
             pc = parse_line(line, n0)
-            if _is_cf_line(pc):
-                lin, sense, rhs = _compile_cf(ctx, pc)
-                # move to  lhs - rhs <op> 0  isn't needed; both sides linear → compare directly
-                n.model.add_constraints(
-                    {"<=": lin <= rhs, ">=": lin >= rhs, "==": lin == rhs}[sense], name=name
-                )
-                notes.append(f"DSL line {n0}: '{pc.raw}' added.")
-                continue
-            lhs_lin, lhs_c = _combine(ctx, pc.lhs)
-            rhs_lin, rhs_c = _combine(ctx, pc.rhs)
-            combined = None
-            if lhs_lin is not None:
-                combined = lhs_lin
-            if rhs_lin is not None:
-                combined = (-rhs_lin) if combined is None else (combined - rhs_lin)
-            if combined is None:
-                raise ValueError("constraint has no decision variables")
-            rhs_const = rhs_c - lhs_c
-            _add(n.model, combined, pc.sense, rhs_const, name)
+            _apply_parsed(ctx, pc, n.model, name)
             notes.append(f"DSL line {n0}: '{pc.raw}' added.")
         except DslParseError as exc:
             notes.append(f"DSL line {n0}: parse error — {exc.message}")
         except Exception as exc:  # noqa: BLE001 — never crash the solve on one bad line
             notes.append(f"DSL line {n0}: could not be added — {exc}")
+
+
+def apply_constraint_specs(
+    n: pypsa.Network,
+    specs: list[dict],
+    emissions_factors: dict[str, float],
+    notes: list[str],
+) -> None:
+    """Apply a structured JSON constraint spec list to ``n.model``.
+
+    This is the canonical wire format the frontend sends; the text DSL is only a
+    convenience that compiles to the same shape. Bad specs are skipped with a note.
+    """
+    if not specs:
+        return
+    ctx = build_model_context(n, emissions_factors)
+    for idx, spec in enumerate(specs, start=1):
+        name = f"spec_{idx}"
+        try:
+            pc = _spec_to_parsed(spec, idx)
+            _apply_parsed(ctx, pc, n.model, name)
+            notes.append(f"Constraint spec {idx}: '{pc.raw}' added.")
+        except DslParseError as exc:
+            notes.append(f"Constraint spec {idx}: parse error — {exc.message}")
+        except Exception as exc:  # noqa: BLE001 — never crash the solve on one bad spec
+            notes.append(f"Constraint spec {idx}: could not be added — {exc}")
