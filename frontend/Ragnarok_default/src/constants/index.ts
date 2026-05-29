@@ -28,7 +28,7 @@ export const CARRIER_COLORS: Record<string, string> = {
 // ── Constraint definitions ────────────────────────────────────────────────────
 
 export const METRIC_DEFS: Record<ConstraintMetric, { label: string; description: string; unit: string; needsCarrier: boolean; sense: string }> = {
-  co2_cap:          { label: 'CO₂ Intensity Cap',       description: 'Avg emission intensity ≤ value (kg CO₂e/MWh)', unit: 'kg CO₂e/MWh', needsCarrier: false, sense: '≤' },
+  co2_cap:          { label: 'CO₂ Intensity Cap',       description: 'Avg emission intensity ≤ value (tCO₂/MWh, matches carriers.co2_emissions)', unit: 'tCO₂/MWh', needsCarrier: false, sense: '≤' },
   max_load_shed:    { label: 'Max Load Shedding',      description: 'Total unserved energy ≤ value',             unit: 'MWh',    needsCarrier: false, sense: '≤' },
   carrier_max_gen:  { label: 'Max Carrier Generation', description: 'Total output of carrier ≤ value (MWh)',     unit: 'MWh',    needsCarrier: true,  sense: '≤' },
   carrier_min_gen:  { label: 'Min Carrier Generation', description: 'Total output of carrier ≥ value (MWh)',     unit: 'MWh',    needsCarrier: true,  sense: '≥' },

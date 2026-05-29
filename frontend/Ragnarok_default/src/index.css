@@ -5076,6 +5076,38 @@ th:hover .col-delete-btn {
 .constraints-cell-placeholder {
   color: var(--muted);
 }
+.constraints-help {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.constraints-help summary {
+  cursor: pointer;
+  color: var(--brand);
+  font-weight: 600;
+}
+.constraints-help-list {
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.constraints-help-list dt {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+.constraints-help-list dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.constraints-help-unit {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  color: var(--muted);
+}
 
 /* ── Stochastic scenarios editor ─────────────────────────────────────────── */
 .sg-stochastic {

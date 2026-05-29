@@ -28,6 +28,37 @@ const NATIVE_SENSES = ['<=', '==', '>='] as const;
 
 const ATTRIBUTE_TYPES: ReadonlySet<NativeType> = new Set<NativeType>(['primary_energy']);
 
+// Short description + units for each PyPSA global_constraints type, shown
+// inline so the user knows what the constraint enforces and what units
+// to put in the Constant column.
+const TYPE_INFO: Record<NativeType, { unit: string; description: string }> = {
+  primary_energy: {
+    unit: 'depends on carrier_attribute (e.g. tCO₂ when carrier_attribute = co2_emissions)',
+    description:
+      'Σ over all carriers of (carrier_attribute × primary energy of that carrier). The classic CO₂ budget: pick carrier_attribute = co2_emissions to cap total emissions in tonnes across the horizon.',
+  },
+  operational_limit: {
+    unit: 'MWh',
+    description:
+      'Total energy dispatched by the chosen carrier across the horizon. Use to cap or floor how much a specific technology (coal, gas, …) produces in total.',
+  },
+  transmission_volume_expansion_limit: {
+    unit: 'MW (sum of added p_nom across selected carrier — typically AC / DC links and lines)',
+    description:
+      "Cap on the total new transmission capacity built. Carrier attribute selects which transmission carrier counts (leave blank for all). Only meaningful with extendable lines/links.",
+  },
+  transmission_expansion_cost_limit: {
+    unit: 'currency (same unit as capital_cost)',
+    description:
+      'Cap on the total capital spent expanding transmission. Carrier attribute selects which transmission carrier counts. Only meaningful with extendable lines/links.',
+  },
+  tech_capacity_expansion_limit: {
+    unit: 'MW (or MWh for storage)',
+    description:
+      'Cap on the total new capacity built for a specific carrier (e.g. solar, wind, battery). Carrier attribute = the carrier name. Only meaningful for extendable assets of that carrier.',
+  },
+};
+
 interface Props {
   rows: GridRow[];
   carriers: string[];
@@ -66,6 +97,17 @@ export function GlobalConstraintsTableEditor({
   }
   return (
     <div className="constraints-table-wrap">
+      <details className="constraints-help">
+        <summary>What do these constraint types mean?</summary>
+        <dl className="constraints-help-list">
+          {NATIVE_TYPES.map((t) => (
+            <React.Fragment key={t}>
+              <dt><code>{t}</code> <span className="constraints-help-unit">— constant in {TYPE_INFO[t].unit}</span></dt>
+              <dd>{TYPE_INFO[t].description}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      </details>
       <table className="constraints-table">
         <thead>
           <tr>
@@ -73,6 +115,7 @@ export function GlobalConstraintsTableEditor({
             <th>Type</th>
             <th>Sense</th>
             <th>Constant</th>
+            <th>Unit</th>
             <th>Carrier attribute</th>
             <th>Investment period</th>
             <th>Bus</th>
@@ -131,6 +174,12 @@ export function GlobalConstraintsTableEditor({
                     value={Number(row.constant ?? 0)}
                     onChange={(e) => onSet(i, 'constant', parseFloat(e.target.value) || 0)}
                   />
+                </td>
+                <td
+                  className="constraints-cell-unit"
+                  title={TYPE_INFO[type as NativeType]?.description}
+                >
+                  {TYPE_INFO[type as NativeType]?.unit ?? '—'}
                 </td>
                 <td>
                   <select

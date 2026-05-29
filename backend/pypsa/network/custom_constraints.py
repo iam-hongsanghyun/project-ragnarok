@@ -54,11 +54,11 @@ def apply_custom_constraints(
         try:
             # ── CO₂ emission intensity cap (tCO₂/MWh) ───────────────────────
             # Constraint: Σ(co2_factor_g × dispatch_g) ≤ value × Σ(dispatch_g)
-            # where the sum runs over all non-shedding generators.
+            # where the sum runs over all non-shedding generators. The UI
+            # value is in tCO₂/MWh — the same unit PyPSA stores in
+            # carriers.co2_emissions, so no conversion is needed.
             if metric == "co2_cap":
-                # value is in kg CO₂e/MWh; emissions_factors are in tCO₂/MWh
-                # Convert: value_tco2 = value_kg / 1000
-                value_tco2 = value / 1000.0
+                value_tco2 = value
                 emitters = [
                     (g, emissions_factors.get(n.generators.at[g, "carrier"], 0.0))
                     for g in n.generators.index
@@ -79,7 +79,7 @@ def apply_custom_constraints(
                 n.model.add_constraints(
                     total_emissions - value_tco2 * total_dispatch <= 0, name=cname
                 )
-                notes.append(f"Constraint '{label}': CO₂ intensity ≤ {value} kg CO₂e/MWh added.")
+                notes.append(f"Constraint '{label}': CO₂ intensity ≤ {value} tCO₂/MWh added.")
 
             # ── Maximum load shedding ────────────────────────────────────────
             elif metric == "max_load_shed":
