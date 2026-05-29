@@ -30,9 +30,9 @@ import {
   AnalyticsSubTab,
 } from './shared/types';
 import { API_BASE, DEFAULT_CONSTRAINTS, getDefaultRowForSheet, MAX_UNPINNED_HISTORY, PYPSA_SCHEMA_META, RUN_POLLING, RUN_WINDOW, SHEETS } from './constants';
-import { canonicalizeOutputSeries, canonicalizeTemporalRows, createEmptyWorkbook, exportProjectWorkbook, exportWorkbook, normalizeInputDatesToIso, parseProjectFile, parseWorkbook, projectWorkbookToArrayBuffer, workbookToArrayBuffer } from './shared/utils/workbook';
-import { exportFullResults } from './shared/utils/exportResults';
-import { exportReportHtml } from './shared/utils/exportReport';
+import { canonicalizeOutputSeries, canonicalizeTemporalRows, createEmptyWorkbook, exportWorkbook, normalizeInputDatesToIso, parseProjectFile, parseWorkbook, projectWorkbookToArrayBuffer, workbookToArrayBuffer } from './shared/utils/workbook';
+import { fullResultsArrayBuffer } from './shared/utils/exportResults';
+import { buildReportHtml } from './shared/utils/exportReport';
 import { getBounds, getBusIndex, carrierColor, numberValue, orderByCarrierRows, setCarrierColorOverrides, snapshotMaxFromWorkbook } from './shared/utils/helpers';
 import { buildRowsFromGeneratorDetails, buildSystemLoadRows, normalizeSeriesPoint } from './shared/utils/analytics';
 import { withDerivedAssetDetails } from './shared/utils/deriveAssetDetails';
@@ -688,6 +688,52 @@ function AppInner() {
     }
   };
 
+  // Persist `data` to disk, prompting for path + file name via the File System
+  // Access API when available (Chromium), and falling back to a normal download
+  // elsewhere. Shared by every export (project, result workbook, HTML report) so
+  // they behave identically. Returns silently when the user cancels the picker.
+  const saveFileWithPicker = async (opts: {
+    suggestedName: string;
+    description: string;
+    mime: string;
+    extensions: string[];
+    data: BlobPart;
+    successMsg: string;
+  }): Promise<void> => {
+    const { suggestedName, description, mime, extensions, data, successMsg } = opts;
+    const saver = (window as any).showSaveFilePicker;
+    if (saver) {
+      try {
+        const handle = await saver({
+          suggestedName,
+          types: [{ description, accept: { [mime]: extensions } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([data], { type: mime }));
+        await writable.close();
+        showToast(`${successMsg} → ${handle.name || suggestedName}`, 'success');
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') return;   // user cancelled
+        const msg = error instanceof Error ? error.message : 'Export failed.';
+        setStatus(msg);
+        showToast(msg, 'error');
+      }
+      return;
+    }
+    const blob = new Blob([data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    showToast(successMsg, 'success');
+  };
+
+  const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
   const handleExportProject = async () => {
     // Export the currently viewed run as one coherent snapshot: its own
     // topology (`analyticsModel`) paired with its outputs. Run history is a
@@ -725,36 +771,40 @@ function AppInner() {
       ? 'Project (inputs + solved outputs) exported'
       : 'Project (inputs only) exported';
 
-    // Prefer the File System Access API so the user picks the directory and
-    // file name. Fall back to a plain download where it's unavailable.
-    const saver = (window as any).showSaveFilePicker;
-    if (saver) {
-      try {
-        const handle = await saver({
-          suggestedName: out,
-          types: [{ description: 'Excel Workbook', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(projectWorkbookToArrayBuffer(analyticsModel, results?.outputs, metadata));
-        await writable.close();
-        showToast(`${successMsg} → ${handle.name || out}`, 'success');
-      } catch (error) {
-        if ((error as Error)?.name === 'AbortError') return;   // user cancelled
-        const msg = error instanceof Error ? error.message : 'Project export failed.';
-        setStatus(msg);
-        showToast(msg, 'error');
-      }
-      return;
-    }
+    await saveFileWithPicker({
+      suggestedName: out,
+      description: 'Excel Workbook',
+      mime: XLSX_MIME,
+      extensions: ['.xlsx'],
+      data: projectWorkbookToArrayBuffer(analyticsModel, results?.outputs, metadata),
+      successMsg,
+    });
+  };
 
-    try {
-      exportProjectWorkbook(analyticsModel, results?.outputs, metadata, out);
-      showToast(successMsg, 'success');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Project export failed.';
-      setStatus(msg);
-      showToast(msg, 'error');
-    }
+  const handleExportResultWorkbook = async () => {
+    if (!displayResults) return;
+    const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok';
+    await saveFileWithPicker({
+      suggestedName: `${base}_results.xlsx`,
+      description: 'Excel Workbook',
+      mime: XLSX_MIME,
+      extensions: ['.xlsx'],
+      data: fullResultsArrayBuffer(analyticsModel, displayResults),
+      successMsg: 'Result workbook exported',
+    });
+  };
+
+  const handleExportReport = async () => {
+    if (!displayResults) return;
+    const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_report';
+    await saveFileWithPicker({
+      suggestedName: `${base}_report.html`,
+      description: 'HTML document',
+      mime: 'text/html;charset=utf-8',
+      extensions: ['.html'],
+      data: buildReportHtml(displayResults, { projectName: base, currencySymbol: settings.currencySymbol }),
+      successMsg: 'HTML report exported',
+    });
   };
 
   const csvFolderImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -1705,21 +1755,8 @@ function AppInner() {
               onSaveAs={saveAsWorkbook}
               onImportProject={() => projectImportInputRef.current?.click()}
               onExportProject={handleExportProject}
-              onExportResult={() => {
-                if (!displayResults) return;
-                exportFullResults(analyticsModel, displayResults, filename.replace(/\.xlsx$/i, ''));
-                showToast('Result workbook exported', 'success');
-              }}
-              onExportReport={() => {
-                if (!displayResults) return;
-                const base = filename.replace(/\.xlsx$/i, '') || 'ragnarok_report';
-                exportReportHtml(displayResults, {
-                  filename: `${base}_report`,
-                  projectName: base,
-                  currencySymbol: settings.currencySymbol,
-                });
-                showToast('HTML report exported', 'success');
-              }}
+              onExportResult={handleExportResultWorkbook}
+              onExportReport={handleExportReport}
               onImportCsvFolder={() => csvFolderImportInputRef.current?.click()}
               onExportCsvFolder={handleExportCsvFolder}
               onImportNetcdf={() => netcdfImportInputRef.current?.click()}
@@ -1759,11 +1796,7 @@ function AppInner() {
               currencySymbol={settings.currencySymbol}
               pathwayConfig={pathwayConfig}
               onSelectedPeriodChange={(period) => setPathwayConfig((current) => ({ ...current, selectedPeriod: period }))}
-              onExportAll={() => {
-                if (!displayResults) return;
-                exportFullResults(analyticsModel, displayResults, filename.replace(/\.xlsx$/i, ''));
-                showToast('Full results exported to Excel', 'success');
-              }}
+              onExportAll={handleExportResultWorkbook}
               onToggleComparison={handleToggleComparison}
               onRestoreRun={handleRestoreRun}
               onRenameHistoryEntry={handleRenameHistoryEntry}

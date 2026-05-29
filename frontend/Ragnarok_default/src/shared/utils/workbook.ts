@@ -540,15 +540,6 @@ export function buildProjectWorkbook(
   return workbook;
 }
 
-export function exportProjectWorkbook(
-  model: WorkbookModel,
-  outputs: ProjectOutputs | null | undefined,
-  metadata: ProjectMetadata | null | undefined,
-  filename = 'ragnarok_project.xlsx',
-): void {
-  XLSX.writeFile(buildProjectWorkbook(model, outputs ?? EMPTY_OUTPUTS, metadata ?? EMPTY_METADATA), filename);
-}
-
 /** Serialise a full project workbook to an ArrayBuffer (for the File System
  *  Access API, where the caller owns writing to a user-chosen file). */
 export function projectWorkbookToArrayBuffer(

@@ -40,14 +40,14 @@ function pivotSeries(
 // ── main export ───────────────────────────────────────────────────────────────
 
 /**
- * Export the entire model (all input sheets + all result output sheets) to
- * a single .xlsx file.
+ * Build the full-results workbook in memory: all input sheets plus every
+ * result output sheet. The caller decides how to persist it (e.g. via the
+ * File System Access API so the user picks the path and file name).
  */
-export function exportFullResults(
+export function buildFullResultsWorkbook(
   model: WorkbookModel,
   results: RunResults,
-  baseFilename = 'ragnarok',
-): void {
+): XLSX.WorkBook {
   // Start from the input workbook so all model sheets are already in.
   const wb = buildWorkbook(model);
   const appendSheet = makeAppendSheet(wb);
@@ -197,6 +197,17 @@ export function exportFullResults(
     }]);
   }
 
-  const ts = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-  XLSX.writeFile(wb, `${baseFilename}_${ts}.xlsx`);
+  return wb;
+}
+
+/** Serialise the full-results workbook to an ArrayBuffer (for the File System
+ *  Access API, where the caller owns writing to a user-chosen file). */
+export function fullResultsArrayBuffer(
+  model: WorkbookModel,
+  results: RunResults,
+): ArrayBuffer {
+  return XLSX.write(buildFullResultsWorkbook(model, results), {
+    bookType: 'xlsx',
+    type: 'array',
+  }) as ArrayBuffer;
 }

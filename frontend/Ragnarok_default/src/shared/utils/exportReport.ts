@@ -11,7 +11,6 @@ import { RunResults, SeriesPoint, ValuePoint } from '../types';
 import { carrierColor } from './helpers';
 
 interface ExportReportOptions {
-  filename?: string;
   projectName?: string;
   currencySymbol?: string;
 }
@@ -367,21 +366,4 @@ export function buildReportHtml(
   ${narrativeSection(results)}
 </body>
 </html>`;
-}
-
-/** Trigger a browser download of the report. */
-export function exportReportHtml(
-  results: RunResults,
-  options: ExportReportOptions = {},
-): void {
-  const html = buildReportHtml(results, options);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = (options.filename ?? 'ragnarok_report') + '.html';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
