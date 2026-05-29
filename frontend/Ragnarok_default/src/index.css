@@ -5110,7 +5110,9 @@ th:hover .col-delete-btn {
   border: 1px solid var(--border-strong);
   border-radius: 0;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  z-index: 30;
+  /* Above Leaflet, whose panes/controls reach z-index 1000, so the map in the
+     view body never overlaps this dropdown. */
+  z-index: 2000;
   min-width: 200px;
 }
 .view-toolbar-more-pop .tb-btn {
