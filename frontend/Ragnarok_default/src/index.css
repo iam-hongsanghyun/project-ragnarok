@@ -1354,37 +1354,38 @@ button {
 .gcc-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 5px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 0;
   background: #f8fafc;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   flex-wrap: nowrap;
 }
 .gcc-row--on {
-  background: #f0f9ff;
-  border-color: #bae6fd;
+  background: #fff;
+  border-color: var(--border);
 }
 .gcc-check {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
   accent-color: var(--brand);
   cursor: pointer;
 }
 .gcc-sense {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #64748b;
-  background: #e2e8f0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
   border-radius: 0;
-  padding: 1px 4px;
+  padding: 0 2px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .gcc-label {
-  font-size: 0.72rem;
-  color: var(--fg);
+  font-size: 0.82rem;
+  color: var(--text);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1392,38 +1393,50 @@ button {
   white-space: nowrap;
 }
 .gcc-label-input {
-  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  padding: 2px 5px;
-  width: 80px;
-  flex-shrink: 0;
-  background: white;
-  color: var(--fg);
+  padding: 4px 8px;
+  flex: 1;
+  min-width: 80px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+.gcc-label-input:focus,
+.gcc-carrier:focus,
+.gcc-val:focus {
+  border-color: var(--brand);
 }
 .gcc-carrier {
-  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  padding: 1px 3px;
-  width: 56px;
+  padding: 4px 6px;
+  min-width: 90px;
   flex-shrink: 0;
-  background: white;
-  color: var(--fg);
+  background: #fff;
+  color: var(--text);
+  outline: none;
 }
 .gcc-val {
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  padding: 2px 4px;
-  width: 44px;
+  padding: 4px 8px;
+  width: 64px;
   text-align: right;
   flex-shrink: 0;
-  background: white;
-  color: var(--fg);
+  background: #fff;
+  color: var(--text);
+  outline: none;
 }
 .gcc-unit {
-  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
