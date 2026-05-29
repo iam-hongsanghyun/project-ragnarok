@@ -1095,21 +1095,6 @@ button {
   width: 28px;
   text-align: center;
 }
-.sg-module-table-row-delete {
-  width: 22px;
-  height: 22px;
-  line-height: 1;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: 0;
-  font-size: 16px;
-}
-.sg-module-table-row-delete:hover {
-  background: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
-}
 .sg-module-table-add {
   align-self: flex-start;
   font-size: 0.72rem;
@@ -6116,24 +6101,8 @@ code, kbd, samp, tt,
 .dashboard-row-edge {
   position: absolute;
   top: 4px;
-  right: -2px;
+  right: 4px;
   z-index: 4;
-}
-.dashboard-row-remove {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.88rem;
-  line-height: 1;
-}
-.dashboard-row-remove:hover {
-  color: var(--danger);
-  border-color: var(--danger);
 }
 
 /* A cell hosting one card */
@@ -6187,7 +6156,12 @@ code, kbd, samp, tt,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dashboard-cell-remove {
+/* Shared "×" close/remove button — single source of truth for every close
+   button (dashboard cell, dashboard row, plugin table row). Add changes HERE,
+   never per-button, so glyph centering and box sizing stay identical. */
+.dashboard-cell-remove,
+.dashboard-row-remove,
+.sg-module-table-row-delete {
   width: 22px;
   height: 22px;
   padding: 0;
@@ -6203,7 +6177,9 @@ code, kbd, samp, tt,
   align-items: center;
   justify-content: center;
 }
-.dashboard-cell-remove:hover { color: var(--danger); border-color: var(--danger); }
+.dashboard-cell-remove:hover,
+.dashboard-row-remove:hover,
+.sg-module-table-row-delete:hover { color: var(--danger); border-color: var(--danger); }
 
 .dashboard-cell-body {
   flex: 1 1 auto;
@@ -6429,8 +6405,8 @@ code, kbd, samp, tt,
   top: 4px;
   right: 4px;
   z-index: 8;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -6440,10 +6416,20 @@ code, kbd, samp, tt,
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
   opacity: 0;
   transition: opacity 120ms ease, color 120ms ease;
+}
+/* Gear drawn as a CSS mask (not a text glyph) so its size is fully
+   controllable — the ⚙ character only fills ~half its em and ignored
+   font-size. The mask inherits the button's color via currentColor, so the
+   hover recolor below just works. */
+.chart-builder-gear::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M19.14%2012.94c.04-.3.06-.61.06-.94%200-.32-.02-.64-.07-.94l2.03-1.58a.49.49%200%200%200%20.12-.61l-1.92-3.32a.488.488%200%200%200-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484%200%200%200-.48-.41h-3.84c-.24%200-.43.17-.47.41l-.36%202.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47%200-.59.22L2.74%208.87c-.12.21-.08.47.12.61l2.03%201.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03%201.58a.49.49%200%200%200-.12.61l1.92%203.32c.12.22.37.29.59.22l2.39-.96c.5.38%201.03.7%201.62.94l.36%202.54c.05.24.24.41.48.41h3.84c.24%200%20.44-.17.47-.41l.36-2.54c.59-.24%201.13-.56%201.62-.94l2.39.96c.22.08.47%200%20.59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12%2015.6c-1.98%200-3.6-1.62-3.6-3.6s1.62-3.6%203.6-3.6%203.6%201.62%203.6%203.6-1.62%203.6-3.6%203.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M19.14%2012.94c.04-.3.06-.61.06-.94%200-.32-.02-.64-.07-.94l2.03-1.58a.49.49%200%200%200%20.12-.61l-1.92-3.32a.488.488%200%200%200-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484%200%200%200-.48-.41h-3.84c-.24%200-.43.17-.47.41l-.36%202.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47%200-.59.22L2.74%208.87c-.12.21-.08.47.12.61l2.03%201.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03%201.58a.49.49%200%200%200-.12.61l1.92%203.32c.12.22.37.29.59.22l2.39-.96c.5.38%201.03.7%201.62.94l.36%202.54c.05.24.24.41.48.41h3.84c.24%200%20.44-.17.47-.41l.36-2.54c.59-.24%201.13-.56%201.62-.94l2.39.96c.22.08.47%200%20.59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12%2015.6c-1.98%200-3.6-1.62-3.6-3.6s1.62-3.6%203.6-3.6%203.6%201.62%203.6%203.6-1.62%203.6-3.6%203.6z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .chart-builder-compact:hover .chart-builder-gear,
 .chart-builder-compact.is-settings-open .chart-builder-gear {

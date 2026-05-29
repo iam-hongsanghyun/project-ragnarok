@@ -429,7 +429,7 @@ export function UserDefinedChartCard({
     <div ref={chartContainerRef} className="chart-body">
       {!hasMetric ? (
         <div className="chart-empty-state">
-          <p className="empty-text">{compact ? 'Click ⚙ to configure this chart.' : 'Choose component, assets, value and chart type.'}</p>
+          <p className="empty-text">{compact ? 'Click the settings button to configure this chart.' : 'Choose component, assets, value and chart type.'}</p>
         </div>
       ) : active.chartType === 'donut' ? (
         <section className="chart-card">
@@ -471,9 +471,7 @@ export function UserDefinedChartCard({
           onClick={openSettings}
           aria-label="Chart settings"
           title="Chart settings"
-        >
-          ⚙
-        </button>
+        />
         {chartBody}
         {settingsOpen && createPortal(
           <div
