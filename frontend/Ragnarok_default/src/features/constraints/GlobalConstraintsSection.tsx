@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ConstraintMetric, CustomConstraint } from '../../shared/types';
 import { METRIC_DEFS } from '../../constants';
 
@@ -11,123 +11,138 @@ export function GlobalConstraintsSection({
   carriers: string[];
   onChange: (next: CustomConstraint[]) => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [newMetric, setNewMetric] = useState<ConstraintMetric>('co2_cap');
-  const [newCarrier, setNewCarrier] = useState('');
-  const [newValue, setNewValue] = useState(0);
-  const [newLabel, setNewLabel] = useState('');
-
   const update = (id: string, patch: Partial<CustomConstraint>) =>
     onChange(constraints.map((c) => (c.id === id ? { ...c, ...patch } : c)));
 
-  const presets = constraints.filter((c) => c.id.startsWith('p_'));
-  const customs = constraints.filter((c) => !c.id.startsWith('p_'));
-  const activeCount = constraints.filter((c) => c.enabled).length;
-  const def = METRIC_DEFS[newMetric];
-
   const handleAdd = () => {
-    if (!newLabel.trim() && !def) return;
+    const metric: ConstraintMetric = 'co2_cap';
+    const def = METRIC_DEFS[metric];
     const nc: CustomConstraint = {
       id: `cc_${Date.now()}`,
       enabled: true,
-      label: newLabel.trim() || def.label,
-      metric: newMetric,
-      carrier: def.needsCarrier ? newCarrier : '',
-      value: newValue,
+      label: def.label,
+      metric,
+      carrier: def.needsCarrier ? (carriers[0] ?? '') : '',
+      value: 0,
       unit: def.unit,
     };
     onChange([...constraints, nc]);
-    setAddOpen(false);
-    setNewLabel('');
-    setNewValue(0);
   };
 
+  const handleMetricChange = (id: string, nextMetric: ConstraintMetric) => {
+    const def = METRIC_DEFS[nextMetric];
+    const current = constraints.find((c) => c.id === id);
+    update(id, {
+      metric: nextMetric,
+      unit: def.unit,
+      carrier: def.needsCarrier ? (current?.carrier || carriers[0] || '') : '',
+    });
+  };
+
+  const activeCount = constraints.filter((c) => c.enabled).length;
+
+  if (constraints.length === 0) {
+    return (
+      <div className="constraints-empty">
+        <p>No custom solver constraints yet. Add one below to cap CO₂ intensity, carrier output, or capacity factors.</p>
+        <button className="tb-btn" onClick={handleAdd}>+ Add constraint</button>
+      </div>
+    );
+  }
+
   return (
-    <div className="gcc">
+    <div className="constraints-table-wrap">
       {activeCount > 0 && (
         <div className="gcc-active-row">
           <span className="gcc-active-dot" />
           <span className="gcc-active-label">{activeCount} active</span>
         </div>
       )}
-
-      {presets.length > 0 && (
-        <>
-          <div className="gcc-section-label">Presets</div>
-          {presets.map((c) => {
-            const d = METRIC_DEFS[c.metric];
+      <table className="constraints-table">
+        <thead>
+          <tr>
+            <th aria-label="enabled" />
+            <th>Label</th>
+            <th>Metric</th>
+            <th>Sense</th>
+            <th>Carrier</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th aria-label="actions" />
+          </tr>
+        </thead>
+        <tbody>
+          {constraints.map((c) => {
+            const def = METRIC_DEFS[c.metric];
             return (
-              <div key={c.id} className={`gcc-row${c.enabled ? ' gcc-row--on' : ''}`}>
-                <input className="gcc-check" type="checkbox" checked={c.enabled} onChange={(e) => update(c.id, { enabled: e.target.checked })} />
-                <span className="gcc-sense" title={d?.description}>{d?.sense}</span>
-                <span className="gcc-label" title={d?.description}>{c.label}</span>
-                {d?.needsCarrier && (
-                  <select className="gcc-carrier" value={c.carrier} onChange={(e) => update(c.id, { carrier: e.target.value })}>
-                    {carriers.map((ca) => <option key={ca}>{ca}</option>)}
+              <tr key={c.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    className="gcc-check"
+                    checked={c.enabled}
+                    onChange={(e) => update(c.id, { enabled: e.target.checked })}
+                    title="Enabled"
+                  />
+                </td>
+                <td>
+                  <input
+                    className="constraints-cell-input"
+                    value={c.label}
+                    onChange={(e) => update(c.id, { label: e.target.value })}
+                    placeholder="label"
+                  />
+                </td>
+                <td>
+                  <select
+                    className="constraints-cell-input"
+                    value={c.metric}
+                    onChange={(e) => handleMetricChange(c.id, e.target.value as ConstraintMetric)}
+                    title={def?.description}
+                  >
+                    {(Object.keys(METRIC_DEFS) as ConstraintMetric[]).map((m) => (
+                      <option key={m} value={m}>{METRIC_DEFS[m].label}</option>
+                    ))}
                   </select>
-                )}
-                <input className="gcc-val" type="number" value={c.value} onChange={(e) => update(c.id, { value: parseFloat(e.target.value) || 0 })} />
-                <span className="gcc-unit">{c.unit}</span>
-              </div>
+                </td>
+                <td className="constraints-cell-sense">{def?.sense}</td>
+                <td>
+                  {def?.needsCarrier ? (
+                    <select
+                      className="constraints-cell-input"
+                      value={c.carrier}
+                      onChange={(e) => update(c.id, { carrier: e.target.value })}
+                    >
+                      {carriers.map((ca) => <option key={ca}>{ca}</option>)}
+                    </select>
+                  ) : (
+                    <span className="constraints-cell-placeholder">—</span>
+                  )}
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    className="constraints-cell-input constraints-cell-input--num"
+                    value={c.value}
+                    onChange={(e) => update(c.id, { value: parseFloat(e.target.value) || 0 })}
+                  />
+                </td>
+                <td className="constraints-cell-unit">{c.unit}</td>
+                <td>
+                  <button
+                    className="gcc-del"
+                    onClick={() => onChange(constraints.filter((x) => x.id !== c.id))}
+                    title="Delete row"
+                  >
+                    x
+                  </button>
+                </td>
+              </tr>
             );
           })}
-        </>
-      )}
-
-      {customs.length > 0 && (
-        <>
-          {presets.length > 0 && <div className="gcc-section-label" style={{ marginTop: 6 }}>Custom</div>}
-          {customs.map((c) => {
-            const d = METRIC_DEFS[c.metric];
-            return (
-              <div key={c.id} className={`gcc-row${c.enabled ? ' gcc-row--on' : ''}`}>
-                <input className="gcc-check" type="checkbox" checked={c.enabled} onChange={(e) => update(c.id, { enabled: e.target.checked })} />
-                <span className="gcc-sense">{d?.sense}</span>
-                <input className="gcc-label-input" value={c.label} onChange={(e) => update(c.id, { label: e.target.value })} />
-                {d?.needsCarrier && (
-                  <select className="gcc-carrier" value={c.carrier} onChange={(e) => update(c.id, { carrier: e.target.value })}>
-                    {carriers.map((ca) => <option key={ca}>{ca}</option>)}
-                  </select>
-                )}
-                <input className="gcc-val" type="number" value={c.value} onChange={(e) => update(c.id, { value: parseFloat(e.target.value) || 0 })} />
-                <span className="gcc-unit">{c.unit}</span>
-                <button className="gcc-del" onClick={() => onChange(constraints.filter((x) => x.id !== c.id))}>x</button>
-              </div>
-            );
-          })}
-        </>
-      )}
-
-      {!addOpen ? (
-        <button className="gcc-add-btn" onClick={() => setAddOpen(true)}>+ Add constraint</button>
-      ) : (
-        <div className="gcc-add-form">
-          <div className="gcc-add-row">
-            <select className="gcc-add-metric" value={newMetric} onChange={(e) => { setNewMetric(e.target.value as ConstraintMetric); setNewCarrier(''); }}>
-              {(Object.keys(METRIC_DEFS) as ConstraintMetric[]).map((m) => (
-                <option key={m} value={m}>{METRIC_DEFS[m].label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="gcc-add-row">
-            {def.needsCarrier && (
-              <select className="gcc-carrier" value={newCarrier} onChange={(e) => setNewCarrier(e.target.value)}>
-                <option value="">— carrier —</option>
-                {carriers.map((ca) => <option key={ca}>{ca}</option>)}
-              </select>
-            )}
-            <input className="gcc-val" type="number" value={newValue} onChange={(e) => setNewValue(parseFloat(e.target.value) || 0)} />
-            <span className="gcc-unit">{def.unit}</span>
-          </div>
-          <div className="gcc-add-row">
-            <input className="gcc-label-input" placeholder="Label (optional)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
-          </div>
-          <div className="gcc-add-row">
-            <button className="tb-btn" onClick={handleAdd}>Add</button>
-            <button className="tb-btn tb-btn--muted" onClick={() => setAddOpen(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
+        </tbody>
+      </table>
+      <button className="tb-btn" style={{ marginTop: 12 }} onClick={handleAdd}>+ Add constraint</button>
     </div>
   );
 }
