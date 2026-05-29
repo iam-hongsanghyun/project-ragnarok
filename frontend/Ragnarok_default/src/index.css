@@ -5090,22 +5090,21 @@ th:hover .col-delete-btn {
 }
 .constraints-help-list {
   margin: 8px 0 0;
+  padding: 0 0 0 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+  line-height: 1.5;
 }
-.constraints-help-list dt {
+.constraints-help-list li {
+  color: var(--muted);
+}
+.constraints-help-list li code {
   font-family: var(--font-mono);
   color: var(--text);
 }
-.constraints-help-list dd {
-  margin: 2px 0 0;
-  color: var(--muted);
-  line-height: 1.4;
-}
 .constraints-help-unit {
-  font-family: var(--font-sans);
-  font-weight: 400;
+  font-family: var(--font-mono);
   color: var(--muted);
 }
 

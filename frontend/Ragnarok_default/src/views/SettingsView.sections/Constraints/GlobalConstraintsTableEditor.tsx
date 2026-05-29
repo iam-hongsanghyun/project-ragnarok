@@ -28,34 +28,29 @@ const NATIVE_SENSES = ['<=', '==', '>='] as const;
 
 const ATTRIBUTE_TYPES: ReadonlySet<NativeType> = new Set<NativeType>(['primary_energy']);
 
-// Short description + units for each PyPSA global_constraints type, shown
-// inline so the user knows what the constraint enforces and what units
-// to put in the Constant column.
+// Short label for the Unit column, plus a one-line description for the help
+// disclosure. `unit` is rendered in the table cell so it must stay tight
+// (no full sentences). `description` is shown in the collapsed help panel.
 const TYPE_INFO: Record<NativeType, { unit: string; description: string }> = {
   primary_energy: {
-    unit: 'depends on carrier_attribute (e.g. tCO₂ when carrier_attribute = co2_emissions)',
-    description:
-      'Σ over all carriers of (carrier_attribute × primary energy of that carrier). The classic CO₂ budget: pick carrier_attribute = co2_emissions to cap total emissions in tonnes across the horizon.',
+    unit: 'tCO₂',
+    description: 'Σ (carrier_attribute × primary energy) across carriers. Pick carrier_attribute = co2_emissions for a total emissions cap in tonnes.',
   },
   operational_limit: {
     unit: 'MWh',
-    description:
-      'Total energy dispatched by the chosen carrier across the horizon. Use to cap or floor how much a specific technology (coal, gas, …) produces in total.',
+    description: 'Total energy dispatched by the chosen carrier across the horizon.',
   },
   transmission_volume_expansion_limit: {
-    unit: 'MW (sum of added p_nom across selected carrier — typically AC / DC links and lines)',
-    description:
-      "Cap on the total new transmission capacity built. Carrier attribute selects which transmission carrier counts (leave blank for all). Only meaningful with extendable lines/links.",
+    unit: 'MW',
+    description: 'Cap on new transmission capacity built. Needs extendable lines/links of the chosen carrier (e.g. AC, DC).',
   },
   transmission_expansion_cost_limit: {
-    unit: 'currency (same unit as capital_cost)',
-    description:
-      'Cap on the total capital spent expanding transmission. Carrier attribute selects which transmission carrier counts. Only meaningful with extendable lines/links.',
+    unit: 'currency',
+    description: 'Cap on the total capital spent expanding transmission. Same unit as capital_cost.',
   },
   tech_capacity_expansion_limit: {
-    unit: 'MW (or MWh for storage)',
-    description:
-      'Cap on the total new capacity built for a specific carrier (e.g. solar, wind, battery). Carrier attribute = the carrier name. Only meaningful for extendable assets of that carrier.',
+    unit: 'MW',
+    description: 'Cap on new capacity built for the chosen carrier (MWh for storage). Needs extendable assets of that carrier.',
   },
 };
 
@@ -99,14 +94,16 @@ export function GlobalConstraintsTableEditor({
     <div className="constraints-table-wrap">
       <details className="constraints-help">
         <summary>What do these constraint types mean?</summary>
-        <dl className="constraints-help-list">
+        <ul className="constraints-help-list">
           {NATIVE_TYPES.map((t) => (
-            <React.Fragment key={t}>
-              <dt><code>{t}</code> <span className="constraints-help-unit">— constant in {TYPE_INFO[t].unit}</span></dt>
-              <dd>{TYPE_INFO[t].description}</dd>
-            </React.Fragment>
+            <li key={t}>
+              <code>{t}</code>
+              <span className="constraints-help-unit"> ({TYPE_INFO[t].unit})</span>
+              {' — '}
+              {TYPE_INFO[t].description}
+            </li>
           ))}
-        </dl>
+        </ul>
       </details>
       <table className="constraints-table">
         <thead>
