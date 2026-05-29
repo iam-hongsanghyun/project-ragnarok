@@ -16,9 +16,23 @@ export interface ConstraintsSectionProps {
   onDeleteRow: (sheet: 'global_constraints', rowIndex: number) => void;
 }
 
+// Reserved carrier columns that are metadata, not numeric attributes you can
+// weight a global constraint by. Everything else on the carriers sheet is
+// fair game for `primary_energy` constraints.
+const CARRIER_META_COLS = new Set(['name', 'color', 'nice_name']);
+
 export function ConstraintsSection(props: ConstraintsSectionProps) {
   const carriers = Array.from(
     new Set(props.model.carriers.map((c) => String(c.name ?? '')).filter(Boolean)),
+  );
+  // Numeric columns on the carriers sheet (co2_emissions, max_growth, …)
+  // are the valid `carrier_attribute` choices for `primary_energy` rows.
+  const carrierAttributes = Array.from(
+    new Set(
+      props.model.carriers
+        .flatMap((row) => Object.keys(row))
+        .filter((key) => !CARRIER_META_COLS.has(key)),
+    ),
   );
   const globalRows = (props.model.global_constraints ?? []) as GridRow[];
   return (
@@ -43,6 +57,7 @@ export function ConstraintsSection(props: ConstraintsSectionProps) {
         <GlobalConstraintsTableEditor
           rows={globalRows}
           carriers={carriers}
+          carrierAttributes={carrierAttributes}
           onAdd={() => props.onAddRow('global_constraints')}
           onDelete={(rowIndex) => props.onDeleteRow('global_constraints', rowIndex)}
           onSet={(rowIndex, key, value) => props.onUpdateRow('global_constraints', rowIndex, key, value)}
