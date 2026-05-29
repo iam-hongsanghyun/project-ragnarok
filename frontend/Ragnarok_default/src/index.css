@@ -1636,9 +1636,7 @@ button {
 }
 
 .field select,
-.chart-control select,
-.field .ss-wrap input,
-.chart-control .ss-wrap input {
+.chart-control select {
   width: 100%;
   padding: 5px 8px;
   border: 1px solid var(--border);
@@ -1647,13 +1645,8 @@ button {
   color: var(--text);
   font-size: 0.82rem;
 }
-.field .ss-wrap input,
-.chart-control .ss-wrap input {
-  padding-right: 20px;
-}
 
-.chart-control select,
-.chart-control .ss-wrap input {
+.chart-control select {
   appearance: none;
   min-width: 150px;
 }
@@ -5089,8 +5082,25 @@ th:hover .col-delete-btn {
 .ss-wrap input {
   width: 100%;
   box-sizing: border-box;
-  padding-right: 20px;
+}
+/* Canonical dropdown box — one look for every SearchableSelect, matching the
+ * global-constraints field. Defined after the legacy select classes so it wins
+ * for instances that still pass them (same specificity, later source order). */
+.ss-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 22px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: #fff;
+  color: var(--text);
   font-family: inherit;
+  font-size: 0.88rem;
+}
+.ss-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 /* Chevron affordance so the field reads as a dropdown. */
 .ss-wrap::after {

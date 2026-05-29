@@ -92,7 +92,7 @@ export function SearchableSelect({
     <div className="ss-wrap">
       <input
         ref={inputRef}
-        className={className}
+        className={['ss-input', className].filter(Boolean).join(' ')}
         value={display}
         placeholder={placeholder}
         disabled={disabled}
