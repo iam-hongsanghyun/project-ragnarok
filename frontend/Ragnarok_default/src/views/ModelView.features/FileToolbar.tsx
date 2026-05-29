@@ -51,10 +51,11 @@ export function FileToolbar(props: FileToolbarProps) {
         <summary className="tb-btn tb-btn--muted">More formats…</summary>
         <div className="view-toolbar-more-pop">
           <button className="tb-btn" onClick={props.onImportCsvFolder}>Import CSV folder</button>
-          <button className="tb-btn" onClick={props.onExportCsvFolder}>Export CSV folder</button>
           <button className="tb-btn" onClick={props.onImportNetcdf}>Import netCDF</button>
-          <button className="tb-btn" onClick={props.onExportNetcdf}>Export netCDF</button>
           <button className="tb-btn" onClick={props.onImportHdf5}>Import HDF5</button>
+          <div className="view-toolbar-more-sep" />
+          <button className="tb-btn" onClick={props.onExportCsvFolder}>Export CSV folder</button>
+          <button className="tb-btn" onClick={props.onExportNetcdf}>Export netCDF</button>
           <button className="tb-btn" onClick={props.onExportHdf5}>Export HDF5</button>
         </div>
       </details>

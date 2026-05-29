@@ -5117,6 +5117,11 @@ th:hover .col-delete-btn {
   width: 100%;
   justify-content: flex-start;
 }
+.view-toolbar-more-sep {
+  height: 1px;
+  background: var(--border-strong);
+  margin: 2px 0;
+}
 
 /* Generic per-view layout */
 .view {
