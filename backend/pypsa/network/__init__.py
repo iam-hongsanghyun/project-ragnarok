@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pypsa
 
@@ -53,6 +54,53 @@ from .components import (
 from .network_sheet import _apply_network_sheet, _override_network_crs, _peak_load_per_bus
 
 __all__ = ["build_network", "validate_model"]
+
+# Any finite value with absolute magnitude beyond this threshold is treated as
+# a placeholder for "no limit". Workbooks exported by upstream tooling often
+# store 1e12 in p_nom_max / e_sum_min / e_sum_max / lifetime instead of the
+# inf they were meant to represent, which feeds enormous RHS values into the
+# LP and degrades HiGHS numerical conditioning (RHS ranges spanning 12+
+# orders of magnitude trigger "excessively large row bounds" warnings and
+# can push the solver into degenerate / unbounded territory). We snap those
+# back to ±inf so PyPSA / linopy drop them at LP build time.
+_INF_PLACEHOLDER_THRESHOLD = 1e9
+
+
+def _sanitize_placeholder_bounds(network: pypsa.Network, notes: list[str]) -> None:
+    """Replace 1e12-style placeholder bounds with PyPSA's natural ±inf.
+
+    Touches ``*_nom_max`` / ``*_nom_min`` / ``*_sum_max`` / ``*_sum_min`` and
+    ``lifetime`` on every component class. Pure replacement — no math — so
+    rows that already used ``inf`` or sensible finite caps are left alone.
+    """
+    affected = 0
+    for list_name in network.components.keys():
+        frame = network.components[list_name].static
+        if frame.empty:
+            continue
+        for col in list(frame.columns):
+            is_upper = col.endswith("_nom_max") or col.endswith("_sum_max") or col == "lifetime"
+            is_lower = col.endswith("_sum_min")
+            if not (is_upper or is_lower):
+                continue
+            series = pd.to_numeric(frame[col], errors="coerce")
+            mask_up = is_upper and (series >= _INF_PLACEHOLDER_THRESHOLD)
+            mask_lo = is_lower and (series <= -_INF_PLACEHOLDER_THRESHOLD)
+            mask = (mask_up if is_upper else False) | (mask_lo if is_lower else False)
+            try:
+                hits = int(mask.sum())
+            except Exception:
+                hits = 0
+            if hits == 0:
+                continue
+            replacement = np.inf if is_upper else -np.inf
+            frame.loc[mask, col] = replacement
+            affected += hits
+    if affected:
+        notes.append(
+            f"Sanitised {affected} placeholder bound(s) (≥{_INF_PLACEHOLDER_THRESHOLD:.0e}) → ±inf "
+            "to keep the LP numerically well-conditioned."
+        )
 
 
 def build_network(
@@ -124,6 +172,8 @@ def build_network(
             _ensure_carriers(network, df["carrier"])
         kwargs = {col: df[col].tolist() for col in df.columns}
         network.add(cls, df.index.tolist(), **kwargs)
+
+    _sanitize_placeholder_bounds(network, notes)
 
     # Generic per-component row count (schema-driven — every populated
     # component class shows up automatically, including new ones PyPSA adds).
