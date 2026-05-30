@@ -1,0 +1,95 @@
+/* ── Validation pane ─────────────────────────────────────────────────────
+   The validation main area is the direct content of the Analytics view;
+   it does NOT carry its own card border/background. Inner .validation-
+   section blocks are the cards. (Was previously `.pane.validation-pane`
+   which gave the outer wrap a border + white background — a box-in-box.)
+   ────────────────────────────────────────────────────────────────────── */
+.validation-pane {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.validation-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 32px 0;
+}
+
+.validation-report {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 860px;
+}
+
+.validation-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.validation-report-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.text-ok { color: var(--text); }
+.text-error { color: var(--danger); }
+
+.validation-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 16px 20px;
+}
+
+.validation-section--error {
+  background: var(--danger-soft);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.validation-section--warn {
+  background: var(--warn-soft);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.validation-section-title {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.validation-section--error .validation-section-title { color: var(--danger); }
+.validation-section--warn .validation-section-title { color: var(--warn-text); }
+
+.validation-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.validation-list li {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.validation-section--error .validation-list li { color: var(--danger-strong); }
+.validation-section--warn .validation-list li { color: var(--warn-text); }
+
+.validation-list--notes li { color: var(--muted); font-size: 0.82rem; }
+
+.validation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+

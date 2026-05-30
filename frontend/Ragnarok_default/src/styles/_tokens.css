@@ -1,0 +1,103 @@
+/* ════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — single source of truth.
+
+   Every visual decision lives here. Component CSS reads from these
+   variables; nothing else should be hardcoded. The aesthetic is
+   "engineering tool": flat, monospace-leaning, no gradients, no
+   heavy shadows, tight radii.
+
+   Colors:
+     --bg / --bg-hover             page bg / row-hover & table-stripe bg
+     --surface / --panel           containers (white)
+     --border / --border-strong    1 px lines
+     --text / --muted              foregrounds
+     --brand / --brand-strong      teal — active / primary CTA
+     --brand-soft / --brand-tint   teal-50 / teal-100 — soft brand backgrounds
+     --brand-ring / --brand-fill   teal alpha — focus ring / selection tint
+     --danger / --danger-strong    red-600 / red-700 — error, danger hover
+     --danger-soft                 red-100 — error background tint
+     --warn / --warn-text          amber-500 / amber-700 — warning bg / text
+     --info / --ok                 sky-400 / brand — semantic
+   Typography:
+     --font-sans                   body / labels
+     --font-mono                   numbers, IDs, counts, filenames,
+                                   chips, badges, code-like values
+   Radii:
+     --radius-button 4 px          buttons ONLY — the sole rounded element
+     --radius        0             every box: inputs, cards, panels, modals
+     --radius-lg     0             (kept as alias of --radius; do not reuse)
+   Rule: only buttons are rounded. Boxes are square. Circles (dots,
+   spinners, toggle knobs) and pills (999px) are shapes, not corners.
+   Spacing scale: 4 / 6 / 8 / 12 / 14 / 18 / 24 px (inline literals OK).
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: var(--bg);
+  --bg-hover: var(--bg-hover);        /* slate-100 — table stripes, row hovers, separators */
+  --surface: var(--surface);
+  --panel: var(--surface);
+  --panel-strong: var(--surface);
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --muted: #64748b;
+  --brand: #0f766e;
+  --brand-strong: #0b5d56;
+  --brand-soft: #f0fdfa;
+  --brand-tint: #ccfbf1;       /* teal-100 — status chips, soft brand backgrounds */
+  --brand-ring: rgba(15, 118, 110, 0.35); /* focus rings, selection outlines */
+  --brand-fill: rgba(15, 118, 110, 0.08); /* active nav bg, selected row tint */
+  --accent: #0f766e;
+  --warm: #f97316;
+  --danger: #dc2626;
+  --danger-strong: #b91c1c;    /* red-700 — danger hover/active */
+  --danger-soft: #fee2e2;      /* red-100 — danger background tint */
+  --ok: var(--brand);
+  --warn: #f59e0b;
+  --warn-soft: #fef3c7;        /* amber-100 — warning background tint */
+  --warn-text: #b45309;        /* amber-700 — warning text on light bg */
+  --info: #38bdf8;             /* sky-400 — info toast border */
+  --shadow: none;
+  --font-sans: "IBM Plex Sans", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius-button: 4px;
+  --radius: 0;
+  --radius-lg: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.studio-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}

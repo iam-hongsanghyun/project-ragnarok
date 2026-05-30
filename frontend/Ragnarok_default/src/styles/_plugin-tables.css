@@ -1,0 +1,83 @@
+/* ── Plugin result cards ─────────────────────────────────────────────────
+   Plugin result tables match .data-table: mono font, 0.78rem cells /
+   0.72rem header, --bg-hover header background, uppercase headers,
+   --bg-hover row separator, 5/6px × 10px padding. The plugin-result-table
+   variant is for two-column "label : value [unit]" rows (no thead). The
+   subtable variant is for full N-column data with a thead.
+   ────────────────────────────────────────────────────────────────────── */
+
+.plugin-result-table,
+.plugin-result-subtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+/* Label-value pair table (one row per metric) */
+.plugin-result-table tr + tr td {
+  border-top: 1px solid var(--bg-hover);
+}
+.plugin-result-label {
+  color: var(--muted);
+  padding: 5px 10px 5px 0;
+  white-space: nowrap;
+  width: 40%;
+}
+.plugin-result-value {
+  color: var(--text);
+  padding: 5px 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.plugin-result-unit {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.72rem;
+}
+
+/* Multi-column subtable with thead */
+.plugin-result-subtable th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.plugin-result-subtable td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--bg-hover);
+  color: var(--muted);
+}
+.plugin-result-subtable td:last-child {
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
+}
+
+/* Export buttons */
+.chart-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.chart-export-btn:hover {
+  color: var(--accent, var(--brand));
+  background: rgba(15, 118, 110, 0.05);
+}
+
