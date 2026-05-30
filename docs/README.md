@@ -17,7 +17,6 @@ Supporting material:
 
 - [SUPPORT_MATRIX.md](./SUPPORT_MATRIX.md) — generated PyPSA feature/attribute support matrix.
 - [TODO.md](./TODO.md) — living project task log and roadmap.
-- [slides/](./slides/) — architecture + plugin overview deck (`ragnarok-architecture.pdf`).
 
 New here? Start with [user-manual.md](./user-manual.md) (§1 launches the app in one command),
 then [architecture.md](./architecture.md) for the big picture.
