@@ -139,14 +139,6 @@ Backend:
 
 - writes a self-contained HTML report of the current result
 
-## Sample Networks
-
-Maintained sample workbooks live in [sample-networks](/Users/sanghyun/github/pypsa_gui/sample-networks).
-
-- [sample-networks/pathway_capacity_expansion.xlsx](/Users/sanghyun/github/pypsa_gui/sample-networks/pathway_capacity_expansion.xlsx): canonical pathway-planning test case
-- [sample-networks/capacity_expansion.xlsx](/Users/sanghyun/github/pypsa_gui/sample-networks/capacity_expansion.xlsx): single-period expansion baseline
-- [sample-networks/two_bus_dispatch.xlsx](/Users/sanghyun/github/pypsa_gui/sample-networks/two_bus_dispatch.xlsx): small dispatch baseline
-
 ## Support Matrix: Optimization Capabilities
 
 This section is separate from workbook/component support because PyPSA’s
