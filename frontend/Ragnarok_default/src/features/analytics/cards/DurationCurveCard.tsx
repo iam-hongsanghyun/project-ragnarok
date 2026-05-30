@@ -95,7 +95,7 @@ export function DurationCurveCard({ title, data, unit, color }: Props) {
             <g style={{ pointerEvents: 'none' }}>
               <line x1={hx} x2={hx} y1={padT} y2={padT + innerH} stroke="rgba(15,23,42,0.22)" strokeWidth={1.5} strokeDasharray="4 3" />
               <g transform={`translate(${tx},${padT + 4})`}>
-                <rect rx="6" ry="6" width={tipW} height={40} fill="rgba(15,23,42,0.88)" />
+                <rect rx="4" ry="4" width={tipW} height={40} fill="rgba(15,23,42,0.88)" />
                 <text x="8" y="14" className="chart-tip-label">
                   Rank {hoverIndex + 1}
                 </text>

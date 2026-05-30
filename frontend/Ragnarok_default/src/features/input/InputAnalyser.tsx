@@ -37,7 +37,7 @@ const PALETTE = [
 // ── Shared SVG primitives ─────────────────────────────────────────────────────
 
 function NoData({ msg = 'No data to display.' }: { msg?: string }) {
-  return <p style={{ padding: '16px', fontSize: '0.82rem', color: '#627087', textAlign: 'center' }}>{msg}</p>;
+  return <p style={{ padding: '16px', fontSize: '0.82rem', color: 'var(--muted)', textAlign: 'center' }}>{msg}</p>;
 }
 
 // ── 1. Horizontal Bar (static, one value per row) ─────────────────────────────
@@ -60,12 +60,12 @@ function HBar({ labels, values, colors, unit }: {
         const fmt = values[i] === 0 ? '—' : values[i] < 1 ? values[i].toFixed(3) : values[i].toLocaleString(undefined, { maximumFractionDigits: 1 });
         return (
           <g key={i}>
-            <text x={padX + labelW - 4} y={y + barH / 2 + 4} textAnchor="end" fontSize={11} fill="#627087">
+            <text x={padX + labelW - 4} y={y + barH / 2 + 4} textAnchor="end" fontSize={11} fill="var(--muted)">
               {label.length > 18 ? label.slice(0, 17) + '…' : label}
             </text>
-            <rect x={padX + labelW} y={y} width={barW} height={barH} rx={3} fill="#f1f5f9" />
-            {w > 0 && <rect x={padX + labelW} y={y} width={w} height={barH} rx={3} fill={fill} opacity={0.85} />}
-            <text x={padX + labelW + barW + 5} y={y + barH / 2 + 4} fontSize={11} fill="#142033">
+            <rect x={padX + labelW} y={y} width={barW} height={barH} rx={0} fill="var(--bg-hover)" />
+            {w > 0 && <rect x={padX + labelW} y={y} width={w} height={barH} rx={0} fill={fill} opacity={0.85} />}
+            <text x={padX + labelW + barW + 5} y={y + barH / 2 + 4} fontSize={11} fill="var(--text)">
               {fmt}{unit ? ` ${unit}` : ''}
             </text>
           </g>
@@ -112,8 +112,8 @@ function Donut({ data }: { data: { label: string; value: number; color: string }
         ))}
         {tip && (
           <>
-            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill="#627087">{tip.label}</text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fontSize={13} fontWeight="700" fill="#142033">
+            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill="var(--muted)">{tip.label}</text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fontSize={13} fontWeight="700" fill="var(--text)">
               {((tip.value / total) * 100).toFixed(1)}%
             </text>
           </>
@@ -123,8 +123,8 @@ function Donut({ data }: { data: { label: string; value: number; color: string }
         {arcs.map((a) => (
           <div key={a.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: a.color, flexShrink: 0 }} />
-            <span style={{ color: '#627087' }}>{a.label}</span>
-            <span style={{ fontWeight: 600, color: '#142033', marginLeft: 4 }}>
+            <span style={{ color: 'var(--muted)' }}>{a.label}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text)', marginLeft: 4 }}>
               {a.value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
             </span>
           </div>
@@ -170,8 +170,8 @@ function Scatter({ xVals, yVals, labels, xCol, yCol }: {
           </text>
         );
       })}
-      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="#627087">{xCol}</text>
-      <text x={10} y={pT + cH / 2} textAnchor="middle" fontSize={10} fill="#627087"
+      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="var(--muted)">{xCol}</text>
+      <text x={10} y={pT + cH / 2} textAnchor="middle" fontSize={10} fill="var(--muted)"
         transform={`rotate(-90, 10, ${pT + cH / 2})`}>{yCol}</text>
       {xVals.map((x, i) => (
         <g key={i} onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}>
@@ -179,7 +179,7 @@ function Scatter({ xVals, yVals, labels, xCol, yCol }: {
             fill="#0f766e" opacity={hov !== null && hov !== i ? 0.3 : 0.8}
             style={{ cursor: 'pointer', transition: 'r 0.1s, opacity 0.1s' }} />
           {hov === i && (
-            <text x={xPos(x) + 8} y={yPos(yVals[i]) - 6} fontSize={10} fill="#142033">
+            <text x={xPos(x) + 8} y={yPos(yVals[i]) - 6} fontSize={10} fill="var(--text)">
               {labels[i]}
             </text>
           )}
@@ -294,11 +294,11 @@ function DurationCurve({ values, label, color }: { values: number[]; label: stri
           </g>
         );
       })}
-      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="#627087">Rank (sorted descending)</text>
+      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="var(--muted)">Rank (sorted descending)</text>
       <polygon points={`${xPos(0)},${yPos(minV)} ${pts} ${xPos(n-1)},${yPos(minV)}`}
         fill={color} opacity={0.18} />
       <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
-      <text x={pL + 4} y={pT + 14} fontSize={10} fill="#627087">{label}</text>
+      <text x={pL + 4} y={pT + 14} fontSize={10} fill="var(--muted)">{label}</text>
     </svg>
   );
 }
@@ -351,14 +351,14 @@ function DailyProfile({ xLabels, series }: {
         const y = yPos(means[h]);
         return (
           <g key={h}>
-            <rect x={x + 1} y={y} width={barW} height={pT + cH - y} rx={2} fill={color} opacity={0.75} />
+            <rect x={x + 1} y={y} width={barW} height={pT + cH - y} rx={0} fill={color} opacity={0.75} />
             {h % 6 === 0 && (
               <text x={x + barW / 2} y={H - pB + 14} textAnchor="middle" fontSize={9} fill="#94a3b8">{h}:00</text>
             )}
           </g>
         );
       })}
-      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="#627087">Hour of day (average)</text>
+      <text x={pL + cW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="var(--muted)">Hour of day (average)</text>
     </svg>
   );
 }

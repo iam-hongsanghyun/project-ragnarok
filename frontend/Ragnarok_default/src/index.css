@@ -7,11 +7,17 @@
    heavy shadows, tight radii.
 
    Colors:
-     --bg / --surface / --panel    backgrounds (lightest → containers)
+     --bg / --bg-hover             page bg / row-hover & table-stripe bg
+     --surface / --panel           containers (white)
      --border / --border-strong    1 px lines
      --text / --muted              foregrounds
-     --brand / --brand-strong      accent (active / focus / primary CTA)
-     --danger / --warn / --ok      semantic
+     --brand / --brand-strong      teal — active / primary CTA
+     --brand-soft / --brand-tint   teal-50 / teal-100 — soft brand backgrounds
+     --brand-ring / --brand-fill   teal alpha — focus ring / selection tint
+     --danger / --danger-strong    red-600 / red-700 — error, danger hover
+     --danger-soft                 red-100 — error background tint
+     --warn / --warn-text          amber-500 / amber-700 — warning bg / text
+     --info / --ok                 sky-400 / brand — semantic
    Typography:
      --font-sans                   body / labels
      --font-mono                   numbers, IDs, counts, filenames,
@@ -26,10 +32,11 @@
    ════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --panel: #ffffff;
-  --panel-strong: #ffffff;
+  --bg: var(--bg);
+  --bg-hover: var(--bg-hover);        /* slate-100 — table stripes, row hovers, separators */
+  --surface: var(--surface);
+  --panel: var(--surface);
+  --panel-strong: var(--surface);
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
   --text: #0f172a;
@@ -37,11 +44,19 @@
   --brand: #0f766e;
   --brand-strong: #0b5d56;
   --brand-soft: #f0fdfa;
+  --brand-tint: #ccfbf1;       /* teal-100 — status chips, soft brand backgrounds */
+  --brand-ring: rgba(15, 118, 110, 0.35); /* focus rings, selection outlines */
+  --brand-fill: rgba(15, 118, 110, 0.08); /* active nav bg, selected row tint */
   --accent: #0f766e;
   --warm: #f97316;
   --danger: #dc2626;
+  --danger-strong: #b91c1c;    /* red-700 — danger hover/active */
+  --danger-soft: #fee2e2;      /* red-100 — danger background tint */
   --ok: var(--brand);
   --warn: #f59e0b;
+  --warn-soft: #fef3c7;        /* amber-100 — warning background tint */
+  --warn-text: #b45309;        /* amber-700 — warning text on light bg */
+  --info: #38bdf8;             /* sky-400 — info toast border */
   --shadow: none;
   --font-sans: "IBM Plex Sans", "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -91,10 +106,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 22px;
-  background: rgba(248, 250, 252, 0.8);
+  padding: 24px;
+  background: var(--bg);
   border-right: 1px solid var(--border);
-  backdrop-filter: blur(18px);
 }
 
 .sidebar-brand,
@@ -166,7 +180,7 @@ button {
 .tab-button:hover,
 .sheet-item:hover {
   border-color: var(--border-strong);
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .sidebar-section h2,
@@ -198,7 +212,7 @@ button {
   align-items: center;
   width: 100%;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--surface);
   text-align: left;
 }
 
@@ -246,7 +260,7 @@ button {
   background: var(--brand);
   border: 1px solid var(--brand);
   border-radius: var(--radius-button);
-  color: #ffffff;
+  color: var(--surface);
 }
 
 .primary-button:hover,
@@ -258,7 +272,7 @@ button {
 .run-button:disabled {
   background: #cbd5e1;
   border-color: #cbd5e1;
-  color: #fff;
+  color: var(--surface);
   cursor: not-allowed;
 }
 
@@ -274,7 +288,7 @@ button {
 .metric-card {
   padding: 14px;
   border-radius: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.82));
+  background: var(--surface);
   border: 1px solid var(--border);
 }
 
@@ -322,7 +336,7 @@ button {
   gap: 12px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--surface);
   flex-shrink: 0;
   min-height: 40px;
 }
@@ -384,7 +398,7 @@ button {
 }
 
 .tb-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-color: var(--border-strong);
 }
 
@@ -448,7 +462,7 @@ button {
 .tab-button {
   padding: 6px 14px;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -471,7 +485,7 @@ button {
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #f8fafc;
+  background: var(--bg);
   /* border-right handled by the resize handle */
   padding: 10px 0 16px;
   gap: 2px;
@@ -605,7 +619,7 @@ button {
   gap: 5px;
 }
 .sg-summary-item {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-radius: 0;
   padding: 5px 8px;
 }
@@ -679,13 +693,13 @@ button {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 0.88rem;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }
 .sg-carbon-input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+  box-shadow: 0 0 0 2px rgba(15,118,110,0.12);
 }
 .sg-carbon-unit {
   font-size: 0.78rem;
@@ -763,7 +777,7 @@ button {
   border-radius: 0;
   font: inherit;
   color: var(--text);
-  background: #fff;
+  background: var(--surface);
   box-sizing: border-box;
 }
 .sg-scenario-summary {
@@ -807,7 +821,7 @@ button {
   cursor: grab;
 }
 .sg-color-item:hover {
-  background: #f8fafc;
+  background: var(--bg);
 }
 .sg-color-item--dragging {
   opacity: 0.5;
@@ -914,7 +928,7 @@ button {
   gap: 8px;
   margin: 8px 0;
   padding: 10px;
-  background: #f8fafc;
+  background: var(--bg);
   border-radius: 0;
   border: 1px solid var(--border);
 }
@@ -967,7 +981,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 0.82rem;
-  background: rgba(255,255,255,0.9);
+  background: var(--surface);
 }
 .sg-module-config-select {
   flex: 1;
@@ -975,7 +989,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 0.82rem;
-  background: rgba(255,255,255,0.9);
+  background: var(--surface);
 }
 /* carrier-select field */
 .sg-module-config-row--carrier {
@@ -988,7 +1002,7 @@ button {
   flex-direction: column;
   gap: 3px;
   padding: 6px 8px;
-  background: rgba(255,255,255,0.7);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
   max-height: 180px;
@@ -1061,15 +1075,11 @@ button {
 .sg-module-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--surface, #fff);
+  background: var(--surface);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
-.sg-module-table thead th {
-  padding: 4px 6px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text);
-}
+/* (canonical .sg-module-table thead th lives ~150 lines below — see "table editor — sticky header") */
 .sg-module-table tbody td {
   border-top: 1px solid rgba(15, 23, 42, 0.06);
   padding: 0;
@@ -1167,8 +1177,8 @@ button {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(255,255,255,0.45);
-  border-top-color: #ffffff;
+  border: 2px solid var(--surface);
+  border-top-color: var(--surface);
   border-radius: 50%;
   animation: sg-spin 0.8s linear infinite;
 }
@@ -1183,15 +1193,15 @@ button {
 }
 .sg-module-config-input:hover,
 .sg-module-config-select:hover {
-  border-color: rgba(37, 99, 235, 0.45);
-  background: #ffffff;
+  border-color: rgba(15, 118, 110, 0.45);
+  background: var(--surface);
 }
 .sg-module-config-input:focus,
 .sg-module-config-select:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
-  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  background: var(--surface);
 }
 
 /* Bigger, branded checkboxes inside config rows */
@@ -1212,23 +1222,26 @@ button {
   color: var(--text);
 }
 
-/* Polish: table editor — striped rows, sticky header, focus state */
+/* Polish: table editor — sticky header, striped rows, hover state */
 .sg-module-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--surface, #fff);
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
   font-size: 0.72rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.12);
+  text-align: left;
 }
 .sg-module-table tbody tr:nth-child(odd) td {
   background: rgba(15, 23, 42, 0.015);
 }
 .sg-module-table tbody tr:hover td {
-  background: rgba(15, 118, 110, 0.05);
+  background: var(--brand-fill);
 }
 
 /* Polish: file picker name — accent when set */
@@ -1255,7 +1268,7 @@ button {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text);
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-radius: 0;
   padding: 4px 6px;
 }
@@ -1359,12 +1372,12 @@ button {
   gap: 8px;
   padding: 8px 10px;
   border-radius: 0;
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   flex-wrap: nowrap;
 }
 .gcc-row--on {
-  background: #fff;
+  background: var(--surface);
   border-color: var(--border);
 }
 .gcc-check {
@@ -1402,7 +1415,7 @@ button {
   padding: 4px 8px;
   flex: 1;
   min-width: 80px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }
@@ -1419,7 +1432,7 @@ button {
   padding: 4px 6px;
   min-width: 90px;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }
@@ -1432,7 +1445,7 @@ button {
   width: 64px;
   text-align: right;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }
@@ -1480,7 +1493,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 8px;
-  background: #f8fafc;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1563,7 +1576,7 @@ button {
 }
 
 .leaflet-container {
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: var(--font-sans);
 }
 
 .map-footer-grid {
@@ -1587,6 +1600,16 @@ button {
   background: var(--surface);
 }
 
+/* ── Unified table baseline ─────────────────────────────────────────────────
+   Every data-displaying table in Ragnarok shares these visual rules:
+     • mono font for tabular data (numbers, IDs, codes line up)
+     • 0.78rem body / 0.72rem header
+     • header: uppercase + 0.04em letter-spacing, --muted text, --bg-hover bg
+     • body cells: 5–6px padding, --bg-hover separator between rows
+   Each table class below (.data-table, .sg-module-table, .plugin-result-*,
+   .cmp-table) extends this baseline rather than reinventing styling.
+   ────────────────────────────────────────────────────────────────────────── */
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1602,17 +1625,19 @@ button {
 
 .data-table th {
   padding: 6px 10px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 600;
   text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .data-table td {
   padding: 5px 10px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
 }
 
 .data-table tr.is-selected {
@@ -1726,7 +1751,7 @@ button {
   padding: 24px 18px;
   border: 1px dashed var(--border-strong);
   border-radius: 0;
-  background: rgba(248, 250, 252, 0.7);
+  background: var(--bg);
 }
 
 .chart-control {
@@ -1776,7 +1801,7 @@ button {
 
 .asset-pill--active {
   background: var(--accent);
-  color: #fff;
+  color: var(--surface);
   border-color: var(--accent);
 }
 
@@ -1792,7 +1817,7 @@ button {
   padding: 12px 14px;
   border-radius: 0;
   border: 1px solid var(--border);
-  background: rgba(248, 250, 252, 0.82);
+  background: var(--bg);
   margin-bottom: 12px;
 }
 
@@ -1854,7 +1879,7 @@ button {
 .rolling-timeline-track {
   position: relative;
   height: 18px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 .rolling-timeline-window {
@@ -1941,8 +1966,8 @@ button {
   height: 20px;
   border-radius: 50%;
   background: var(--brand);
-  border: 2.5px solid #ffffff;
-  box-shadow: 0 1px 5px rgba(37, 99, 235, 0.35);
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 1px 5px rgba(15, 118, 110, 0.35);
   pointer-events: all;
   cursor: pointer;
 }
@@ -1952,14 +1977,14 @@ button {
   height: 20px;
   border-radius: 50%;
   background: var(--brand);
-  border: 2.5px solid #ffffff;
-  box-shadow: 0 1px 5px rgba(37, 99, 235, 0.35);
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 1px 5px rgba(15, 118, 110, 0.35);
   pointer-events: all;
   cursor: pointer;
 }
 
 .dual-range-input:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 1px 5px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.2), 0 1px 5px rgba(15, 118, 110, 0.35);
 }
 
 .chart-window {
@@ -1968,7 +1993,7 @@ button {
   gap: 4px;
   padding: 10px 12px;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--surface);
   border: 1px solid var(--border);
 }
 
@@ -1994,7 +2019,7 @@ button {
   align-items: flex-start;
   gap: 0;
   align-self: flex-start;
-  background: rgba(255,255,255,0.95);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 8px 10px;
@@ -2058,9 +2083,9 @@ button {
 /* Tooltip text sits on a dark (rgba(15,23,42,0.88)) surface. */
 .chart-tip-label  { fill: rgba(255, 255, 255, 0.72); font-size: 11px; }
 .chart-tip-sub    { fill: #94a3b8; font-size: 10px; }
-.chart-tip-name   { fill: #fff; font-size: 11px; font-weight: 600; }
-.chart-tip-line   { fill: #fff; font-size: 11px; }
-.chart-tip-value  { fill: #fff; font-size: 12px; font-weight: 700; }
+.chart-tip-name   { fill: var(--surface); font-size: 11px; font-weight: 600; }
+.chart-tip-line   { fill: var(--surface); font-size: 11px; }
+.chart-tip-value  { fill: var(--surface); font-size: 12px; font-weight: 700; }
 
 /* Inline unit/secondary annotation next to a value in HTML chart tables. */
 .chart-unit-note { color: var(--muted); font-size: 0.78rem; margin-left: 4px; }
@@ -2091,7 +2116,7 @@ button {
 .legend-list {
   flex: 0 0 auto;
   align-self: flex-start;
-  background: rgba(255,255,255,0.95);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 8px 10px;
@@ -2172,7 +2197,7 @@ button {
   padding: 18px;
   border-radius: 0;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--surface);
 }
 
 .analytics-empty {
@@ -2245,7 +2270,7 @@ path.leaflet-interactive:focus {
   font-weight: 700;
   color: var(--brand);
   background: var(--brand-soft);
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(15, 118, 110, 0.2);
   border-radius: 0;
   padding: 2px 8px;
 }
@@ -2267,11 +2292,11 @@ path.leaflet-interactive:focus {
 
 .modal-card {
   width: min(520px, 100%);
-  padding: 22px;
+  padding: 24px;
   border-radius: 0;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
 }
 
 .run-settings-grid {
@@ -2322,7 +2347,7 @@ path.leaflet-interactive:focus {
   padding: 16px;
   border-radius: 0;
   border: 1px solid var(--border);
-  background: rgba(248, 250, 252, 0.82);
+  background: var(--bg);
   text-align: left;
 }
 
@@ -2343,7 +2368,7 @@ path.leaflet-interactive:focus {
 .constraint-editor-header {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .constraint-editor textarea {
@@ -2352,7 +2377,7 @@ path.leaflet-interactive:focus {
   border: none;
   border-radius: 0;
   resize: vertical;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-family: var(--font-mono);
   font-size: 1rem;
   line-height: 1.7;
 }
@@ -2462,7 +2487,7 @@ path.leaflet-interactive:focus {
 }
 
 .nav-group-header:hover {
-  background: rgba(37, 99, 235, 0.04);
+  background: rgba(15, 118, 110, 0.04);
 }
 
 .nav-chevron {
@@ -2496,7 +2521,7 @@ path.leaflet-interactive:focus {
 }
 
 .nav-count.has-data {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(15, 118, 110, 0.1);
   color: var(--brand);
 }
 
@@ -2522,12 +2547,12 @@ path.leaflet-interactive:focus {
 }
 
 .nav-item:hover {
-  background: rgba(37, 99, 235, 0.06);
+  background: rgba(15, 118, 110, 0.06);
   color: var(--text);
 }
 
 .nav-item.active {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(15, 118, 110, 0.1);
   color: var(--brand-strong);
   font-weight: 600;
 }
@@ -2537,7 +2562,7 @@ path.leaflet-interactive:focus {
 }
 
 .nav-item.ts-item.active {
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(15, 118, 110, 0.08);
   color: var(--brand);
 }
 
@@ -2581,7 +2606,7 @@ path.leaflet-interactive:focus {
 .sheet-name-chip {
   font-size: 0.72rem;
   font-weight: 400;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
   background: rgba(100, 116, 139, 0.1);
   color: var(--muted);
   padding: 2px 8px;
@@ -2590,7 +2615,7 @@ path.leaflet-interactive:focus {
 
 .ts-chip {
   font-size: 0.72rem;
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(15, 118, 110, 0.08);
   color: var(--brand);
   padding: 2px 8px;
   border-radius: 0;
@@ -2614,7 +2639,7 @@ path.leaflet-interactive:focus {
 }
 
 .hist-card {
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 10px 10px 8px;
@@ -2624,8 +2649,8 @@ path.leaflet-interactive:focus {
 }
 
 .hist-card--pinned {
-  border-color: rgba(37, 99, 235, 0.35);
-  background: rgba(37, 99, 235, 0.04);
+  border-color: rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.04);
 }
 
 .hist-card-header {
@@ -2672,7 +2697,7 @@ path.leaflet-interactive:focus {
   padding: 1px 5px;
   outline: none;
   min-width: 0;
-  background: #fff;
+  background: var(--surface);
 }
 
 .hist-card-actions {
@@ -2692,7 +2717,7 @@ path.leaflet-interactive:focus {
   line-height: 1;
   transition: background 0.1s, color 0.1s;
 }
-.hist-pin-btn:hover { background: rgba(37, 99, 235, 0.08); color: var(--brand); }
+.hist-pin-btn:hover { background: rgba(15, 118, 110, 0.08); color: var(--brand); }
 .hist-pin-btn.active { color: var(--brand); }
 
 /* Excluded-from-comparison card state */
@@ -2740,10 +2765,10 @@ path.leaflet-interactive:focus {
   cursor: pointer;
   border: 1px solid;
 }
-.hist-confirm-yes { background: #dc2626; color: #fff; border-color: #dc2626; }
+.hist-confirm-yes { background: #dc2626; color: var(--surface); border-color: #dc2626; }
 .hist-confirm-yes:hover { background: #b91c1c; }
-.hist-confirm-no  { background: #fff; color: var(--muted); border-color: var(--border); }
-.hist-confirm-no:hover  { background: #f1f5f9; }
+.hist-confirm-no  { background: var(--surface); color: var(--muted); border-color: var(--border); }
+.hist-confirm-no:hover  { background: var(--bg-hover); }
 
 .hist-meta {
   font-size: 0.72rem;
@@ -2837,7 +2862,7 @@ path.leaflet-interactive:focus {
 .spreadsheet-scroll {
   flex: 1;
   overflow: auto;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   min-height: 0;
@@ -2848,7 +2873,7 @@ path.leaflet-interactive:focus {
   width: max-content;
   min-width: 100%;
   font-size: 0.78rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .spreadsheet-table thead {
@@ -2860,7 +2885,7 @@ path.leaflet-interactive:focus {
 }
 
 .spreadsheet-table th {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border: 1px solid #e2e8f0;
   padding: 4px 8px;
   font-size: 0.72rem;
@@ -2884,11 +2909,11 @@ path.leaflet-interactive:focus {
 }
 
 .spreadsheet-table tr:hover td {
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .rn-col {
-  background: #f1f5f9 !important;
+  background: var(--bg-hover) !important;
   color: #94a3b8;
   text-align: center;
   /* Width is locked to exactly 40px so it aligns flush with .col-frozen's
@@ -2915,7 +2940,7 @@ path.leaflet-interactive:focus {
 
 .cell-editing {
   padding: 0 !important;
-  background: #fff !important;
+  background: var(--surface) !important;
   outline: 2px solid var(--brand);
 }
 
@@ -2925,8 +2950,8 @@ path.leaflet-interactive:focus {
 }
 
 .cell-selected {
-  background: rgba(37, 99, 235, 0.12) !important;
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35);
+  background: rgba(15, 118, 110, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.35);
 }
 .cell-anchor {
   box-shadow: inset 0 0 0 2px var(--brand);
@@ -2949,8 +2974,8 @@ path.leaflet-interactive:focus {
   outline: none;
   padding: 0 6px;
   font-size: 0.78rem;
-  font-family: "IBM Plex Mono", monospace;
-  background: #fff;
+  font-family: var(--font-mono);
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -3101,7 +3126,7 @@ path.leaflet-interactive:focus {
 /* ── Run dialog: static model notice ─────────────────────────────────────── */
 .run-static-notice {
   background: var(--brand-soft);
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(15, 118, 110, 0.2);
   border-radius: 0;
   padding: 14px 18px;
   margin-bottom: 16px;
@@ -3127,7 +3152,7 @@ path.leaflet-interactive:focus {
   white-space: nowrap;
 }
 
-.sc-status--idle    { background: #f1f5f9; color: var(--muted); }
+.sc-status--idle    { background: var(--bg-hover); color: var(--muted); }
 .sc-status--running { background: #ccfbf1; color: var(--brand-strong); }
 .sc-status--done    { background: #ccfbf1; color: var(--brand-strong); }
 .sc-status--error   { background: #fee2e2; color: #dc2626; }
@@ -3201,7 +3226,7 @@ path.leaflet-interactive:focus {
 .dashboard-section-header-row {
   display: flex;
   align-items: stretch;
-  background: #f8fafc;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .dashboard-section-header {
@@ -3216,7 +3241,7 @@ path.leaflet-interactive:focus {
   border: none;
   text-align: left;
 }
-.dashboard-section-header:hover { background: rgba(37, 99, 235, 0.04); }
+.dashboard-section-header:hover { background: rgba(15, 118, 110, 0.04); }
 .dashboard-section-header h3 {
   margin: 0;
   font-family: var(--font-mono);
@@ -3247,10 +3272,11 @@ path.leaflet-interactive:focus {
 .plugin-result-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
 .plugin-result-table tr + tr td {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--bg-hover);
 }
 .plugin-result-label {
   color: var(--muted);
@@ -3267,15 +3293,16 @@ path.leaflet-interactive:focus {
 .plugin-result-unit {
   color: var(--muted);
   font-weight: 400;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 .plugin-result-subtable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
 .plugin-result-subtable td {
-  padding: 2px 8px 2px 0;
+  padding: 5px 10px 5px 0;
   color: var(--muted);
 }
 .plugin-result-subtable td:last-child {
@@ -3285,10 +3312,10 @@ path.leaflet-interactive:focus {
 }
 .plugin-result-subtable th {
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--muted);
-  padding: 2px 8px 4px 0;
+  padding: 6px 10px 6px 0;
   border-bottom: 1px solid var(--border);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -3313,7 +3340,7 @@ path.leaflet-interactive:focus {
 }
 .chart-export-btn:hover {
   color: var(--accent, var(--brand));
-  background: rgba(37, 99, 235, 0.05);
+  background: rgba(15, 118, 110, 0.05);
 }
 
 .dashboard-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -3329,7 +3356,7 @@ path.leaflet-interactive:focus {
 }
 
 .expansion-kpi {
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 10px 18px;
@@ -3373,7 +3400,7 @@ path.leaflet-interactive:focus {
 
 /* ── Merit Order Card ────────────────────────────────────────────────────── */
 .merit-card { padding: 8px 4px; }
-.merit-svg { font-family: 'IBM Plex Sans', sans-serif; }
+.merit-svg { font-family: var(--font-sans); }
 .merit-legend {
   display: flex;
   flex-wrap: wrap;
@@ -3438,7 +3465,7 @@ path.leaflet-interactive:focus {
   margin: 0;
   line-height: 1.5;
   padding: 8px 10px;
-  background: #f8fafc;
+  background: var(--bg);
   border-radius: 0;
   border-left: 3px solid var(--border);
 }
@@ -3448,9 +3475,9 @@ path.leaflet-interactive:focus {
   color: var(--text);
   line-height: 1.6;
   padding: 10px 12px;
-  background: rgba(37,99,235,0.04);
+  background: rgba(15,118,110,0.04);
   border-radius: 0;
-  border: 1px solid rgba(37,99,235,0.12);
+  border: 1px solid rgba(15,118,110,0.12);
 }
 .co2-interpretation h4 {
   margin: 0 0 6px;
@@ -3480,7 +3507,7 @@ path.leaflet-interactive:focus {
   bottom: 24px;
   right: 12px;
   z-index: 1000;
-  background: rgba(255,255,255,0.95);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 8px 10px;
@@ -3510,7 +3537,7 @@ path.leaflet-interactive:focus {
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1.5px solid rgba(255,255,255,0.7);
+  border: 1.5px solid var(--surface);
   box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
 }
 .map-legend-line-svg { flex-shrink: 0; }
@@ -3522,7 +3549,7 @@ path.leaflet-interactive:focus {
   flex-wrap: wrap;
   gap: 6px 14px;
   padding: 7px 12px;
-  background: rgba(255,255,255,0.94);
+  background: var(--surface);
   border-top: 1px solid var(--border);
   font-size: 0.78rem;
 }
@@ -3546,7 +3573,7 @@ path.leaflet-interactive:focus {
   height: 10px;
   width: 120px;
   border-radius: 0;
-  background: linear-gradient(to right, #0f766e, #f59e0b, #dc2626);
+  background: linear-gradient(to right, var(--brand), var(--warn), var(--danger));
   margin: 4px 0 2px;
 }
 .loading-gradient-labels {
@@ -3559,7 +3586,7 @@ path.leaflet-interactive:focus {
   height: 10px;
   width: 120px;
   border-radius: 0;
-  background: linear-gradient(to right, var(--brand), #f1f5f9, #dc2626);
+  background: linear-gradient(to right, var(--brand), var(--bg-hover), var(--danger));
   margin: 4px 0 2px;
 }
 
@@ -3578,13 +3605,13 @@ path.leaflet-interactive:focus {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 0.78rem;
-  background: #f8fafc;
+  background: var(--bg);
   color: var(--text);
   outline: none;
 }
 .nav-search:focus {
   border-color: var(--accent, var(--brand));
-  background: #fff;
+  background: var(--surface);
 }
 .nav-search-clear {
   position: absolute;
@@ -3628,7 +3655,7 @@ path.leaflet-interactive:focus {
   box-shadow: 0 4px 16px rgba(0,0,0,0.14);
   pointer-events: all;
   background: #1e293b;
-  color: #f1f5f9;
+  color: var(--bg-hover);
   border-left: 3px solid #64748b;
   opacity: 0;
   transform: translateX(24px);
@@ -3661,7 +3688,7 @@ path.leaflet-interactive:focus {
   padding: 0;
   flex-shrink: 0;
 }
-.toast-close:hover { color: #f1f5f9; }
+.toast-close:hover { color: var(--bg-hover); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    QW-7  Freeze first column in spreadsheet (z-index corner fix)
@@ -3682,7 +3709,7 @@ path.leaflet-interactive:focus {
   position: sticky;
   left: 40px;   /* width of .rn-col */
   z-index: 3;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   box-shadow: 1px 0 0 #cbd5e1;
   font-weight: 600;
 }
@@ -3690,7 +3717,7 @@ path.leaflet-interactive:focus {
   position: sticky;
   left: 40px;
   z-index: 2;
-  background: #f8fafc;
+  background: var(--bg);
   box-shadow: 1px 0 0 #e2e8f0;
   font-weight: 500;
   white-space: nowrap;
@@ -3771,7 +3798,7 @@ th:hover .col-delete-btn {
   border: 1px solid var(--brand);
   border-radius: 0;
   outline: none;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -3798,7 +3825,7 @@ th:hover .col-delete-btn {
 .col-filter-dropdown {
   position: fixed;
   z-index: 9999;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid #e2e8f0;
   border-radius: 0;
   box-shadow: 0 8px 24px rgba(0,0,0,0.13);
@@ -3810,7 +3837,7 @@ th:hover .col-delete-btn {
 }
 .cfd-search-wrap {
   padding: 8px 8px 4px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
 }
 .cfd-search {
   width: 100%;
@@ -3820,10 +3847,10 @@ th:hover .col-delete-btn {
   border-radius: 0;
   font-size: 0.78rem;
   outline: none;
-  background: #f8fafc;
+  background: var(--bg);
 }
-.cfd-search:focus { border-color: var(--brand); background: #fff; }
-.cfd-divider { height: 1px; background: #f1f5f9; margin: 2px 0; }
+.cfd-search:focus { border-color: var(--brand); background: var(--surface); }
+.cfd-divider { height: 1px; background: var(--bg-hover); margin: 2px 0; }
 .cfd-list {
   overflow-y: auto;
   max-height: 220px;
@@ -3837,7 +3864,7 @@ th:hover .col-delete-btn {
   cursor: pointer;
   user-select: none;
 }
-.cfd-option:hover { background: #f8fafc; }
+.cfd-option:hover { background: var(--bg); }
 .cfd-select-all { font-weight: 600; color: #374151; padding-top: 6px; }
 .cfd-val {
   overflow: hidden;
@@ -3851,13 +3878,13 @@ th:hover .col-delete-btn {
   justify-content: flex-end;
   gap: 6px;
   padding: 6px 8px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--bg-hover);
 }
 .cfd-btn {
   padding: 4px 12px;
   border-radius: var(--radius-button);
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  background: var(--bg);
   cursor: pointer;
   font-size: 0.78rem;
   color: #374151;
@@ -3865,7 +3892,7 @@ th:hover .col-delete-btn {
 .cfd-btn:hover { background: #e2e8f0; }
 .cfd-btn--primary {
   background: var(--brand);
-  color: #fff;
+  color: var(--surface);
   border-color: var(--brand);
 }
 .cfd-btn--primary:hover { background: var(--brand-strong); }
@@ -3878,7 +3905,7 @@ th:hover .col-delete-btn {
   max-height: 420px;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid #e2e8f0;
   border-radius: 0;
   box-shadow: 0 8px 24px rgba(15,23,42,0.14);
@@ -3893,7 +3920,7 @@ th:hover .col-delete-btn {
 }
 .grid-ctxmenu {
   min-width: 150px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border, #e2e8f0);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
   padding: 4px 0;
@@ -3911,7 +3938,7 @@ th:hover .col-delete-btn {
   box-shadow: none;
   outline: none;
   text-align: left;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1.4;
   color: var(--text, #142033);
@@ -3922,7 +3949,7 @@ th:hover .col-delete-btn {
 /* :hover for mouse, [data-highlighted] for Radix keyboard navigation. */
 .grid-ctxmenu-item:hover,
 .grid-ctxmenu-item[data-highlighted] {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 .grid-ctxmenu-item.danger {
   color: var(--danger, #dc2626);
@@ -3940,7 +3967,7 @@ th:hover .col-delete-btn {
   padding: 8px 12px 6px;
   font-size: 0.78rem;
   color: var(--muted);
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
   flex-shrink: 0;
 }
 .add-col-list {
@@ -3955,10 +3982,10 @@ th:hover .col-delete-btn {
   border: none;
   background: transparent;
   cursor: pointer;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--bg);
   transition: background 0.1s;
 }
-.add-col-item:hover { background: #f1f5f9; }
+.add-col-item:hover { background: var(--bg-hover); }
 .add-col-item-top {
   display: flex;
   align-items: center;
@@ -3969,12 +3996,12 @@ th:hover .col-delete-btn {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
 }
 .add-col-unit {
   font-size: 0.72rem;
   color: var(--brand);
-  background: rgba(37,99,235,0.08);
+  background: rgba(15,118,110,0.08);
   border-radius: 0;
   padding: 0 4px;
 }
@@ -4021,13 +4048,13 @@ th:hover .col-delete-btn {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 0.88rem;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }
 .run-carbon-input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+  box-shadow: 0 0 0 2px rgba(15,118,110,0.12);
 }
 .run-carbon-hint {
   font-size: 0.72rem;
@@ -4041,7 +4068,7 @@ th:hover .col-delete-btn {
 
 /* ── EmissionsBreakdownCard ──────────────────────────────────────────────── */
 .ems-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 18px 20px;
@@ -4055,7 +4082,7 @@ th:hover .col-delete-btn {
   gap: 10px;
 }
 .ems-kpi {
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 10px 14px;
@@ -4105,7 +4132,7 @@ th:hover .col-delete-btn {
 .ems-bar-track {
   flex: 1;
   height: 18px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-radius: 0;
   overflow: hidden;
 }
@@ -4141,7 +4168,7 @@ th:hover .col-delete-btn {
 }
 .ems-th {
   padding: 6px 10px;
-  background: #f8fafc;
+  background: var(--bg);
   border-bottom: 2px solid var(--border);
   font-weight: 600;
   color: var(--muted);
@@ -4159,7 +4186,7 @@ th:hover .col-delete-btn {
 .ems-gen-row:hover { background: #f0f7ff; }
 .ems-td {
   padding: 6px 10px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
   color: var(--text);
   text-align: right;
   white-space: nowrap;
@@ -4169,7 +4196,7 @@ th:hover .col-delete-btn {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
 .ems-td--ems { font-weight: 500; }
@@ -4193,13 +4220,13 @@ th:hover .col-delete-btn {
   color: var(--muted);
   cursor: pointer;
 }
-.ems-show-more:hover { background: #f8fafc; color: var(--brand); border-color: #99f6e4; }
+.ems-show-more:hover { background: var(--bg); color: var(--brand); border-color: #99f6e4; }
 
 /* ── Dashboard expand/collapse all button ────────────────────────────────── */
 .dashboard-toggle-all-btn {
   margin-left: auto;
   padding: 6px 14px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
   font-size: 0.78rem;
@@ -4264,7 +4291,7 @@ th:hover .col-delete-btn {
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
   margin-bottom: 16px;
@@ -4291,7 +4318,7 @@ th:hover .col-delete-btn {
   margin-bottom: 16px;
 }
 .cmp-bar-chart {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 12px 14px;
@@ -4351,16 +4378,20 @@ th:hover .col-delete-btn {
 .cmp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
 .cmp-table th {
-  padding: 8px 12px;
+  padding: 6px 10px;
   font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   text-align: left;
-  background: #f8fafc;
+  background: var(--bg-hover);
 }
 .cmp-th-label {
   font-weight: 600;
@@ -4382,13 +4413,13 @@ th:hover .col-delete-btn {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--brand);
-  background: rgba(37,99,235,0.1);
+  background: rgba(15,118,110,0.1);
   border-radius: 0;
   padding: 1px 5px;
 }
 .cmp-table td {
   padding: 6px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
   white-space: nowrap;
   vertical-align: top;
 }
@@ -4396,19 +4427,19 @@ th:hover .col-delete-btn {
   font-size: 0.78rem;
   color: var(--muted);
   font-weight: 500;
-  background: #f8fafc;
+  background: var(--bg);
 }
 .cmp-table .cmp-section-header td {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  background: #f1f5f9;
+  background: var(--bg-hover);
   padding: 4px 12px;
   font-weight: 600;
 }
 .cmp-col--active {
-  background: rgba(37, 99, 235, 0.04) !important;
+  background: rgba(15, 118, 110, 0.04) !important;
 }
 .cmp-th.cmp-col--active .cmp-th-label {
   color: var(--brand);
@@ -4486,7 +4517,7 @@ th:hover .col-delete-btn {
   padding: 6px 10px;
   border-radius: 0;
   border-left: 3px solid transparent;
-  background: #f8fafc;
+  background: var(--bg);
   font-size: 0.82rem;
 }
 .vi-item--error  { border-left-color: #dc2626; background: #fef2f2; }
@@ -4561,9 +4592,9 @@ th:hover .col-delete-btn {
   left: 10px;
   z-index: 1000;
   width: 256px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 0;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   pointer-events: all;
 }
@@ -4573,7 +4604,7 @@ th:hover .col-delete-btn {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 10px 8px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
 }
 .mdc-title-row {
   display: flex;
@@ -4601,7 +4632,7 @@ th:hover .col-delete-btn {
   font-size: 0.68rem;
   font-weight: 500;
   color: var(--muted);
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-radius: 0;
   padding: 1px 5px;
   white-space: nowrap;
@@ -4618,10 +4649,10 @@ th:hover .col-delete-btn {
   line-height: 1;
   flex-shrink: 0;
 }
-.mdc-close:hover { background: #f1f5f9; color: var(--text); }
+.mdc-close:hover { background: var(--bg-hover); color: var(--text); }
 .mdc-kpis {
   padding: 6px 12px 4px;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--bg);
 }
 .mdc-kpi-row {
   display: flex;
@@ -4681,7 +4712,7 @@ th:hover .col-delete-btn {
 .subnav {
   display: flex;
   gap: 2px;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 3px;
@@ -4706,7 +4737,7 @@ th:hover .col-delete-btn {
   color: var(--text);
 }
 .subnav-btn--active {
-  background: #fff;
+  background: var(--surface);
   color: var(--brand);
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
@@ -4786,7 +4817,7 @@ th:hover .col-delete-btn {
   padding: 4px 8px;
   border: 1px solid var(--border-strong);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
 }
@@ -4873,7 +4904,7 @@ th:hover .col-delete-btn {
 }
 .sg-location-btn--active {
   background: var(--brand);
-  color: #fff;
+  color: var(--surface);
   border-color: var(--brand);
 }
 
@@ -5057,7 +5088,7 @@ th:hover .col-delete-btn {
   padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   font-size: 0.88rem;
   box-sizing: border-box;
 }
@@ -5084,7 +5115,7 @@ th:hover .col-delete-btn {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 0.82rem;
@@ -5094,7 +5125,7 @@ th:hover .col-delete-btn {
 .constraints-dsl-input:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
 }
 .constraints-applied-list {
   margin: 0;
@@ -5124,7 +5155,7 @@ th:hover .col-delete-btn {
 .constraints-applied-name { font-family: var(--font-mono); color: var(--text); }
 .constraints-applied-dual { color: var(--muted); font-family: var(--font-mono); }
 /* Match the Settings (Setup) nav look. */
-.plugins-view .view-rail--left { background: #f8fafc; }
+.plugins-view .view-rail--left { background: var(--bg); }
 .plugin-rail-body {
   display: flex;
   flex-direction: column;
@@ -5157,7 +5188,7 @@ th:hover .col-delete-btn {
 }
 .plugin-rail-item:hover { background: rgba(0, 0, 0, 0.04); }
 .plugin-rail-item--active {
-  background: rgba(29, 78, 216, 0.08);
+  background: rgba(15, 118, 110, 0.08);
   border-left-color: var(--brand);
   color: var(--brand);
   font-weight: 600;
@@ -5167,7 +5198,7 @@ th:hover .col-delete-btn {
 .plugin-analyze-out {
   margin: 0;
   padding: 8px 10px;
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -5180,7 +5211,7 @@ th:hover .col-delete-btn {
 .plugin-server-setup {
   margin: 16px;
   padding: 12px 14px;
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
 }
@@ -5198,7 +5229,7 @@ th:hover .col-delete-btn {
 .plugin-server-entry {
   margin: 6px 0;
   padding: 8px 10px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
   font-family: var(--font-mono);
@@ -5220,7 +5251,7 @@ th:hover .col-delete-btn {
   padding: 4px 22px 4px 8px;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 0.88rem;
@@ -5228,7 +5259,7 @@ th:hover .col-delete-btn {
 .ss-input:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
 }
 /* Chevron affordance so the field reads as a dropdown. */
 .ss-wrap::after {
@@ -5249,7 +5280,7 @@ th:hover .col-delete-btn {
   list-style: none;
   max-height: 220px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
   z-index: 9999;
@@ -5266,7 +5297,7 @@ th:hover .col-delete-btn {
 }
 .ss-option:hover,
 .ss-option--active {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 .ss-option--sel {
   background: #e8f0ef;
@@ -5275,7 +5306,7 @@ th:hover .col-delete-btn {
 .constraints-help {
   margin-bottom: 12px;
   padding: 8px 10px;
-  background: #f8fafc;
+  background: var(--bg);
   border: 1px solid var(--border);
   font-size: 0.82rem;
 }
@@ -5322,7 +5353,7 @@ th:hover .col-delete-btn {
   font-size: 0.82rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
 }
 .sg-stochastic-field {
   display: flex;
@@ -5337,7 +5368,7 @@ th:hover .col-delete-btn {
   font-size: 0.82rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   text-align: right;
 }
 
@@ -5346,7 +5377,7 @@ th:hover .col-delete-btn {
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 16px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   margin-bottom: 16px;
 }
 .stochastic-card-header {
@@ -5414,7 +5445,7 @@ th:hover .col-delete-btn {
   gap: 6px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
   flex-wrap: wrap;
 }
 .view-toolbar-sep {
@@ -5491,7 +5522,7 @@ th:hover .col-delete-btn {
   text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
-  background: #f1f5f9;
+  background: var(--bg-hover);
   box-sizing: border-box;
 }
 .view-main {
@@ -5525,7 +5556,7 @@ th:hover .col-delete-btn {
   width: 280px;
   min-width: 240px;
   flex-shrink: 0;
-  background: #f8fafc;
+  background: var(--bg);
   border-right: 1px solid var(--border);
   overflow-y: auto;
   padding: 12px 0;
@@ -5558,7 +5589,7 @@ th:hover .col-delete-btn {
   background: rgba(0,0,0,0.04);
 }
 .settings-nav-item--active {
-  background: rgba(29, 78, 216, 0.08);
+  background: rgba(15, 118, 110, 0.08);
   border-left-color: var(--brand);
   font-weight: 600;
   color: var(--brand);
@@ -5584,7 +5615,7 @@ th:hover .col-delete-btn {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-right: 1px solid var(--border);
   padding: 4px 0;
   gap: 1px;
@@ -5612,7 +5643,7 @@ th:hover .col-delete-btn {
 .activity-bar-btn.is-active {
   color: var(--brand);
   border-left-color: var(--brand);
-  background: #fff;
+  background: var(--surface);
 }
 
 .activity-bar-glyph {
@@ -5637,7 +5668,7 @@ th:hover .col-delete-btn {
   align-items: center;
   justify-content: center;
   background: #94a3b8;
-  color: #fff;
+  color: var(--surface);
   border: none;
 }
 
@@ -5655,7 +5686,7 @@ th:hover .col-delete-btn {
   font-size: 0.82rem;
   font-weight: 400;
   color: var(--text);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 5px 8px;
@@ -5669,13 +5700,13 @@ th:hover .col-delete-btn {
 .settings-section-main select:focus,
 .settings-section-main textarea:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
 }
 
 .settings-section-main input[disabled],
 .settings-section-main select[disabled],
 .settings-section-main textarea[disabled] {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   color: var(--muted);
   cursor: not-allowed;
 }
@@ -5722,7 +5753,7 @@ th:hover .col-delete-btn {
   font-family: inherit;
   font-size: 0.82rem;
   color: var(--text);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
   padding: 5px 8px;
@@ -5735,7 +5766,7 @@ th:hover .col-delete-btn {
 .view-rail select:focus,
 .view-rail textarea:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
 }
 
 .view-rail label,
@@ -5785,12 +5816,12 @@ th:hover .col-delete-btn {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface);
   border-right: 1px solid var(--border);
 }
 .model-column:last-child { border-right: none; }
 
-.model-column-tree  { background: #f8fafc; }
+.model-column-tree  { background: var(--bg); }
 /* Column widths are controlled by the ResizablePanels splitter wrapper. */
 
 /* Consistent header strip across all 3 columns */
@@ -5806,7 +5837,7 @@ th:hover .col-delete-btn {
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
   box-sizing: border-box;
 }
 
@@ -5835,7 +5866,7 @@ th:hover .col-delete-btn {
 .model-view .inline-stats span {
   padding: 2px 8px;
   font-size: 0.72rem;
-  background: #fff;
+  background: var(--surface);
 }
 
 /* Map column: drop the rounded frame, let the map fill the column body */
@@ -5956,7 +5987,7 @@ th:hover .col-delete-btn {
   gap: 6px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .sheet-tree-search {
@@ -5966,11 +5997,11 @@ th:hover .col-delete-btn {
   font-size: 0.82rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
 }
 .sheet-tree-search:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
   outline: none;
 }
 
@@ -6010,7 +6041,7 @@ th:hover .col-delete-btn {
   color: var(--text);
   text-align: left;
 }
-.sheet-tree-group-header:hover { background: rgba(37, 99, 235, 0.05); }
+.sheet-tree-group-header:hover { background: rgba(15, 118, 110, 0.05); }
 
 .sheet-tree-chevron {
   font-size: 0.82rem;
@@ -6045,9 +6076,9 @@ th:hover .col-delete-btn {
   color: var(--text);
   text-align: left;
 }
-.sheet-tree-item:hover { background: rgba(37, 99, 235, 0.05); }
+.sheet-tree-item:hover { background: rgba(15, 118, 110, 0.05); }
 .sheet-tree-item.is-active {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(15, 118, 110, 0.1);
   color: var(--brand);
   font-weight: 600;
 }
@@ -6055,7 +6086,7 @@ th:hover .col-delete-btn {
 .sheet-tree-item-icon {
   display: inline-block;
   width: 14px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -6086,7 +6117,7 @@ th:hover .col-delete-btn {
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--surface);
 }
 .sheet-tree-badge.is-error   { background: #dc2626; }
 .sheet-tree-badge.is-warning { background: #f59e0b; }
@@ -6120,7 +6151,7 @@ th:hover .col-delete-btn {
   display: inline-block;
   padding: 1px 6px;
   font-size: 0.72rem;
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 0;
   color: var(--muted);
@@ -6183,7 +6214,7 @@ th:hover .col-delete-btn {
 
 .analytics-view-rail {
   border-left: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6203,7 +6234,7 @@ th:hover .col-delete-btn {
   text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .analytics-view-rail-clear {
@@ -6332,7 +6363,7 @@ code, kbd, samp, tt,
 .workspace-main select:focus,
 .workspace-main textarea:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
 }
 
 /* Any button inside the workspace */
@@ -6357,7 +6388,7 @@ code, kbd, samp, tt,
   min-height: 40px;
   padding: 0 14px;
   border-bottom: 1px solid var(--border);
-  background: #f1f5f9;
+  background: var(--bg-hover);
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -6401,7 +6432,7 @@ code, kbd, samp, tt,
 }
 .plugin-module-tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-hover);
 }
 .plugin-module-tab.is-active {
   background: var(--surface);
@@ -6478,7 +6509,7 @@ code, kbd, samp, tt,
 .tb-btn--active {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
+  color: var(--surface);
 }
 .tb-btn--active:hover {
   background: var(--brand-strong);
@@ -6581,7 +6612,7 @@ code, kbd, samp, tt,
   justify-content: space-between;
   gap: 6px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
 }
 .dashboard-cell-title {
   font-family: var(--font-mono);
@@ -6779,7 +6810,7 @@ code, kbd, samp, tt,
   transition: background 100ms ease, border-color 100ms ease;
 }
 .dashboard-preset-row:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-color: var(--border);
 }
 .dashboard-preset-label {
@@ -6977,7 +7008,7 @@ code, kbd, samp, tt,
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 0;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6990,7 +7021,7 @@ code, kbd, samp, tt,
   gap: 12px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: #f8fafc;
+  background: var(--bg);
 }
 .chart-modal-head strong {
   font-size: 0.88rem;
@@ -7070,7 +7101,7 @@ code, kbd, samp, tt,
 }
 .chart-modal-body .chart-control select:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
   outline: none;
 }
 .chart-modal-body .chart-control-row {
@@ -7182,7 +7213,7 @@ code, kbd, samp, tt,
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--bg, #f8fafc);
+  background: var(--bg, var(--bg));
 }
 .build-step-strip {
   margin: 14px 18px 0;
@@ -7236,7 +7267,7 @@ code, kbd, samp, tt,
   padding: 3px 10px;
   font-size: 0.72rem;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
   border: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -7246,20 +7277,20 @@ code, kbd, samp, tt,
   flex-direction: column;
   min-width: 140px;
   padding: 4px;
-  background: var(--surface, #fff);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 .build-map-menu-item {
   width: 100%;
   text-align: left;
   padding: 6px 10px;
   font-size: 0.78rem;
-  color: var(--text, #1e293b);
+  color: var(--text);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-button);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -7290,7 +7321,7 @@ code, kbd, samp, tt,
   padding: 5px 10px;
   font-size: 0.74rem;
   color: var(--text, #1e293b);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface);
   border: 1px solid var(--accent, #0f766e);
   white-space: nowrap;
 }
@@ -7336,7 +7367,7 @@ code, kbd, samp, tt,
   flex-direction: column;
   max-height: 40%;
   border-top: 1px solid var(--border, #e2e2e2);
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   overflow: hidden;
 }
 
@@ -7352,7 +7383,7 @@ code, kbd, samp, tt,
   padding: 8px 12px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--bg-hover);
   text-align: left;
   cursor: pointer;
   flex-shrink: 0;
@@ -7389,7 +7420,7 @@ code, kbd, samp, tt,
 }
 
 .build-ts-panel-row:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .build-ts-panel-row.is-active {
@@ -7444,7 +7475,7 @@ code, kbd, samp, tt,
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7462,7 +7493,7 @@ code, kbd, samp, tt,
   min-height: 0;
   overflow: auto;
   padding: 12px 14px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   font-size: 0.82rem;
   gap: 12px;
 }
@@ -7494,7 +7525,7 @@ code, kbd, samp, tt,
   font-size: 0.8rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   color: var(--text);
 }
 .build-field input:focus,
@@ -7511,7 +7542,7 @@ code, kbd, samp, tt,
   min-height: 0;
   overflow: auto;
   padding: 14px 16px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   font-size: 0.82rem;
 }
 .build-detail-header h3 { margin: 4px 0 12px; font-size: 1rem; }
@@ -7540,7 +7571,7 @@ code, kbd, samp, tt,
   height: 16px;
   border-radius: 50%;
   background: #dc2626;
-  color: #fff;
+  color: var(--surface);
   font-size: 0.72rem;
   flex-shrink: 0;
 }
@@ -7605,7 +7636,7 @@ code, kbd, samp, tt,
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   border: 1px solid var(--border);
   border-radius: 0;
   margin: 10px 0;
@@ -7622,7 +7653,7 @@ code, kbd, samp, tt,
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   margin-bottom: 14px;
 }
 .build-review-status { display: flex; align-items: center; gap: 12px; }
@@ -7648,7 +7679,7 @@ code, kbd, samp, tt,
 .build-review-counts {
   width: 100%;
   border-collapse: collapse;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   border: 1px solid var(--border);
   border-radius: 0;
   overflow: hidden;

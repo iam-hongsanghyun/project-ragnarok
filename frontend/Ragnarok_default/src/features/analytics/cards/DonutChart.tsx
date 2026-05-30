@@ -61,7 +61,7 @@ export function DonutChart({ data }: { data: MixItem[] }) {
           const ty = Math.max(8, Math.min(tooltip.y - 30, 380 - 56));
           return (
             <g transform={`translate(${tx},${ty})`} style={{ pointerEvents: 'none' }}>
-              <rect rx="7" ry="7" width="160" height="48" fill="rgba(15,23,42,0.88)" />
+              <rect rx="4" ry="4" width="160" height="48" fill="rgba(15,23,42,0.88)" />
               <text y="18" x="10" className="chart-tip-label">{tooltip.label}</text>
               <text y="36" x="10" className="chart-tip-value">
                 {Math.round(tooltip.value).toLocaleString()}

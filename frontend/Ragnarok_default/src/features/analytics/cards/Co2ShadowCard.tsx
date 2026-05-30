@@ -14,9 +14,9 @@ interface Props {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  binding: { bg: 'rgba(220,38,38,0.08)', text: '#dc2626', label: 'Binding' },
-  slack:   { bg: 'rgba(22,163,74,0.08)',  text: '#16a34a', label: 'Not binding (slack)' },
-  none:    { bg: 'rgba(100,116,139,0.08)', text: '#64748b', label: 'No constraint' },
+  binding: { bg: 'rgba(220,38,38,0.08)', text: 'var(--danger)', label: 'Binding' },
+  slack:   { bg: 'rgba(22,163,74,0.08)',  text: '#16a34a',      label: 'Not binding (slack)' },
+  none:    { bg: 'rgba(100,116,139,0.08)', text: 'var(--muted)', label: 'No constraint' },
 };
 
 export function Co2ShadowCard({ shadow, currencySymbol = '$' }: Props) {
@@ -39,7 +39,7 @@ export function Co2ShadowCard({ shadow, currencySymbol = '$' }: Props) {
           <div className="co2-kpi-label">Shadow price</div>
           <div
             className="co2-kpi-value"
-            style={{ color: shadow.status === 'binding' ? '#dc2626' : '#64748b' }}
+            style={{ color: shadow.status === 'binding' ? 'var(--danger)' : 'var(--muted)' }}
           >
             {shadow.found ? `${currencySymbol}${shadow.shadow_price.toLocaleString()}` : '—'}
           </div>
@@ -50,7 +50,7 @@ export function Co2ShadowCard({ shadow, currencySymbol = '$' }: Props) {
 
         <div className="co2-kpi">
           <div className="co2-kpi-label">Explicit carbon price</div>
-          <div className="co2-kpi-value" style={{ color: '#0f766e' }}>
+          <div className="co2-kpi-value" style={{ color: 'var(--brand)' }}>
             {shadow.explicit_price > 0 ? `${currencySymbol}${shadow.explicit_price.toLocaleString()}` : '—'}
           </div>
           <div className="co2-kpi-unit">/tCO₂</div>
@@ -75,7 +75,7 @@ export function Co2ShadowCard({ shadow, currencySymbol = '$' }: Props) {
               <div className="co2-kpi-label">Price gap</div>
               <div
                 className="co2-kpi-value"
-                style={{ color: shadow.shadow_price > shadow.explicit_price ? '#dc2626' : '#16a34a' }}
+                style={{ color: shadow.shadow_price > shadow.explicit_price ? 'var(--danger)' : '#16a34a' }}
               >
                 {shadow.shadow_price > shadow.explicit_price ? '+' : ''}
                 {(shadow.shadow_price - shadow.explicit_price).toFixed(0)}

@@ -96,7 +96,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
             <g>
               <line
                 x1={demandX} y1={0} x2={demandX} y2={innerH}
-                stroke="#dc2626" strokeWidth={2} strokeDasharray="6 3"
+                stroke="var(--danger)" strokeWidth={2} strokeDasharray="6 3"
               />
               <text x={demandX + 4} y={12} className="chart-peak-label">
                 Peak load
@@ -105,8 +105,8 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
           )}
 
           {/* Axes */}
-          <line x1={0} y1={0} x2={0} y2={innerH} stroke="#cbd5e1" strokeWidth={1} />
-          <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="#cbd5e1" strokeWidth={1} />
+          <line x1={0} y1={0} x2={0} y2={innerH} stroke="var(--border-strong)" strokeWidth={1} />
+          <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="var(--border-strong)" strokeWidth={1} />
 
           {/* X-axis label */}
           <text x={innerW / 2} y={innerH + 32} textAnchor="middle" className="chart-axis-title">
@@ -129,7 +129,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
             const x = xScale(mw);
             return (
               <g key={t}>
-                <line x1={x} y1={innerH} x2={x} y2={innerH + 4} stroke="#cbd5e1" strokeWidth={1} />
+                <line x1={x} y1={innerH} x2={x} y2={innerH + 4} stroke="var(--border-strong)" strokeWidth={1} />
                 <text x={x} y={innerH + 14} textAnchor="middle" className="chart-tick">
                   {mw.toLocaleString()}
                 </text>
@@ -146,7 +146,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
             const ty = Math.max(yScale(hovered.marginal_cost) - 70, 4);
             return (
               <g transform={`translate(${tx},${ty})`} style={{ pointerEvents: 'none' }}>
-                <rect rx={6} width={160} height={68} fill="rgba(15,23,42,0.9)" />
+                <rect rx={4} width={160} height={68} fill="rgba(15,23,42,0.9)" />
                 <text x={10} y={18} className="chart-tip-name">
                   {hovered.name.length > 18 ? hovered.name.slice(0, 16) + '…' : hovered.name}
                 </text>
@@ -177,7 +177,7 @@ export function MeritOrderCard({ entries, systemLoad, currencySymbol = '$' }: Pr
         )}
         {systemLoad != null && (
           <div className="legend-item-inline">
-            <span className="legend-swatch" style={{ backgroundColor: '#dc2626' }} />
+            <span className="legend-swatch" style={{ backgroundColor: 'var(--danger)' }} />
             <span>Peak load ({Math.round(systemLoad).toLocaleString()} MW)</span>
           </div>
         )}

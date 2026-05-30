@@ -316,10 +316,10 @@ export function InteractiveTimeSeriesCard({
                 <g style={{ pointerEvents: 'none' }}>
                   <line x1={hx} x2={hx} y1={padTop} y2={height - padBottom} stroke="rgba(15,23,42,0.22)" strokeWidth={1.5} strokeDasharray="4 3" />
                   <g transform={`translate(${tx},${ty})`}>
-                    <rect rx="7" ry="7" width={tipWidth} height={tipHeight} fill="rgba(15,23,42,0.88)" />
+                    <rect rx="4" ry="4" width={tipWidth} height={tipHeight} fill="rgba(15,23,42,0.88)" />
                     {tooltipItems.map((item, i) => (
                       <g key={item.label} transform={`translate(10,${18 + i * 18})`}>
-                        <rect x="0" y="-8" width="8" height="8" rx="2" fill={item.color} />
+                        <rect x="0" y="-8" width="8" height="8" rx="0" fill={item.color} />
                         <text x="12" y="0" className="chart-tip-line">
                           {item.label}: <tspan fontWeight="700">{Math.round(item.value).toLocaleString()}</tspan>
                         </text>

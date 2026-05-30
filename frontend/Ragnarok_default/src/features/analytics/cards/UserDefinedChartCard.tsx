@@ -532,7 +532,7 @@ export function UserDefinedChartCard({
             <button className="ghost-button chart-export-btn" onClick={handleExport}>Export</button>
           )}
           <button className="ghost-button" onClick={onClean}>Clean</button>
-          <button className="ghost-button" style={{ color: '#dc2626' }} onClick={onRemove}>Remove</button>
+          <button className="ghost-button" style={{ color: 'var(--danger)' }} onClick={onRemove}>Remove</button>
         </div>
       </div>
       {settingsPanel}

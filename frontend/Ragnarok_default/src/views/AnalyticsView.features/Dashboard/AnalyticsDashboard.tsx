@@ -303,7 +303,7 @@ export function AnalyticsDashboard({
               title={card.source === 'price' ? `Marginal price (${currencySymbol}/MWh)` : 'Load (MW)'}
               data={card.source === 'price' ? sortedPrice : sortedLoad}
               unit={card.source === 'price' ? `${currencySymbol}/MWh` : 'MW'}
-              color={card.source === 'price' ? '#111827' : '#f97316'}
+              color={card.source === 'price' ? 'var(--text)' : 'var(--warm)'}
             />
           );
         case 'merit-order':

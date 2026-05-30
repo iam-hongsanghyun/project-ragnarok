@@ -39,8 +39,8 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
             x={0} y={18}
             width={Math.max(2, (row.installed / maxMW) * barWidth)}
             height={8}
-            fill="#cbd5e1"
-            rx={2}
+            fill="var(--border-strong)"
+            rx={0}
           />
           {/* optimised capacity bar (carrier colour) */}
           <rect
@@ -49,7 +49,7 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
             height={10}
             fill={carrierColor(row.carrier)}
             fillOpacity={0.85}
-            rx={2}
+            rx={0}
           />
           {/* value labels */}
           <text
@@ -63,9 +63,9 @@ function ExpansionBarChart({ rows }: { rows: BarRow[] }) {
       ))}
       {/* Legend */}
       <g transform={`translate(0,${rows.length * 44 + 12})`}>
-        <rect x={0} y={0} width={12} height={8} fill="#cbd5e1" rx={2} />
+        <rect x={0} y={0} width={12} height={8} fill="var(--border-strong)" rx={0} />
         <text x={16} y={8} className="chart-tick">Installed</text>
-        <rect x={68} y={0} width={12} height={8} fill="#6366f1" fillOpacity={0.85} rx={2} />
+        <rect x={68} y={0} width={12} height={8} fill="#6366f1" fillOpacity={0.85} rx={0} />
         <text x={84} y={8} className="chart-tick">Optimised</text>
       </g>
     </svg>
