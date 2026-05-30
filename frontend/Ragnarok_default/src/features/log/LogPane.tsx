@@ -82,6 +82,24 @@ export function LogPane() {
     }
   }, []);
 
+  const clearBuffer = useCallback(async () => {
+    try {
+      const r = await fetch('/api/log', { method: 'DELETE' });
+      if (!r.ok) {
+        setError(`HTTP ${r.status}`);
+        return;
+      }
+      const data = (await r.json()) as LogResponse;
+      setError(null);
+      setEntries(data.entries);
+      setCursor(data.cursor);
+      setCapacity(data.capacity);
+      setLastFetchedAt(new Date());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
   // Initial fetch + subscribe to refresh events. No interval.
   useEffect(() => {
     fetchOnce();
@@ -121,6 +139,14 @@ export function LogPane() {
         </span>
         <button type="button" className="tb-btn tb-btn--muted" onClick={fetchOnce}>
           Refresh
+        </button>
+        <button
+          type="button"
+          className="tb-btn tb-btn--muted"
+          onClick={clearBuffer}
+          title="Empty the backend log ring buffer (the monotonic cursor is kept)."
+        >
+          Clear
         </button>
       </div>
       <div className="log-pane-body" ref={bodyRef} onScroll={onScroll}>

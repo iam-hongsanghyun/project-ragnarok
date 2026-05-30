@@ -22,6 +22,7 @@ import sys
 from .backends import BackendError, available_backends, get_backend
 from .config import load_system_defaults
 from .log_capture import (
+    clear_buffer as _log_clear,
     emit_solver_log as _emit_solver_log,
     get_snapshot as _log_snapshot,
     install as _install_log_capture,
@@ -259,6 +260,19 @@ def get_log() -> dict[str, Any]:
         "cursor": cursor,
         "capacity": capacity,
     }
+
+
+@app.delete("/api/log")
+def clear_log() -> dict[str, Any]:
+    """Empty the in-process log ring buffer.
+
+    Called by the Analytics → Log tab's Clear button. The monotonic
+    cursor is preserved so the client can still see how many entries
+    accumulated since the server started.
+    """
+    _log_clear()
+    _, cursor, capacity = _log_snapshot()
+    return {"entries": [], "cursor": cursor, "capacity": capacity}
 
 
 @app.post("/api/validate")

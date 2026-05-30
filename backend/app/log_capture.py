@@ -85,6 +85,13 @@ class MemoryLogHandler(logging.Handler):
         with self._lock:
             return list(self._buf), self._cursor
 
+    def clear(self) -> None:
+        """Empty the ring buffer. The monotonic cursor is preserved so
+        callers can still detect drops by tracking how it advances.
+        """
+        with self._lock:
+            self._buf.clear()
+
 
 def _iso_utc(epoch_seconds: float) -> str:
     return (
@@ -177,3 +184,8 @@ def get_snapshot() -> tuple[list[LogEntry], int, int]:
     """Return (entries, cursor, capacity) for the API endpoint."""
     entries, cursor = _HANDLER.snapshot()
     return entries, cursor, _HANDLER.capacity
+
+
+def clear_buffer() -> None:
+    """Empty the in-process log ring buffer (the monotonic cursor stays)."""
+    _HANDLER.clear()
