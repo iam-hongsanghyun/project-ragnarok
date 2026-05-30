@@ -52,7 +52,7 @@ export function ValidationPane({ validateResult, issues, onValidate, onRun, onNa
   const inputOk = errors.length === 0;
 
   return (
-    <div className="pane validation-pane">
+    <div className="validation-pane">
 
       {/* ── Frontend input checks ──────────────────────────────────────── */}
       <div className="validation-report">

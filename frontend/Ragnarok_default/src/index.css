@@ -221,11 +221,18 @@ button {
 }
 
 .sheet-item.is-active,
-.tab-button.is-active,
 .constraint-item.is-active {
   background: var(--brand-soft);
   border-color: var(--brand);
   color: var(--brand);
+}
+
+/* Tab buttons: selected = grey hover-style highlight (a "you're on this"
+   affordance), not a brand-coloured emphasis. */
+.tab-button.is-active {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
 }
 
 .action-grid,
@@ -3035,10 +3042,17 @@ path.leaflet-interactive:focus {
   border-color: rgba(15, 118, 110, 0.3);
 }
 
-/* ── Validation pane ─────────────────────────────────────────────────────── */
+/* ── Validation pane ─────────────────────────────────────────────────────
+   The validation main area is the direct content of the Analytics view;
+   it does NOT carry its own card border/background. Inner .validation-
+   section blocks are the cards. (Was previously `.pane.validation-pane`
+   which gave the outer wrap a border + white background — a box-in-box.)
+   ────────────────────────────────────────────────────────────────────── */
 .validation-pane {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 28px 32px !important;
+  padding: 28px 32px;
 }
 
 .validation-empty {
@@ -3078,12 +3092,12 @@ path.leaflet-interactive:focus {
 }
 
 .validation-section--error {
-  background: #fff8f8;
+  background: var(--danger-soft);
   border-color: rgba(220, 38, 38, 0.25);
 }
 
 .validation-section--warn {
-  background: #fffbf0;
+  background: var(--warn-soft);
   border-color: rgba(217, 119, 6, 0.25);
 }
 
@@ -3096,8 +3110,8 @@ path.leaflet-interactive:focus {
   color: var(--muted);
 }
 
-.validation-section--error .validation-section-title { color: #dc2626; }
-.validation-section--warn .validation-section-title { color: #d97706; }
+.validation-section--error .validation-section-title { color: var(--danger); }
+.validation-section--warn .validation-section-title { color: var(--warn-text); }
 
 .validation-list {
   margin: 0;
@@ -3112,8 +3126,8 @@ path.leaflet-interactive:focus {
   line-height: 1.45;
 }
 
-.validation-section--error .validation-list li { color: #b91c1c; }
-.validation-section--warn .validation-list li { color: #b45309; }
+.validation-section--error .validation-list li { color: var(--danger-strong); }
+.validation-section--warn .validation-list li { color: var(--warn-text); }
 
 .validation-list--notes li { color: var(--muted); font-size: 0.82rem; }
 
@@ -3268,25 +3282,35 @@ path.leaflet-interactive:focus {
   border-color: var(--border-strong);
 }
 
-/* ── Plugin result cards ─────────────────────────────────────────────────── */
-.plugin-result-table {
+/* ── Plugin result cards ─────────────────────────────────────────────────
+   Plugin result tables match .data-table: mono font, 0.78rem cells /
+   0.72rem header, --bg-hover header background, uppercase headers,
+   --bg-hover row separator, 5/6px × 10px padding. The plugin-result-table
+   variant is for two-column "label : value [unit]" rows (no thead). The
+   subtable variant is for full N-column data with a thead.
+   ────────────────────────────────────────────────────────────────────── */
+
+.plugin-result-table,
+.plugin-result-subtable {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 0.78rem;
 }
+
+/* Label-value pair table (one row per metric) */
 .plugin-result-table tr + tr td {
   border-top: 1px solid var(--bg-hover);
 }
 .plugin-result-label {
   color: var(--muted);
-  padding: 5px 12px 5px 0;
+  padding: 5px 10px 5px 0;
   white-space: nowrap;
   width: 40%;
 }
 .plugin-result-value {
   color: var(--text);
-  padding: 5px 0;
+  padding: 5px 10px;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
@@ -3295,31 +3319,29 @@ path.leaflet-interactive:focus {
   font-weight: 400;
   font-size: 0.72rem;
 }
-.plugin-result-subtable {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+
+/* Multi-column subtable with thead */
+.plugin-result-subtable th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 .plugin-result-subtable td {
-  padding: 5px 10px 5px 0;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--bg-hover);
   color: var(--muted);
 }
 .plugin-result-subtable td:last-child {
   color: var(--text);
   font-weight: 500;
   text-align: right;
-}
-.plugin-result-subtable th {
-  text-align: left;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 6px 10px 6px 0;
-  border-bottom: 1px solid var(--border);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 
 /* Export buttons */
@@ -4762,15 +4784,9 @@ th:hover .col-delete-btn {
   background: var(--panel);
 }
 
-/* ── Analytics outer pane header ─────────────────────────────────────────── */
+/* ── Analytics outer pane header — gap override on the shared header rule ─ */
 .analytics-outer-header {
-  display: flex;
-  align-items: center;
   gap: 16px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  flex-wrap: wrap;
 }
 
 /* ── Input analyser panel ────────────────────────────────────────────────── */
@@ -5438,15 +5454,36 @@ th:hover .col-delete-btn {
   margin-left: 4px;
 }
 
-/* Model view toolbar (file ops) */
-.view-toolbar {
+/* ── Unified view header ─────────────────────────────────────────────────────
+   The top strip every view uses for its primary navigation / toolbar.
+   Build, Model, and Analytics all share this baseline: padding 12/16,
+   1px bottom border, --panel background, flex with wrapping.
+   Each variant (.view-toolbar for file ops, .analytics-outer-header for
+   sub-nav + stats, .build-step-strip for step pills) layers its own gap
+   on top.
+   ────────────────────────────────────────────────────────────────────────── */
+.view-pane-header,
+.view-toolbar,
+.analytics-outer-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--panel);
   flex-wrap: wrap;
+}
+
+/* File ops in Model — tighter button-to-button spacing. */
+.view-toolbar {
+  gap: 6px;
+}
+
+/* Build's view-pane-header wraps the .subnav step strip — give the inner
+   strip a bit of horizontal scroll room and prevent step buttons from
+   wrapping vertically. */
+.view-pane-header > .subnav.build-step-strip {
+  overflow-x: auto;
+  flex: 1 1 auto;
 }
 .view-toolbar-sep {
   width: 1px;
@@ -5496,29 +5533,45 @@ th:hover .col-delete-btn {
   min-height: 0;
   min-width: 0;
 }
+/* ── Unified left/right rail ─────────────────────────────────────────────────
+   Every view rail (Plugins, Analytics run history, Settings nav, Model sheet
+   tree, plus future Build/Data rails) shares the same chrome: slate-50
+   background, 1px adjacent border, mono uppercase title strip in --bg-hover
+   on top. Specifics like width / scroll behaviour live in the variant class.
+   ────────────────────────────────────────────────────────────────────────── */
+.view-rail,
+.analytics-view-rail,
+.settings-section-nav,
+.model-column-tree {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
 .view-rail {
   width: 280px;
   min-width: 240px;
   flex-shrink: 0;
-  background: var(--surface);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
 }
 .view-rail--left {
   /* nothing extra */
 }
-.view-rail-header {
+
+.view-rail-header,
+.analytics-view-rail-header,
+.sheet-tree-header {
   height: 40px;
   min-height: 40px;
   padding: 0 14px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
@@ -5826,29 +5879,37 @@ th:hover .col-delete-btn {
 
 /* Consistent header strip across all 3 columns */
 .model-view .pane-header,
-.model-view .tables-content-header,
-.sheet-tree-header {
-  height: 48px;
-  min-height: 48px;
+.model-view .tables-content-header {
+  /* Model's inner column headers — match the unified rail-header chrome
+     defined above. */
+  height: 40px;
+  min-height: 40px;
   margin: 0;
   padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-hover);
   box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .model-view .pane-header h2,
 .model-view .tables-content-header h2,
 .sheet-tree-title {
-  font-size: 0.88rem;
+  font-size: 0.72rem;
   font-weight: 600;
   margin: 0;
-  color: var(--text);
-  letter-spacing: 0;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6213,28 +6274,11 @@ th:hover .col-delete-btn {
 }
 
 .analytics-view-rail {
+  /* base background / flex direction / display come from the shared rail
+     rule above; this variant lives on the RIGHT, so the adjacent border is
+     on the left instead of the right. */
   border-left: 1px solid var(--border);
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
-}
-
-.analytics-view-rail-header {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 8px 0 14px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-hover);
 }
 
 .analytics-view-rail-clear {
@@ -7216,8 +7260,7 @@ code, kbd, samp, tt,
   background: var(--bg, var(--bg));
 }
 .build-step-strip {
-  margin: 14px 18px 0;
-  overflow-x: auto;
+  /* lives inside a .view-pane-header wrapper now — no outer margin */
   flex-wrap: nowrap;
 }
 .build-step-btn { padding: 6px 12px; font-size: 0.82rem; }

@@ -152,6 +152,7 @@ export function SettingsView(props: SettingsViewProps) {
   return (
     <ResizablePanels id="settings-rail" direction="horizontal" className="settings-view" initialSizes={[20, 80]} minSize={180}>
       <aside className="settings-section-nav" aria-label="Settings sections">
+        <div className="view-rail-header">Settings</div>
         {groups.map((g) => (
           <div key={g} className="settings-nav-group">
             <div className="settings-nav-group-title">{g}</div>
