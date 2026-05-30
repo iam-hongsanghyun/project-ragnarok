@@ -21,15 +21,19 @@ The current schema is generated from PyPSA GitHub metadata and checked into the 
 
 ## Documentation
 
+All documentation lives in [docs/](./docs/) (start at the [docs index](./docs/README.md)).
+
 | Document | Read it for |
 |---|---|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System overview, tech stack, repo layout, data flow |
+| [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md) | System overview, tech stack, repo layout, data flow |
+| [docs/architecture/PROCESSES.md](./docs/architecture/PROCESSES.md) | Step-by-step logic of each process |
+| [docs/architecture/DESIGN.md](./docs/architecture/DESIGN.md) | UI design philosophy |
 | [docs/CAPABILITIES.md](./docs/CAPABILITIES.md) | What Ragnarok can and cannot do (code-checked) |
-| [docs/PROCESSES.md](./docs/PROCESSES.md) | Step-by-step logic of each process |
-| [docs/USER_MANUAL.md](./docs/USER_MANUAL.md) | End-user manual for analysts |
-| [docs/reference/](./docs/reference/) | Per-module function reference (backend + frontend) |
 | [docs/SUPPORT_MATRIX.md](./docs/SUPPORT_MATRIX.md) | Generated feature support matrix |
-| [docs/module-system-v1.md](./docs/module-system-v1.md) | Plugin system spec and authoring guide |
+| [docs/guides/USER_MANUAL.md](./docs/guides/USER_MANUAL.md) | End-user manual for analysts |
+| [docs/guides/module-system-v1.md](./docs/guides/module-system-v1.md) | Plugin system spec and authoring guide |
+| [docs/reference/](./docs/reference/) | Per-module function reference (backend + frontend) |
+| [docs/TODO.md](./docs/TODO.md) | Living project task log and roadmap |
 
 ## Scope
 
@@ -258,7 +262,7 @@ Ragnarok does not maintain a separate backend skip policy for schema-defined she
 
 ## Roadmap
 
-The project is steering toward three large bodies of work, tackled one at a time. Detailed entries live in [TODO.md](/Users/sanghyun/github/pypsa_gui/TODO.md).
+The project is steering toward three large bodies of work, tackled one at a time. Detailed entries live in [docs/TODO.md](./docs/TODO.md).
 
 1. **Topology build mode** *(next).* The Build tab currently authors a model with a step-by-step (Serialised) wizard. A `Serialised vs Topology` toggle will add a free-form mode where the whole model is placed, connected, and edited directly on the map / network topology. It reuses the Build map (own-x/y component placement, click-to-link buses, "pick on map", drag-to-move) already shipped, plus multi-bus click-linking for branches.
 

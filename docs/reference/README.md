@@ -34,6 +34,6 @@ The following files are authored by the frontend documentation team. They are li
 
 ## Notes on scope
 
-- This reference covers the backend only. Research-level derivations and algorithm explanations are in `docs/ALGORITHM.md`. Architecture overview is in `docs/ARCHITECTURE.md`.
+- This reference covers both the backend (`backend-*.md`) and the frontend (`frontend-*.md`). The system-level architecture overview is in [`../architecture/ARCHITECTURE.md`](../architecture/ARCHITECTURE.md); process logic is in [`../architecture/PROCESSES.md`](../architecture/PROCESSES.md).
 - The solver used throughout is HiGHS. The only supported study mode is `"optimize"`.
 - All monetary values in function signatures are in the currency configured by `options["currencySymbol"]` (default `"$"`); physical power is in MW; energy in MWh; emissions in tCO2e unless stated otherwise.

@@ -8,14 +8,15 @@
 
 | Document | Read it for |
 |---|---|
-| **ARCHITECTURE.md** (this file) | System overview, tech stack, repo layout, data flow |
-| [docs/CAPABILITIES.md](./docs/CAPABILITIES.md) | What Ragnarok can and cannot do (code-checked) |
-| [docs/PROCESSES.md](./docs/PROCESSES.md) | Step-by-step logic of each process (open, run, build, solve, extract, export) |
-| [docs/USER_MANUAL.md](./docs/USER_MANUAL.md) | End-user manual for analysts (open/edit/run/analyse/export) |
-| [docs/reference/](./docs/reference/) | Per-module function reference (backend + frontend) |
-| [docs/SUPPORT_MATRIX.md](./docs/SUPPORT_MATRIX.md) | Generated feature support matrix |
-| [docs/module-system-v1.md](./docs/module-system-v1.md) · [authoring guide](./docs/module-authoring-guide.md) | Plugin system spec + how to write plugins |
-| [DESIGN.md](./DESIGN.md) | UI design philosophy |
+| **architecture/ARCHITECTURE.md** (this file) | System overview, tech stack, repo layout, data flow |
+| [architecture/PROCESSES.md](./PROCESSES.md) | Step-by-step logic of each process (open, run, build, solve, extract, export) |
+| [architecture/DESIGN.md](./DESIGN.md) | UI design philosophy |
+| [CAPABILITIES.md](../CAPABILITIES.md) | What Ragnarok can and cannot do (code-checked) |
+| [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) | Generated feature support matrix |
+| [guides/USER_MANUAL.md](../guides/USER_MANUAL.md) | End-user manual for analysts (open/edit/run/analyse/export) |
+| [guides/module-system-v1.md](../guides/module-system-v1.md) · [authoring guide](../guides/module-authoring-guide.md) | Plugin system spec + how to write plugins |
+| [reference/](../reference/) | Per-module function reference (backend + frontend) |
+| [TODO.md](../TODO.md) | Living project task log and roadmap |
 
 ---
 
@@ -31,8 +32,8 @@ Charts, maps, and tables then display the outputs without any round-trips to a r
 
 Ragnarok ships a fully operational plugin system. The full spec and authoring guide are in:
 
-- [docs/module-system-v1.md](./docs/module-system-v1.md)
-- [docs/module-authoring-guide.md](./docs/module-authoring-guide.md)
+- [guides/module-system-v1.md](../guides/module-system-v1.md)
+- [guides/module-authoring-guide.md](../guides/module-authoring-guide.md)
 
 ### Backend implementation
 
@@ -451,7 +452,7 @@ for row in rows:
 ## Current scope / limitations
 
 For the authoritative, code-checked list of what the product can and cannot do, see
-[docs/CAPABILITIES.md](./docs/CAPABILITIES.md). The headline limitations:
+[CAPABILITIES.md](../CAPABILITIES.md). The headline limitations:
 
 - **Optimization only — no standalone power-flow study.** Every run goes through
   `network.optimize()`. PyPSA's `pf()` / `lpf()` power-flow modes are roadmapped, not
