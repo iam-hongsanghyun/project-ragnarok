@@ -26,10 +26,11 @@ export interface PluginContribution {
   constraints?: string[];
 }
 
+// Hooks may be sync or async (a plugin with its own backend will `await fetch`).
 export interface PluginModule {
-  transform?: (model: WorkbookModel, config: Record<string, unknown>) => WorkbookModel;
-  contribute?: (model: WorkbookModel, config: Record<string, unknown>) => PluginContribution;
-  analyze?: (result: unknown, config: Record<string, unknown>) => Record<string, unknown>;
+  transform?: (model: WorkbookModel, config: Record<string, unknown>) => WorkbookModel | Promise<WorkbookModel>;
+  contribute?: (model: WorkbookModel, config: Record<string, unknown>) => PluginContribution | Promise<PluginContribution>;
+  analyze?: (result: unknown, config: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>;
 }
 
 /** Evaluate a plugin's entry file (CommonJS) and return its exports. */

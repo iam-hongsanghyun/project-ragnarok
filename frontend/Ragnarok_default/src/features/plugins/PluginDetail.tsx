@@ -26,18 +26,21 @@ export function PluginDetail({ host, plugin, model, onReplaceModel, onMergeSheet
   const cfg = host.getConfig(plugin.id);
   const enabled = host.isEnabled(plugin.id);
 
-  const apply = () => {
+  const [busy, setBusy] = useState(false);
+
+  const apply = async () => {
+    setBusy(true);
     try {
       const mod = loadPluginModule(plugin);
       if (mod.transform) {
-        const next = mod.transform(model, cfg);
+        const next = await mod.transform(model, cfg);
         if (!next || typeof next !== 'object') throw new Error('transform() did not return a model.');
         onReplaceModel(next as WorkbookModel);
         showToast(`${plugin.name}: model replaced.`, 'success');
         return;
       }
       if (mod.contribute) {
-        const out = mod.contribute(model, cfg) || {};
+        const out = (await mod.contribute(model, cfg)) || {};
         if (out.sheets && typeof out.sheets === 'object') onMergeSheets(out.sheets);
         if (Array.isArray(out.constraints) && out.constraints.length) {
           const block = [`# ${plugin.name} (plugin)`, ...out.constraints].join('\n');
@@ -49,16 +52,21 @@ export function PluginDetail({ host, plugin, model, onReplaceModel, onMergeSheet
       showToast(`${plugin.name} has no transform/contribute hook.`, 'error');
     } catch (err) {
       showToast(`${plugin.name}: ${err instanceof Error ? err.message : 'failed'}`, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const analyze = () => {
+  const analyze = async () => {
+    setBusy(true);
     try {
       const mod = loadPluginModule(plugin);
       if (!mod.analyze) { showToast(`${plugin.name} has no analyze hook.`, 'error'); return; }
-      setAnalysis(mod.analyze(results, cfg) || {});
+      setAnalysis((await mod.analyze(results, cfg)) || {});
     } catch (err) {
       showToast(`${plugin.name}: ${err instanceof Error ? err.message : 'analyze failed'}`, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -86,8 +94,8 @@ export function PluginDetail({ host, plugin, model, onReplaceModel, onMergeSheet
           </div>
           <div className="sg-setting-row">
             <div className="sg-btn-row">
-              {(caps.transform || caps.contribute) && <button className="tb-btn" onClick={apply}>Apply to model</button>}
-              {caps.analyze && <button className="tb-btn tb-btn--muted" onClick={analyze}>Analyze output</button>}
+              {(caps.transform || caps.contribute) && <button className="tb-btn" disabled={busy} onClick={apply}>{busy ? 'Working…' : 'Apply to model'}</button>}
+              {caps.analyze && <button className="tb-btn tb-btn--muted" disabled={busy} onClick={analyze}>Analyze output</button>}
             </div>
             {!caps.transform && !caps.contribute && !caps.analyze && (
               <p className="sg-setting-hint">This plugin exposes no transform / contribute / analyze hook.</p>
