@@ -5144,6 +5144,24 @@ th:hover .col-delete-btn {
   color: var(--muted);
 }
 .plugin-list-head .gcc-del { margin-left: auto; }
+.plugin-fe-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 22px;
+}
+.plugin-analyze-out {
+  margin: 0;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
 .ss-wrap {
   position: relative;
   width: 100%;

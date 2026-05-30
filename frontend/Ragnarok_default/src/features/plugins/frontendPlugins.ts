@@ -116,6 +116,12 @@ export function useFrontendPlugins() {
     saveJson(CONFIG_KEY, next);
   }, [configs]);
 
+  const setConfig = useCallback((id: string, value: Record<string, unknown>) => {
+    const next = { ...configs, [id]: value };
+    setConfigs(next);
+    saveJson(CONFIG_KEY, next);
+  }, [configs]);
+
   return {
     installed,
     enabledIds,
@@ -123,7 +129,8 @@ export function useFrontendPlugins() {
     install,
     uninstall,
     toggle,
-    getConfig: (id: string) => configs[id] ?? {},
+    getConfig: (id: string): Record<string, unknown> => configs[id] ?? {},
     setConfigField,
+    setConfig,
   };
 }

@@ -1753,7 +1753,15 @@ function AppInner() {
           )}
 
           {tab === 'Plugins' && (
-            <PluginsView host={frontendPlugins} />
+            <PluginsView
+              host={frontendPlugins}
+              model={model}
+              onReplaceModel={(next) => resetForNewModel(next)}
+              onMergeSheets={(sheets) => setModel((prev) => ({ ...prev, ...sheets }))}
+              customDsl={customDsl}
+              onCustomDslChange={setCustomDsl}
+              results={displayResults}
+            />
           )}
         </div>
       </div>
